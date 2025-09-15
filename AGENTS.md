@@ -11,8 +11,8 @@ How to run
 
 Architecture (MVP)
 - Frontend-only SPA: Vite + React + TypeScript
-- State: Single React reducer stored in `src/state/store.tsx`, persisted to `localStorage` key `kr-tracker-state-v1`.
-- Models: `src/models/types.ts` defines all domain types (Objectives, KRs, Teams, Initiatives, Periods, Baselines, etc.).
+- State: Single React reducer stored in `src/state/store.tsx`, persisted to `localStorage` key `kr-tracker-state-v3`.
+- Models: `src/models/types.ts` defines all domain types (Objectives, KRs, Teams, Initiatives, Periods, Baselines, etc.). KeyResult now includes optional `goalStart` and `goalEnd` numeric fields to capture "x → y" targets as structured metadata. New KR IDs include the period Year+Quarter (e.g., `kr-2025Q3-<ts>`).
 - Weeks: `src/utils/weeks.ts` generates Monday-start ISO week slices for a period. Internal keys use `YYYY-Www`.
 - Metrics: `src/metrics/engine.ts` computes WoW deltas, 3‑week rolling averages, variance, pace (type-aware), forecast, and assigns a health color.
 - UI: All components under `src/components` and `src/pages` (see “Key files”).
@@ -24,11 +24,13 @@ Key files
 - `src/metrics/engine.ts` – pure metric computations
 - `src/components/PlanGrid.tsx` – plan entry grid; respects responsive week window
 - `src/components/ActualsGrid.tsx` – actuals entry grid with multi‑cell paste
-- `src/components/KrRowKpis.tsx` – per‑KR KPIs + sparkline
+- `src/components/KrRowKpis.tsx` – per‑KR KPIs + sparkline (KR rows show: Name, Goal line, Meta line)
 - `src/components/Sparkline.tsx` – tiny SVG chart for plan vs actual
 - `src/components/InitiativesGrid.tsx` – initiatives tracker per KR
 - `src/pages/Setup.tsx` – period, teams, objectives, and KR creation
-- `src/App.tsx` – page composition (Setup, Plan, Actuals, Metrics, Initiatives)
+  - KR creation collects optional `start (x)` and `end (y)` goal values. A toggle seeds the plan's first/last week with these endpoints.
+  - KR lists display Name on first line; second line shows `Goal: x → y (unit)` when available; third shows `Team / Pod • unit • aggregation`.
+- `src/App.tsx` – page composition (Setup, Plan, Actuals, Initiatives). Metrics panel removed; KPIs are shown inline in Actuals.
 
 Weeks & responsiveness
 - Weeks are Monday‑start ISO weeks. `generateWeeks()` returns both `iso` (key) and `dateLabel` for display.
@@ -93,4 +95,3 @@ Contact points in code for agents
 - New grid or responsive slice: `src/hooks/useElementWidth.ts`, `src/hooks/useWeekWindow.ts`
 - Metric tweak: `src/metrics/engine.ts`
 - Initiatives logic/UI: `src/components/InitiativesGrid.tsx`
-

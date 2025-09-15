@@ -1,13 +1,48 @@
 export type ID = string
 
+// Enums for type safety and consistency
+export enum FunctionalArea {
+  Engineering = 'engineering',
+  Product = 'product',
+  Analytics = 'analytics',
+  Design = 'design',
+  SnO = 'sno',
+  Operations = 'operations',
+  Strategy = 'strategy'
+}
+
+export enum PersonLevel {
+  IC = 'ic',
+  Senior = 'senior',
+  Staff = 'staff',
+  Principal = 'principal',
+  Manager = 'manager',
+  Director = 'director',
+  VP = 'vp',
+  Executive = 'executive'
+}
+
+export enum PodRole {
+  Lead = 'lead',
+  TechLead = 'tech_lead',
+  PM = 'pm',
+  Analyst = 'analyst',
+  Designer = 'designer',
+  Engineer = 'engineer',
+  Member = 'member'
+}
+
 export type Objective = {
   id: ID
   name: string
-  teamIds?: ID[]
+  podId?: ID  // Pod that owns this objective
+  teamIds?: ID[]  // Legacy field for backward compatibility
+  periodId?: ID  // Which period this objective belongs to
 }
 
 export type Aggregation = 'cumulative' | 'snapshot' | 'average'
 export type Unit = 'count' | 'percent' | 'currency'
+export type KrStatus = 'on_track' | 'at_risk' | 'off_track' | 'deprioritized'
 
 export type KeyResult = {
   id: ID
@@ -15,7 +50,55 @@ export type KeyResult = {
   name: string
   unit: Unit
   aggregation: Aggregation
-  teamId?: ID
+  status?: KrStatus
+  teamId?: ID  // Legacy - will be derived through objective->pod->team
+  podId?: ID   // Legacy - will be derived through objective->pod
+  driId?: ID   // Directly Responsible Individual (Person.id)
+  // Goal and measurement fields
+  goalStart?: number
+  goalEnd?: number
+  currentValue?: number  // Current actual value
+  description?: string   // Detailed description of what this KR measures
+  sqlQuery?: string      // SQL query to auto-populate metrics
+}
+
+export type Pod = {
+  id: ID
+  name: string
+  mission: string  // What this pod exists to do
+  teamId: ID  // Which team this pod belongs to
+  // Remove memberIds - will use PodMembership instead
+}
+
+export type PodMembership = {
+  podId: ID
+  personId: ID
+  role: PodRole
+  allocation: number  // 0.0 to 1.0 (percentage as decimal)
+  startDate?: string  // When they joined the pod
+  endDate?: string    // When they left (if applicable)
+}
+
+// Person replaces Individual with improved structure
+export type Person = {
+  id: ID
+  name: string
+  email?: string
+  function: FunctionalArea
+  level: PersonLevel
+  managerId?: ID  // Optional for top of hierarchy
+  // Legacy fields for compatibility
+  teamId?: ID  // Will be derived from pod memberships
+  role?: 'executive' | 'team_lead' | 'pod_lead' | 'contributor'  // Legacy
+}
+
+// Legacy Individual type alias for backward compatibility
+export type Individual = Person
+export type Discipline = 'analytics' | 'strategy' | 'operations' | 'engineering' | 'product' | 'design'
+
+export type Organization = {
+  id: ID
+  name: string
 }
 
 export type WeekDef = {
@@ -25,6 +108,7 @@ export type WeekDef = {
 }
 
 export type PlanDraft = Record<ID /* krId */, Record<string /* weekKey */, number>>
+export type PlanMeta = Record<ID /* krId */, Record<string /* weekKey */, { at?: string | null; by?: string | null }>>
 
 export type PlanBaseline = {
   id: ID
@@ -46,18 +130,54 @@ export type Initiative = {
   impact: number
   confidence: number // 0-1
   isPlaceholder: boolean
+  status?: InitiativeStatus
 }
 
+export type InitiativeWeekly = Record<ID /* initiativeId */, Record<string /* weekKey */, { impact?: number; confidence?: number }>>
+export type InitiativeWeeklyMeta = Record<ID /* initiativeId */, Record<string /* weekKey */, { at?: string | null; by?: string | null }>>
+
+// Leadership-oriented universal statuses
+export type InitiativeStatus =
+  | 'on_track'        // No action needed
+  | 'at_risk'         // Monitor closely; owner mitigating
+  | 'blocked'         // External/internal blocker; action needed
+  | 'needs_decision'  // Leadership decision required
+  | 'needs_support'   // Additional resourcing/assist requested
+
+export type Phase = 'planning' | 'execution'
+
+export type Theme = 'light' | 'dark'
+
 export type AppState = {
+  organization?: Organization
   objectives: Objective[]
   krs: KeyResult[]
   teams: Team[]
+  pods: Pod[]
+  podMemberships: PodMembership[]  // New: tracks who's on which pods
+  individuals: Individual[]  // Will transition to Person[]
+  people: Person[]  // New: improved person model
   period: Period
   planDraft: PlanDraft
+  planMeta?: PlanMeta
   actuals: PlanDraft
+  actualMeta?: PlanMeta
   baselines: PlanBaseline[]
   currentBaselineId?: ID
   initiatives: Initiative[]
+  initiativeWeekly?: InitiativeWeekly
+  initiativeWeeklyMeta?: InitiativeWeeklyMeta
+  currentView?: ViewFilter
+  phase?: Phase
+  reportingDateISO?: string
+  theme?: Theme
+  // UI hint: focus a particular KR row in Plan Builder
+  focusKrId?: ID
+}
+
+export type ViewFilter = {
+  level: 'organization' | 'team' | 'pod' | 'individual' | 'settings' | 'setup'
+  targetId?: ID  // ID of the team/pod/individual to filter by
 }
 
 export type KrWeekMetrics = {
@@ -93,5 +213,6 @@ export type KrMetricsSummary = {
 export type Team = {
   id: ID
   name: string
+  leadId?: ID  // Person who leads this team
   color?: string
 }

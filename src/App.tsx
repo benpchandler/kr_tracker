@@ -1,12 +1,17 @@
 import React from 'react'
 import { StoreProvider, useStore } from './state/store'
 import { Setup } from './pages/Setup'
+import { SetupArea } from './pages/SetupArea'
 import { PlanGrid } from './components/PlanGrid'
 import { LockBanner } from './components/LockBanner'
 import { generateWeeks } from './utils/weeks'
 import { ActualsGrid } from './components/ActualsGrid'
 import { KrRowKpis } from './components/KrRowKpis'
 import { InitiativesGrid } from './components/InitiativesGrid'
+import { NavigationSidebar } from './components/NavigationSidebar'
+import { StatusBar } from './components/StatusBar'
+import { Settings } from './pages/Settings'
+import { filterKRsByView } from './utils/filtering'
 
 function AppInner() {
   const state = useStore(s => s)
@@ -15,55 +20,87 @@ function AppInner() {
     return generateWeeks(state.period.startISO, state.period.endISO)
   }, [state.period.startISO, state.period.endISO])
 
+  // Apply theme on mount (Hybrid C/A is the only theme now)
+  React.useEffect(() => {
+    const cls = document.body.classList
+    cls.remove('theme-contrast-a', 'theme-contrast-b', 'theme-contrast-c')
+    cls.add('theme-contrast-ca')
+  }, [])
+
+  const filteredKRs = React.useMemo(
+    () => filterKRsByView(state.krs, state.currentView, state),
+    [state.krs, state.currentView, state]
+  )
+
+  // Render everything inside the app layout (no hard navigation)
+
   return (
-    <div className="container">
-      <div style={{ display: 'grid', gap: 16 }}>
-        <div className="panel">
-          <h1>KR Tracker — MVP</h1>
-          <div className="muted">Define period, add KRs, set a weekly plan, then lock it.</div>
+    <div className="app-layout">
+      <div style={{ display: 'flex', height: '100vh' }}>
+        <NavigationSidebar />
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+          <StatusBar />
+          <div className="main-content" style={{ flex: 1, overflow: 'auto' }}>
+            <div style={{ display: 'grid', gap: 16 }}>
+              {/* Removed header panel; title and count now live in StatusBar */}
+
+              {state.currentView?.level === 'settings' && (
+                <Settings />
+              )}
+
+              {state.currentView?.level === 'setup' && (
+                <div className="panel">
+                  <div className="grid-actions">
+                    <h2>Setup Area</h2>
+                  </div>
+                  <SetupArea />
+                </div>
+              )}
+
+              {state.currentView?.level !== 'settings' && state.currentView?.level !== 'setup' && (
+                <>
+                  {(state.phase ?? 'planning') === 'planning' && (
+                    <>
+                      <Setup />
+                      {weeks.length > 0 && filteredKRs.length > 0 && (
+                        <div className="panel">
+                          <div className="grid-actions">
+                            <h2>Plan Builder</h2>
+                            <LockBanner />
+                          </div>
+                          <PlanGrid weeks={weeks} filteredKRs={filteredKRs} />
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {(state.phase ?? 'planning') === 'execution' && weeks.length > 0 && filteredKRs.length > 0 && (
+                    <div className="panel">
+                      <div className="grid-actions">
+                        <h2>Actuals</h2>
+                        {!state.currentBaselineId && <div className="muted">Lock a baseline to enable editing</div>}
+                      </div>
+                      <ActualsGrid weeks={weeks} filteredKRs={filteredKRs} />
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Metrics panel removed: metrics are now shown inline within Actuals */}
+
+              {weeks.length > 0 && filteredKRs.length > 0 && (
+                <div className="panel">
+                  <div className="grid-actions">
+                    <h2>Initiatives</h2>
+                  </div>
+                  {filteredKRs.map(kr => (
+                    <InitiativesGrid key={kr.id} kr={kr} weeks={weeks} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-
-        <Setup />
-
-        {weeks.length > 0 && state.krs.length > 0 && (
-          <div className="panel">
-            <div className="grid-actions">
-              <h2>Plan Builder</h2>
-              <LockBanner />
-            </div>
-            <PlanGrid weeks={weeks} />
-          </div>
-        )}
-
-        {weeks.length > 0 && state.krs.length > 0 && (
-          <div className="panel">
-            <div className="grid-actions">
-              <h2>Actuals</h2>
-              {!state.currentBaselineId && <div className="muted">Lock a baseline to enable editing</div>}
-            </div>
-            <ActualsGrid weeks={weeks} />
-          </div>
-        )}
-
-        {weeks.length > 0 && state.krs.length > 0 && (
-          <div className="panel">
-            <div className="grid-actions">
-              <h2>Metrics</h2>
-            </div>
-            <KrRowKpis weeks={weeks} />
-          </div>
-        )}
-
-        {weeks.length > 0 && state.krs.length > 0 && (
-          <div className="panel">
-            <div className="grid-actions">
-              <h2>Initiatives</h2>
-            </div>
-            {state.krs.map(kr => (
-              <InitiativesGrid key={kr.id} kr={kr} weeks={weeks} />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   )

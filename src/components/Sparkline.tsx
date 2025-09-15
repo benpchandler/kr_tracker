@@ -33,9 +33,9 @@ export function Sparkline({ width = 180, height = 40, actual, plan }: Props) {
 
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <rect x={0} y={0} width={width} height={height} rx={4} ry={4} fill="#0b1020" stroke="#1f2937" />
-      {planPath && <path d={planPath} stroke="#64748b" fill="none" strokeWidth={1} />}
-      {actualPath && <path d={actualPath} stroke="#22c55e" fill="none" strokeWidth={1.5} />}
+      <rect x={0} y={0} width={width} height={height} rx={4} ry={4} fill="var(--spark-bg)" stroke="var(--spark-border)" />
+      {planPath && <path d={planPath} stroke="var(--spark-plan)" fill="none" strokeWidth={1} />}
+      {actualPath && <path d={actualPath} stroke="var(--spark-actual)" fill="none" strokeWidth={1.5} />}
     </svg>
   )
 }

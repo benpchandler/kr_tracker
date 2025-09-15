@@ -1,6 +1,6 @@
 import React from 'react'
 
-type Week = { index: number; startISO: string; iso: string }
+type Week = { index: number; startISO: string; iso: string; isoLabel?: string; dateLabel?: string }
 
 export function useWeekWindow(
   weeks: Week[],

@@ -16,11 +16,11 @@ function lastIndexWith<T>(arr: (T | undefined)[]): number | undefined {
   return undefined
 }
 
-function healthFromPace(pace?: number, trendNonNegative?: boolean): 'green' | 'yellow' | 'red' | undefined {
+function healthFromPace(pace?: number): 'green' | 'yellow' | 'red' | undefined {
   if (pace === undefined) return undefined
   if (pace >= 1.0) return 'green'
-  if (pace >= 0.95) return trendNonNegative ? 'yellow' : 'yellow'
-  return trendNonNegative ? 'yellow' : 'red'
+  if (pace >= 0.95) return 'yellow'
+  return 'red'
 }
 
 export function computeMetrics(state: AppState, weeks: Week[]): Map<ID, KrWeekMetrics[]> {
@@ -113,12 +113,26 @@ export function computeMetrics(state: AppState, weeks: Week[]): Map<ID, KrWeekMe
       }
     }
 
-    // health based on latest pace and trend
+    // Health based on latest pace adjusted for directionality
     const latestIdx = lastIndexWith(series.map(s => s.paceToDatePct)) ?? (series.length - 1)
-    const trendNonNegative = series[latestIdx]?.deltaWoW !== undefined ? (series[latestIdx]!.deltaWoW! >= 0) : true
-    const latestPace = series[latestIdx]?.paceToDatePct
-    const h = healthFromPace(latestPace, trendNonNegative)
-    if (h) series[latestIdx].health = h
+    const latest = series[latestIdx]
+    if (latest) {
+      const isDecrease = (() => {
+        if (typeof kr.goalStart === 'number' && typeof kr.goalEnd === 'number') return kr.goalEnd < kr.goalStart
+        return false
+      })()
+      let p = latest.paceToDatePct
+      if (p !== undefined) {
+        // For decrease goals, being below plan is good → invert pace
+        const effective = isDecrease ? (p > 0 ? 1 / p : undefined) : p
+        const h = healthFromPace(effective)
+        if (h) latest.health = h
+      } else if (latest.actual !== undefined && latest.plan !== undefined) {
+        // Fallback to variance sign when pace undefined
+        const good = isDecrease ? (latest.actual <= latest.plan) : (latest.actual >= latest.plan)
+        latest.health = good ? 'yellow' : 'red'
+      }
+    }
 
     map.set(kr.id, series)
   }
@@ -152,4 +166,3 @@ export function summarizeMetrics(state: AppState, weeks: Week[]): KrMetricsSumma
   }
   return res
 }
-
