@@ -25,6 +25,10 @@ declare module 'jest-axe' {
 
   export function axe(node?: unknown, options?: AxeRunOptions): Promise<AxeResults>
   export function configureAxe(config?: AxeConfigureOptions): typeof axe
+  export const toHaveNoViolations: () => {
+    pass: boolean
+    message: () => string
+  }
 }
 
 declare module 'jest-axe/extend-expect'

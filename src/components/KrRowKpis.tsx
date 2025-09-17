@@ -32,6 +32,7 @@ export function KrRowKpis({ weeks, filteredKRs }: { weeks: Week[]; filteredKRs?:
           if (!s) return undefined
           return s === 'on_track' ? 'green' : s === 'at_risk' ? 'yellow' : s === 'off_track' ? 'red' : 'grey'
         })()
+        if (!s) return null
         return (
           <div key={kr.id} className="list-item" style={{ alignItems: 'center' }}>
             <div style={{ display: 'grid', gap: 4 }}>
