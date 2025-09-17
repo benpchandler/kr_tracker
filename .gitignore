@@ -3,4 +3,6 @@ node_modules
 dist
 *.log
 vite.svg
+tsconfig.tsbuildinfo
+.claude/
 

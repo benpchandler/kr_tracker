@@ -165,7 +165,7 @@ export function OrganizationStructure() {
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <Badge variant="secondary">{person.function}</Badge>
+                            <Badge>{person.function}</Badge>
                             <Button variant="ghost" size="sm">Edit</Button>
                           </div>
                         </div>
@@ -226,7 +226,7 @@ export function OrganizationStructure() {
                         if (!person) return null
 
                         return (
-                          <Badge key={membership.personId} variant="outline">
+                          <Badge key={membership.personId}>
                             {person.name} ({membership.role}) - {Math.round(membership.allocation * 100)}%
                           </Badge>
                         )

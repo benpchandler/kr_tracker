@@ -285,6 +285,23 @@ function server() {
     res.json({ ok:true });
   });
 
+  app.post('/api/pod', (req,res)=>{
+    const { id, teamId, name } = req.body;
+    db.prepare('INSERT INTO pods(id,teamId,name) VALUES(?,?,?)').run(id,teamId,name);
+    res.json({ ok:true });
+  });
+
+  app.put('/api/pod', (req,res)=>{
+    const { id, teamId, name } = req.body;
+    db.prepare('UPDATE pods SET teamId=?, name=? WHERE id=?').run(teamId,name,id);
+    res.json({ ok:true });
+  });
+
+  app.delete('/api/pod/:id', (req,res)=>{
+    db.prepare('DELETE FROM pods WHERE id=?').run(req.params.id);
+    res.json({ ok:true });
+  });
+
   app.post('/api/objective', (req,res)=>{
     const { id, name } = req.body;
     db.prepare('INSERT INTO objectives(id,name) VALUES(?,?)').run(id,name);
@@ -330,6 +347,130 @@ function server() {
     let count = 0;
     db.transaction(()=>{ (updates||[]).forEach(u=>{ stmt.run(u.krId,u.weekKey,u.value, now, by || 'user'); count++; }); })();
     res.json({ ok:true, count, metaAt: now, by: by || 'user' });
+  });
+
+  app.post('/api/plan/bulk', (req,res)=>{
+    const { updates, by } = req.body;
+    const stmt = db.prepare('INSERT INTO plan_values(krId,weekKey,value,lastModifiedAt,lastModifiedBy) VALUES(?,?,?,?,?) ON CONFLICT(krId,weekKey) DO UPDATE SET value=excluded.value, lastModifiedAt=excluded.lastModifiedAt, lastModifiedBy=excluded.lastModifiedBy');
+    const now = new Date().toISOString();
+    let count = 0;
+    db.transaction(()=>{ (updates||[]).forEach(u=>{ stmt.run(u.krId,u.weekKey,u.value, now, by || 'user'); count++; }); })();
+    res.json({ ok:true, count, metaAt: now, by: by || 'user' });
+  });
+
+  app.post('/api/import/csv', (req,res)=>{
+    const { type, data } = req.body;
+    if (!type || !data || !Array.isArray(data)) {
+      return res.status(400).json({ ok:false, error:'Invalid import data' });
+    }
+
+    const now = new Date().toISOString();
+    const by = req.body.by || 'import';
+    const results = { created: {}, updated: {}, errors: [] };
+
+    try {
+      db.transaction(()=>{
+        if (type === 'goals-plan') {
+          const teamStmt = db.prepare('INSERT OR IGNORE INTO teams(id,name,color) VALUES(?,?,?)');
+          const podStmt = db.prepare('INSERT OR IGNORE INTO pods(id,teamId,name) VALUES(?,?,?)');
+          const objStmt = db.prepare('INSERT OR IGNORE INTO objectives(id,name) VALUES(?,?)');
+          const krStmt = db.prepare('INSERT OR REPLACE INTO krs(id,name,unit,aggregation,objectiveId,teamId,podId,driId) VALUES(?,?,?,?,?,?,?,?)');
+          const planStmt = db.prepare('INSERT INTO plan_values(krId,weekKey,value,lastModifiedAt,lastModifiedBy) VALUES(?,?,?,?,?) ON CONFLICT(krId,weekKey) DO UPDATE SET value=excluded.value, lastModifiedAt=excluded.lastModifiedAt, lastModifiedBy=excluded.lastModifiedBy');
+
+          const teamIds = {};
+          const podIds = {};
+          const objIds = {};
+
+          data.forEach(row => {
+            const teamSlug = row.team ? row.team.toLowerCase().replace(/\s+/g,'-') : null;
+            if (row.team && !teamIds[teamSlug]) {
+              teamIds[teamSlug] = `team-${teamSlug}`;
+              teamStmt.run(teamIds[teamSlug], row.team, null);
+              results.created.teams = (results.created.teams || 0) + 1;
+            }
+
+            const podSlug = row.pod ? row.pod.toLowerCase().replace(/\s+/g,'-') : null;
+            if (row.pod && teamSlug && !podIds[`${teamSlug}-${podSlug}`]) {
+              podIds[`${teamSlug}-${podSlug}`] = `pod-${teamSlug}-${podSlug}`;
+              podStmt.run(podIds[`${teamSlug}-${podSlug}`], teamIds[teamSlug], row.pod);
+              results.created.pods = (results.created.pods || 0) + 1;
+            }
+
+            if (row.objective) {
+              const objSlug = row.objective.toLowerCase().replace(/\s+/g,'-');
+              if (!objIds[objSlug]) {
+                objIds[objSlug] = `obj-${objSlug}`;
+                objStmt.run(objIds[objSlug], row.objective);
+                results.created.objectives = (results.created.objectives || 0) + 1;
+              }
+            }
+
+            const krId = row.kr_id || `kr-${Date.now()}-${Math.random().toString(36).substr(2,9)}`;
+            const teamId = teamSlug ? teamIds[teamSlug] : null;
+            const podId = podSlug && teamSlug ? podIds[`${teamSlug}-${podSlug}`] : null;
+            const objectiveId = row.objective ? objIds[row.objective.toLowerCase().replace(/\s+/g,'-')] : null;
+
+            krStmt.run(krId, row.kr_name, row.unit, row.aggregation, objectiveId, teamId, podId, null);
+            results.created.krs = (results.created.krs || 0) + 1;
+
+            Object.entries(row).forEach(([key, value]) => {
+              if (key.startsWith('plan_') && value !== null && value !== '') {
+                const weekKey = key.replace('plan_', '');
+                planStmt.run(krId, weekKey, parseFloat(value), now, by);
+                results.created.planValues = (results.created.planValues || 0) + 1;
+              }
+            });
+          });
+        } else if (type === 'initiatives') {
+          const initStmt = db.prepare('INSERT OR REPLACE INTO initiatives(id,krId,name,impact,confidence,isPlaceholder,status) VALUES(?,?,?,?,?,?,?)');
+          const weeklyStmt = db.prepare('INSERT INTO initiative_weekly(initiativeId,weekKey,impact,confidence,lastModifiedAt,lastModifiedBy) VALUES(?,?,?,?,?,?) ON CONFLICT(initiativeId,weekKey) DO UPDATE SET impact=excluded.impact, confidence=excluded.confidence, lastModifiedAt=excluded.lastModifiedAt, lastModifiedBy=excluded.lastModifiedBy');
+
+          data.forEach(row => {
+            const krLookup = db.prepare('SELECT id FROM krs WHERE name = ?').get(row.kr_name);
+            if (!krLookup) {
+              results.errors.push(`KR not found: ${row.kr_name}`);
+              return;
+            }
+
+            const initId = row.initiative_id || `init-${Date.now()}-${Math.random().toString(36).substr(2,9)}`;
+            initStmt.run(initId, krLookup.id, row.initiative_name, row.impact, row.confidence, row.is_placeholder ? 1 : 0, row.status || 'on_track');
+            results.created.initiatives = (results.created.initiatives || 0) + 1;
+
+            Object.entries(row).forEach(([key, value]) => {
+              if ((key.startsWith('impact_') || key.startsWith('confidence_')) && value !== null && value !== '') {
+                const weekKey = key.replace(/^(impact|confidence)_/, '');
+                const field = key.startsWith('impact_') ? 'impact' : 'confidence';
+                const existingRow = db.prepare('SELECT * FROM initiative_weekly WHERE initiativeId=? AND weekKey=?').get(initId, weekKey);
+                const impact = field === 'impact' ? parseFloat(value) : (existingRow ? existingRow.impact : row.impact);
+                const confidence = field === 'confidence' ? parseFloat(value) : (existingRow ? existingRow.confidence : row.confidence);
+                weeklyStmt.run(initId, weekKey, impact, confidence, now, by);
+                results.updated.initiativeWeekly = (results.updated.initiativeWeekly || 0) + 1;
+              }
+            });
+          });
+        }
+      })();
+
+      if (req.body.lockBaseline) {
+        const lockedBy = by;
+        const id = `bl-${Date.now()}`;
+        const version = (db.prepare('SELECT COALESCE(MAX(version),0) v FROM baselines').get().v) + 1;
+        db.prepare('INSERT INTO baselines(id,version,lockedAt,lockedBy) VALUES(?,?,?,?)')
+          .run(id, version, new Date().toISOString(), lockedBy);
+        const planRows = db.prepare('SELECT * FROM plan_values').all();
+        const ins = db.prepare('INSERT INTO baseline_plan_values(baselineId,krId,weekKey,value) VALUES(?,?,?,?)');
+        db.transaction(()=>{
+          planRows.forEach(r => ins.run(id, r.krId, r.weekKey, r.value));
+        })();
+        setSetting('phase', 'execution');
+        results.baselineId = id;
+        results.baselineVersion = version;
+      }
+
+      res.json({ ok:true, ...results });
+    } catch(err) {
+      res.status(500).json({ ok:false, error: err.message });
+    }
   });
 
   app.post('/api/lock-plan', (req,res)=>{

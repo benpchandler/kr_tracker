@@ -2,6 +2,7 @@ import React from 'react'
 import { useDispatch, useStore } from '../state/store'
 import { KeyResult, Initiative, InitiativeStatus } from '../models/types'
 import { computeMetrics } from '../metrics/engine'
+import { HEALTH_THRESHOLDS } from '../config'
 import { Sparkline } from './Sparkline'
 
 type Week = { index: number; startISO: string; iso: string }
@@ -51,7 +52,7 @@ export function InitiativesGrid({ kr, weeks }: Props) {
       krId: kr.id,
       name: 'New Initiative',
       impact: 0,
-      confidence: 0.95,
+      confidence: HEALTH_THRESHOLDS.atRisk,
       isPlaceholder: false,
     }})
   }
@@ -61,7 +62,7 @@ export function InitiativesGrid({ kr, weeks }: Props) {
       <h2>Initiatives for {kr.name}</h2>
       <div>
         Initiative Walk: {sumOfInitiativeImpacts.toFixed(2)} / {totalTarget.toFixed(2)} ({ (completionPct * 100).toFixed(0) }%) 
-        {completionPct < 0.95 && totalTarget > 0 && (
+        {completionPct < HEALTH_THRESHOLDS.atRisk && totalTarget > 0 && (
           <span style={{ color: 'orange', marginLeft: '10px' }}> (Target 95% coverage)</span>
         )}
       </div>

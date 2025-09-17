@@ -7,8 +7,9 @@ export function PeopleOverview() {
 
   const byTeam: Record<string, typeof individuals> = {}
   for (const person of individuals) {
-    if (!byTeam[person.teamId]) byTeam[person.teamId] = []
-    byTeam[person.teamId].push(person)
+    const teamId = person.teamId || 'unassigned'
+    if (!byTeam[teamId]) byTeam[teamId] = []
+    byTeam[teamId].push(person)
   }
 
   const personKrs = new Map<string, string[]>()
@@ -32,7 +33,7 @@ export function PeopleOverview() {
               <div style={{ display: 'grid', gap: 6 }}>
                 <div><strong>{team?.name || teamId}</strong></div>
                 {people.sort((a, b) => a.name.localeCompare(b.name)).map(p => {
-                  const role = p.role.replace(/_/g, ' ')
+                  const role = p.role?.replace(/_/g, ' ') || 'contributor'
                   const pod = p.podId ? pods.find(pd => pd.id === p.podId) : undefined
                   const linked = personKrs.get(p.id) || []
                   const discipline = p.discipline ? p.discipline.charAt(0).toUpperCase() + p.discipline.slice(1) : undefined

@@ -1,0 +1,4 @@
+team,pod,objective,kr_name,unit,aggregation,goal_start,goal_end,status,dri_name,dri_email,plan_2025-W27,plan_2025-W28,plan_2025-W29,plan_2025-W30,plan_2025-W31,plan_2025-W32,plan_2025-W33,plan_2025-W34,plan_2025-W35,plan_2025-W36,plan_2025-W37,plan_2025-W38,plan_2025-W39
+CSV Import Team,Test Pod,Improve CSV Testing,CSV Import Success Rate,percent,snapshot,70,95,on_track,Test User,test@example.com,70,72,74,76,78,80,82,84,86,88,90,92,95
+CSV Import Team,Test Pod,Improve CSV Testing,CSV Processing Speed,count,cumulative,100,1300,on_track,Test User,test@example.com,100,200,300,400,500,600,700,800,900,1000,1100,1200,1300
+Demo Team,Analytics,Data Quality,Data Accuracy Score,percent,average,85,98,on_track,Data Lead,data@example.com,85,86,87,88,89,90,91,92,93,94,95,96,98

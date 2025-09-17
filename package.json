@@ -9,7 +9,14 @@
     "preview": "vite preview",
     "server": "node server/index.cjs",
     "dev:server": "nodemon server/index.cjs",
-    "dev:client": "vite"
+    "dev:client": "vite",
+    "test": "vitest",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "lint": "eslint . --max-warnings=0",
+    "checks": "npm run lint && node scripts/check-literals.mjs && npm run test:unit"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -17,6 +24,7 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.13",
     "@tremor/react": "^3.18.7",
+    "@types/papaparse": "^5.3.16",
     "better-sqlite3": "^12.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -24,21 +32,43 @@
     "express": "^5.1.0",
     "lucide-react": "^0.544.0",
     "nodemon": "^3.1.10",
+    "papaparse": "^5.5.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "recharts": "^2.12.7",
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "*",
+    "@axe-core/playwright": "^4.10.2",
+    "@eslint/js": "^9.16.0",
+    "@playwright/test": "^1.49.1",
     "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/postcss": "*",
     "@tailwindcss/typography": "^0.5.16",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
     "@types/react": "^18.2.14",
     "@types/react-dom": "^18.2.7",
     "@vitejs/plugin-react": "^4.2.0",
+    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/ui": "^2.1.8",
     "autoprefixer": "^10.4.21",
+    "axe-core": "^4.10.2",
+    "deep-freeze-strict": "^1.1.1",
+    "eslint": "^9.16.0",
+    "eslint-plugin-sonarjs": "^2.0.4",
+    "fast-check": "^4.3.0",
+    "jest-axe": "^7.0.1",
+    "jsdom": "^25.0.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.4.0",
-    "vite": "^5.2.0"
+    "typescript-eslint": "^8.18.1",
+    "vite": "^5.2.0",
+    "vitest": "^2.1.8"
+  },
+  "overrides": {
+    "esbuild": "^0.25.9"
   }
 }

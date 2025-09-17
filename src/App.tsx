@@ -6,15 +6,17 @@ import { PlanGrid } from './components/PlanGrid'
 import { LockBanner } from './components/LockBanner'
 import { generateWeeks } from './utils/weeks'
 import { ActualsGrid } from './components/ActualsGrid'
-import { KrRowKpis } from './components/KrRowKpis'
 import { InitiativesGrid } from './components/InitiativesGrid'
 import { NavigationSidebar } from './components/NavigationSidebar'
 import { StatusBar } from './components/StatusBar'
 import { Settings } from './pages/Settings'
 import { filterKRsByView } from './utils/filtering'
+import { WorksheetToggle } from './components/WorksheetToggle'
 
 function AppInner() {
   const state = useStore(s => s)
+  const [worksheetView, setWorksheetView] = React.useState<'plan' | 'actuals'>('actuals')
+
   const weeks = React.useMemo(() => {
     if (!state.period.startISO || !state.period.endISO) return []
     return generateWeeks(state.period.startISO, state.period.endISO)
@@ -32,7 +34,12 @@ function AppInner() {
     [state.krs, state.currentView, state]
   )
 
-  // Render everything inside the app layout (no hard navigation)
+  // Reset to actuals view when phase changes
+  React.useEffect(() => {
+    if (state.phase === 'execution') {
+      setWorksheetView('actuals');
+    }
+  }, [state.phase]);
 
   return (
     <div className="app-layout">
@@ -42,8 +49,6 @@ function AppInner() {
           <StatusBar />
           <div className="main-content" style={{ flex: 1, overflow: 'auto' }}>
             <div style={{ display: 'grid', gap: 16 }}>
-              {/* Removed header panel; title and count now live in StatusBar */}
-
               {state.currentView?.level === 'settings' && (
                 <Settings />
               )}
@@ -77,16 +82,18 @@ function AppInner() {
                   {(state.phase ?? 'planning') === 'execution' && weeks.length > 0 && filteredKRs.length > 0 && (
                     <div className="panel">
                       <div className="grid-actions">
-                        <h2>Actuals</h2>
+                        <WorksheetToggle currentView={worksheetView} onViewChange={setWorksheetView} />
                         {!state.currentBaselineId && <div className="muted">Lock a baseline to enable editing</div>}
                       </div>
-                      <ActualsGrid weeks={weeks} filteredKRs={filteredKRs} />
+                      {worksheetView === 'plan' ? (
+                        <PlanGrid weeks={weeks} filteredKRs={filteredKRs} />
+                      ) : (
+                        <ActualsGrid weeks={weeks} filteredKRs={filteredKRs} />
+                      )}
                     </div>
                   )}
                 </>
               )}
-
-              {/* Metrics panel removed: metrics are now shown inline within Actuals */}
 
               {weeks.length > 0 && filteredKRs.length > 0 && (
                 <div className="panel">

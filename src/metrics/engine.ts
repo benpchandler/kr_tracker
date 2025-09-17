@@ -1,3 +1,4 @@
+import { HEALTH_THRESHOLDS } from '../config'
 import { AppState, ID, KrMetricsSummary, KrWeekMetrics } from '../models/types'
 
 type Week = { index: number; startISO: string; iso: string }
@@ -18,8 +19,8 @@ function lastIndexWith<T>(arr: (T | undefined)[]): number | undefined {
 
 function healthFromPace(pace?: number): 'green' | 'yellow' | 'red' | undefined {
   if (pace === undefined) return undefined
-  if (pace >= 1.0) return 'green'
-  if (pace >= 0.95) return 'yellow'
+  if (pace >= HEALTH_THRESHOLDS.healthy) return 'green'
+  if (pace >= HEALTH_THRESHOLDS.atRisk) return 'yellow'
   return 'red'
 }
 

@@ -32,7 +32,7 @@ export function OrgOverview() {
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 4 }}>People</div>
                   {teamPeople.length > 0 ? teamPeople.map(person => {
-                    const role = person.role.replace(/_/g, ' ')
+                    const role = person.role?.replace(/_/g, ' ') || 'contributor'
                     const pod = person.podId ? pods.find(p => p.id === person.podId) : undefined
                     return (
                       <div key={person.id} className="muted" style={{ fontSize: 12 }}>

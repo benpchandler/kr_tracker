@@ -1,0 +1,5 @@
+dist
+node_modules
+server
+vite.config.ts
+playwright.config.ts

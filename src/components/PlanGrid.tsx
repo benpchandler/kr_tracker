@@ -2,7 +2,8 @@ import React from 'react'
 import { useDispatch, useStore } from '../state/store'
 import { weekKey } from '../utils/weeks'
 import { useElementWidth } from '../hooks/useElementWidth'
-import { KeyResult } from '../models/types'
+import { ID, KeyResult } from '../models/types'
+import { WaterfallChart } from './charts/WaterfallChart'
 
 type Props = { 
   weeks: { index: number; startISO: string; iso: string; isoLabel: string; dateLabel: string }[]
@@ -22,6 +23,9 @@ export function PlanGrid({ weeks, filteredKRs }: Props) {
 
   const [wrapRef] = useElementWidth<HTMLDivElement>()
   const vis = weeks
+  const [activeKrId, setActiveKrId] = React.useState<ID | undefined>(krs[0]?.id)
+  const previewKrId = activeKrId || (krs[0]?.id)
+  const activeKr = previewKrId ? krs.find(kr => kr.id === previewKrId) : undefined
 
   return (
     <>
@@ -63,12 +67,28 @@ export function PlanGrid({ weeks, filteredKRs }: Props) {
               return (
                 <tr key={kr.id} data-kr={kr.id}>
                   <td className="kr">
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <strong>{kr.name}</strong>
                       <span className="muted" style={{ fontSize: 12 }}>
                         {kr.aggregation} • {kr.unit}
                         {kr.teamId ? ` • ${state.teams.find(t => t.id === kr.teamId)?.name || kr.teamId}` : ''}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => setActiveKrId(kr.id)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#2E86AB',
+                          padding: 0,
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          fontSize: 12,
+                        }}
+                        aria-pressed={previewKrId === kr.id}
+                      >
+                        {previewKrId === kr.id ? 'Viewing waterfall' : 'View waterfall'}
+                      </button>
                     </div>
                   </td>
                   {vis.map(w => {
@@ -102,6 +122,15 @@ export function PlanGrid({ weeks, filteredKRs }: Props) {
           </tbody>
         </table>
       </div>
+      {previewKrId && (
+        <section style={{ marginTop: 24, padding: 16, border: '1px solid #ddd', borderRadius: 8 }}>
+          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
+            <h3 style={{ margin: 0 }}>Waterfall preview</h3>
+            {activeKr && <span className="muted" style={{ fontSize: 12 }}>{activeKr.name}</span>}
+          </header>
+          <WaterfallChart krId={previewKrId} height={320} />
+        </section>
+      )}
       {/* Anchor views: scroll reporting week to left; focus specific KR if requested */}
       {React.useEffect(() => {
         if (!wrapRef.current) return

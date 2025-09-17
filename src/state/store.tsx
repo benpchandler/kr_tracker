@@ -1,5 +1,6 @@
 import React from 'react'
-import { AppState, Objective, KeyResult, ID, PlanBaseline, Team, Initiative, Pod, Individual, Organization, ViewFilter, PlanDraft, Phase, Theme, InitiativeWeekly, InitiativeWeeklyMeta } from '../models/types'
+import { STORAGE_KEY, LEGACY_STORAGE_KEYS } from '../config'
+import { AppState, Objective, KeyResult, ID, PlanBaseline, Team, Initiative, Pod, Individual, Organization, ViewFilter, PlanDraft, Phase, Theme, InitiativeWeekly, InitiativeWeeklyMeta, FunctionalArea, PersonLevel, WaterfallState, WaterfallConfig, WaterfallScenarioKey, WaterfallAnnotation } from '../models/types'
 import { generateWeeks, toISODate, parseISO } from '../utils/weeks'
 
 // Seed data for Merchant organization, teams, pods, leaders, and sample KRs
@@ -26,17 +27,17 @@ const PODS: Pod[] = [
 
 const INDIVIDUALS: Individual[] = [
   // Team leaders
-  { id: 'ind-ashley-tran', name: 'Ashley Tran', email: 'ashley.tran@example.com', teamId: 'team-live-order-experience', role: 'team_lead', discipline: 'product' },
-  { id: 'ind-sonha-breidenbach', name: 'Sonha Breidenbach', email: 'sonha.breidenbach@example.com', teamId: 'team-go-to-market', role: 'team_lead', discipline: 'strategy' },
-  { id: 'ind-shreya-thacker', name: 'Shreya Thacker', email: 'shreya.thacker@example.com', teamId: 'team-support', role: 'team_lead', discipline: 'operations' },
+  { id: 'ind-ashley-tran', name: 'Ashley Tran', email: 'ashley.tran@example.com', teamId: 'team-live-order-experience', role: 'team_lead', discipline: 'product', function: FunctionalArea.Product, level: PersonLevel.Director },
+  { id: 'ind-sonha-breidenbach', name: 'Sonha Breidenbach', email: 'sonha.breidenbach@example.com', teamId: 'team-go-to-market', role: 'team_lead', discipline: 'strategy', function: FunctionalArea.Strategy, level: PersonLevel.Director },
+  { id: 'ind-shreya-thacker', name: 'Shreya Thacker', email: 'shreya.thacker@example.com', teamId: 'team-support', role: 'team_lead', discipline: 'operations', function: FunctionalArea.Operations, level: PersonLevel.Director },
   // Pod leads (also DRIs for seeded KRs)
-  { id: 'ind-jamie-li', name: 'Jamie Li', teamId: 'team-live-order-experience', podId: 'pod-dasher-handoff', role: 'pod_lead', discipline: 'engineering' },
-  { id: 'ind-carlos-mendes', name: 'Carlos Mendes', teamId: 'team-live-order-experience', podId: 'pod-cancellations', role: 'pod_lead', discipline: 'engineering' },
-  { id: 'ind-priya-patel', name: 'Priya Patel', teamId: 'team-support', podId: 'pod-workforce-management', role: 'pod_lead', discipline: 'operations' },
-  { id: 'ind-ethan-zhang', name: 'Ethan Zhang', teamId: 'team-support', podId: 'pod-support-reduction', role: 'pod_lead', discipline: 'analytics' },
-  { id: 'ind-lena-kim', name: 'Lena Kim', teamId: 'team-go-to-market', podId: 'pod-menu', role: 'pod_lead', discipline: 'design' },
-  { id: 'ind-mark-rossi', name: 'Mark Rossi', teamId: 'team-go-to-market', podId: 'pod-profitability', role: 'pod_lead', discipline: 'analytics' },
-  { id: 'ind-ava-nguyen', name: 'Ava Nguyen', teamId: 'team-go-to-market', podId: 'pod-new-bets', role: 'pod_lead', discipline: 'product' },
+  { id: 'ind-jamie-li', name: 'Jamie Li', teamId: 'team-live-order-experience', podId: 'pod-dasher-handoff', role: 'pod_lead', discipline: 'engineering', function: FunctionalArea.Engineering, level: PersonLevel.Senior },
+  { id: 'ind-carlos-mendes', name: 'Carlos Mendes', teamId: 'team-live-order-experience', podId: 'pod-cancellations', role: 'pod_lead', discipline: 'engineering', function: FunctionalArea.Engineering, level: PersonLevel.Senior },
+  { id: 'ind-priya-patel', name: 'Priya Patel', teamId: 'team-support', podId: 'pod-workforce-management', role: 'pod_lead', discipline: 'operations', function: FunctionalArea.Operations, level: PersonLevel.Manager },
+  { id: 'ind-ethan-zhang', name: 'Ethan Zhang', teamId: 'team-support', podId: 'pod-support-reduction', role: 'pod_lead', discipline: 'analytics', function: FunctionalArea.Analytics, level: PersonLevel.Senior },
+  { id: 'ind-lena-kim', name: 'Lena Kim', teamId: 'team-go-to-market', podId: 'pod-menu', role: 'pod_lead', discipline: 'design', function: FunctionalArea.Design, level: PersonLevel.Senior },
+  { id: 'ind-mark-rossi', name: 'Mark Rossi', teamId: 'team-go-to-market', podId: 'pod-profitability', role: 'pod_lead', discipline: 'analytics', function: FunctionalArea.Analytics, level: PersonLevel.Manager },
+  { id: 'ind-ava-nguyen', name: 'Ava Nguyen', teamId: 'team-go-to-market', podId: 'pod-new-bets', role: 'pod_lead', discipline: 'product', function: FunctionalArea.Product, level: PersonLevel.Senior },
 ]
 
 // Objectives per team
@@ -141,13 +142,18 @@ const ACTUALS: PlanDraft = {
   // Yellow example (~95–99% with positive trend): Schedule adherence
   'kr-schedule-adherence': scalePlan('kr-schedule-adherence', [0.93, 0.95, 0.96, 0.97, 0.98, 0.98]),
 
-  // Red example (<95% with negative recent trend): Profitability dips at the end
+  // Red example (<95% with negative trend): Profitability dips at the end
   'kr-merchant-profitability': scalePlan('kr-merchant-profitability', [0.94, 0.95, 0.94, 0.93, 0.92, 0.90]),
 
   // Other KRs (still realistic values; may not map to health due to directionality)
   'kr-handoff-failure-rate': scalePlan('kr-handoff-failure-rate', [1.05, 1.00, 0.95, 0.93, 0.90, 0.88]),
   'kr-customer-cancellations': scalePlan('kr-customer-cancellations', [1.03, 0.99, 0.98, 0.95, 0.92, 0.90]),
   'kr-contacts-per-order': scalePlan('kr-contacts-per-order', [0.99, 0.96, 0.94, 0.90, 0.87, 0.83]),
+}
+
+const DEFAULT_WATERFALL_STATE: WaterfallState = {
+  configs: {},
+  scenarioSelections: {},
 }
 
 // Pre-locked baseline from plan
@@ -201,10 +207,9 @@ const DEFAULT_STATE: AppState = {
   phase: 'execution',
   reportingDateISO: DEFAULT_REPORTING,
   theme: 'light',
+  waterfall: { ...DEFAULT_WATERFALL_STATE },
 }
 
-const LS_KEY = 'kr-tracker-state-v3'
-const LEGACY_KEYS = ['kr-tracker-state-v2', 'kr-tracker-state-v1']
 
 async function post(url: string, body: any, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH' = 'POST') {
   try {
@@ -244,7 +249,7 @@ function stripGoalsFromName(name: string): string {
   return name.slice(0, idx).trim()
 }
 
-function coalesceState(parsed: any): AppState {
+export function coalesceState(parsed: any): AppState {
   // Merge with defaults and ensure core collections exist.
   const merged: AppState = { ...DEFAULT_STATE, ...(parsed || {}) }
   // Ensure new fields exist
@@ -259,6 +264,18 @@ function coalesceState(parsed: any): AppState {
   if (!merged.period?.startISO || !merged.period?.endISO) merged.period = DEFAULT_PERIOD
   if (!merged.reportingDateISO) merged.reportingDateISO = DEFAULT_REPORTING
   if (!merged.theme) merged.theme = 'light'
+  if (!merged.waterfall) {
+    merged.waterfall = { configs: {}, scenarioSelections: {} }
+  } else {
+    merged.waterfall = {
+      configs: merged.waterfall.configs || {},
+      scenarioSelections: merged.waterfall.scenarioSelections || {},
+    }
+  }
+  // Ensure phase is properly typed
+  if (merged.phase && typeof merged.phase === 'string') {
+    merged.phase = (merged.phase === 'execution' ? 'execution' : 'planning') as Phase
+  }
 
   // Backfill KR goalStart/goalEnd from name if missing
   merged.krs = (merged.krs || []).map(kr => {
@@ -277,18 +294,18 @@ function coalesceState(parsed: any): AppState {
   return merged
 }
 
-function loadState(): AppState {
+export function loadState(): AppState {
   try {
     // Try new key first
-    const raw = localStorage.getItem(LS_KEY)
+    const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) return coalesceState(JSON.parse(raw))
 
     // Fallback to any legacy keys once (one-time migration)
-    for (const key of LEGACY_KEYS) {
+    for (const key of LEGACY_STORAGE_KEYS) {
       const legacy = localStorage.getItem(key)
       if (legacy) {
         const migrated = coalesceState(JSON.parse(legacy))
-        try { localStorage.setItem(LS_KEY, JSON.stringify(migrated)) } catch {}
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated)) } catch {}
         return migrated
       }
     }
@@ -300,8 +317,8 @@ function loadState(): AppState {
   }
 }
 
-function saveState(state: AppState) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(state)) } catch {}
+export function saveState(state: AppState) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) } catch {}
 }
 
 async function syncToServer(action: Action, state: AppState) {
@@ -386,10 +403,13 @@ type Action =
   | { type: 'UPDATE_INITIATIVE'; initiative: Initiative }
   | { type: 'DELETE_INITIATIVE'; initiativeId: ID }
   | { type: 'UPDATE_INITIATIVE_WEEKLY'; initiativeId: ID; weekKey: string; patch: { impact?: number; confidence?: number } }
+  | { type: 'UPSERT_WATERFALL_CONFIG'; config: WaterfallConfig }
+  | { type: 'SET_WATERFALL_SCENARIO'; krId: ID; scenario: WaterfallScenarioKey }
+  | { type: 'SET_WATERFALL_ANNOTATIONS'; krId: ID; annotations: WaterfallAnnotation[] }
   | { type: 'HYDRATE'; full: Partial<AppState> }
   | { type: 'IMPORT_STATE'; state: AppState }
 
-function reducer(state: AppState, action: Action): AppState {
+export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'HYDRATE': {
       const next = coalesceState(action.full)
@@ -463,7 +483,8 @@ function reducer(state: AppState, action: Action): AppState {
     case 'PASTE_ACTUALS': {
       const nextActuals = { ...state.actuals }
       for (const u of action.updates) {
-        const perKr = nextActuals[u.krId] || {}
+        const existing = nextActuals[u.krId] || {}
+        const perKr = { ...existing }
         perKr[u.weekKey] = u.value
         nextActuals[u.krId] = perKr
       }
@@ -485,7 +506,7 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         baselines: [...state.baselines, baseline],
         currentBaselineId: baseline.id,
-        phase: 'execution',
+        phase: 'execution' as Phase,
       }
       saveState(next)
       void syncToServer(action, next)
@@ -497,7 +518,7 @@ function reducer(state: AppState, action: Action): AppState {
       return next
     }
     case 'ADD_INITIATIVE': {
-      const init = { status: 'on_track', ...action.initiative }
+      const init: Initiative = { status: 'on_track' as const, ...action.initiative }
       const next = { ...state, initiatives: [...state.initiatives, init] }
       saveState(next)
       void syncToServer(action, next)
@@ -532,6 +553,34 @@ function reducer(state: AppState, action: Action): AppState {
         saveState(next)
         void syncToServer(action, next)
         return next
+    }
+    case 'UPSERT_WATERFALL_CONFIG': {
+      const wf = state.waterfall || { configs: {}, scenarioSelections: {} }
+      const configs = { ...wf.configs, [action.config.krId]: action.config }
+      const scenarioSelections = {
+        ...wf.scenarioSelections,
+        [action.config.krId]: wf.scenarioSelections[action.config.krId] ?? action.config.defaultScenario,
+      }
+      const next = { ...state, waterfall: { configs, scenarioSelections } }
+      saveState(next)
+      return next
+    }
+    case 'SET_WATERFALL_SCENARIO': {
+      const wf = state.waterfall || { configs: {}, scenarioSelections: {} }
+      const scenarioSelections = { ...wf.scenarioSelections, [action.krId]: action.scenario }
+      const next = { ...state, waterfall: { configs: { ...wf.configs }, scenarioSelections } }
+      saveState(next)
+      return next
+    }
+    case 'SET_WATERFALL_ANNOTATIONS': {
+      const wf = state.waterfall || { configs: {}, scenarioSelections: {} }
+      const existing = wf.configs[action.krId]
+      if (!existing) return state
+      const nextConfig: WaterfallConfig = { ...existing, annotations: [...action.annotations] }
+      const configs = { ...wf.configs, [action.krId]: nextConfig }
+      const next = { ...state, waterfall: { configs, scenarioSelections: { ...wf.scenarioSelections } } }
+      saveState(next)
+      return next
     }
     case 'SET_ORGANIZATION': {
       const next = { ...state, organization: action.org }

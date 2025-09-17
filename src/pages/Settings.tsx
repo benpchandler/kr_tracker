@@ -2,6 +2,7 @@ import React from 'react'
 import { useDispatch, useStore } from '../state/store'
 import { generateWeeks } from '../utils/weeks'
 import { SCENARIO_OPTIONS, buildScenario } from '../lib/testScenarios'
+import { ImportWizard } from '../components/ImportWizard'
 
 export function Settings() {
   const state = useStore(s => s)
@@ -100,6 +101,11 @@ export function Settings() {
         <div className="row" style={{ gap: 8 }}>
           <div className="muted" style={{ fontSize: 12 }}>Weeks in current period: {weeks.length}</div>
         </div>
+      </div>
+
+      {/* CSV Import */}
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+        <ImportWizard />
       </div>
 
       {/* Test Scenarios (dev-only helper to seed deterministic states) */}

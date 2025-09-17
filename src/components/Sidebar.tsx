@@ -71,7 +71,7 @@ export function Sidebar() {
                   <div key={p.id} className="nav-item nav-level-2">
                     <span className="nav-icon">👤</span>
                     <span className="nav-label">{p.name}</span>
-                    <span className="nav-badge">{p.role.replace('_',' ')}{disc ? ` • ${disc}` : ''}</span>
+                    <span className="nav-badge">{p.role?.replace('_',' ') || 'contributor'}{disc ? ` • ${disc}` : ''}</span>
                   </div>
                 )
               })}

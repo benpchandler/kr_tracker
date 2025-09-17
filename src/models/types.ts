@@ -65,9 +65,9 @@ export type KeyResult = {
 export type Pod = {
   id: ID
   name: string
-  mission: string  // What this pod exists to do
+  mission?: string  // What this pod exists to do
   teamId: ID  // Which team this pod belongs to
-  // Remove memberIds - will use PodMembership instead
+  memberIds?: ID[]  // Legacy field for backward compatibility
 }
 
 export type PodMembership = {
@@ -89,7 +89,9 @@ export type Person = {
   managerId?: ID  // Optional for top of hierarchy
   // Legacy fields for compatibility
   teamId?: ID  // Will be derived from pod memberships
+  podId?: ID  // Legacy field for current pod assignment
   role?: 'executive' | 'team_lead' | 'pod_lead' | 'contributor'  // Legacy
+  discipline?: Discipline  // Legacy field for functional discipline
 }
 
 // Legacy Individual type alias for backward compatibility
@@ -171,6 +173,7 @@ export type AppState = {
   phase?: Phase
   reportingDateISO?: string
   theme?: Theme
+  waterfall?: WaterfallState
   // UI hint: focus a particular KR row in Plan Builder
   focusKrId?: ID
 }
@@ -215,4 +218,67 @@ export type Team = {
   name: string
   leadId?: ID  // Person who leads this team
   color?: string
+}
+
+export type WaterfallScenarioKey = string
+
+export type WaterfallStepKind = 'baseline' | 'delta' | 'subtotal' | 'total' | 'gap'
+
+export type WaterfallStepConfig = {
+  id: ID
+  label: string
+  sourceInitiativeIds?: ID[]
+  kind?: WaterfallStepKind
+  color?: string
+  showValue?: boolean
+}
+
+export type WaterfallSeries = {
+  key: WaterfallScenarioKey
+  name: string
+  steps: WaterfallStepConfig[]
+  showTotal?: boolean
+  stackedSeriesKeys?: string[]
+}
+
+export type WaterfallAnnotationType = 'label' | 'difference' | 'value_line' | 'cagr' | 'highlight' | 'axis_break'
+
+export type WaterfallAnnotation = {
+  id: ID
+  type: WaterfallAnnotationType
+  stepId?: ID
+  targetStepId?: ID
+  text?: string
+  value?: number
+  color?: string
+  position?: 'inside' | 'outside' | 'auto'
+  metadata?: Record<string, string | number | boolean | null>
+}
+
+export type WaterfallFormattingOptions = {
+  palette?: string[]
+  numberFormat?: 'auto' | 'percent' | 'currency' | 'compact'
+  unitLabel?: string
+  showLegends?: boolean
+}
+
+export type WaterfallGroupingRule = {
+  id: ID
+  label: string
+  includeInitiativeIds: ID[]
+  kind?: 'regular' | 'subtotal'
+}
+
+export type WaterfallConfig = {
+  krId: ID
+  defaultScenario: WaterfallScenarioKey
+  scenarios: Record<WaterfallScenarioKey, WaterfallSeries>
+  formatting?: WaterfallFormattingOptions
+  annotations?: WaterfallAnnotation[]
+  groupingRules?: WaterfallGroupingRule[]
+}
+
+export type WaterfallState = {
+  configs: Record<ID, WaterfallConfig>
+  scenarioSelections: Record<ID, WaterfallScenarioKey>
 }

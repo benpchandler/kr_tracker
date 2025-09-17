@@ -1,4 +1,5 @@
 import React from 'react'
+import { STORAGE_KEY, LEGACY_STORAGE_KEYS } from '../config'
 import { useDispatch, useStore } from '../state/store'
 import type { Aggregation, Unit, ID, KrStatus } from '../models/types'
 import { generateWeeks } from '../utils/weeks'
@@ -350,7 +351,7 @@ export function Setup() {
           <select value={krDri} onChange={(e) => setKrDri(e.target.value)} disabled={!krTeam}>
             <option value="">— DRI (optional) —</option>
             {krTeam && state.individuals.filter(i => i.teamId === krTeam && (!krPod || i.podId === krPod)).map(i => {
-              const role = i.role.replace('_', ' ')
+              const role = i.role?.replace('_', ' ') || 'contributor'
               const disc = i.discipline ? i.discipline.charAt(0).toUpperCase() + i.discipline.slice(1) : undefined
               return (
                 <option key={i.id} value={i.id}>{i.name} ({role}{disc ? ` • ${disc}` : ''})</option>
@@ -558,9 +559,10 @@ export function Setup() {
                 onClick={() => {
                   if (confirm('This will delete all your data. Are you sure?')) {
                     if (confirm('This action cannot be undone. Really delete all data?')) {
-                      try { localStorage.removeItem('kr-tracker-state-v3') } catch {}
-                      try { localStorage.removeItem('kr-tracker-state-v2') } catch {}
-                      try { localStorage.removeItem('kr-tracker-state-v1') } catch {}
+                      try { localStorage.removeItem(STORAGE_KEY) } catch {}
+                      for (const legacy of LEGACY_STORAGE_KEYS) {
+                        try { localStorage.removeItem(legacy) } catch {}
+                      }
                       window.location.reload()
                     }
                   }
@@ -584,7 +586,7 @@ export function Setup() {
                 Data is stored locally in your browser's localStorage.
               </p>
               <div style={{ marginTop: 12, fontSize: 14 }}>
-                <div>Storage Key: <code style={{ background: 'var(--bg-color)', padding: '2px 6px', borderRadius: 3 }}>kr-tracker-state-v3</code></div>
+                <div>Storage Key: <code style={{ background: 'var(--bg-color)', padding: '2px 6px', borderRadius: 3 }}>{STORAGE_KEY}</code></div>
                 <div style={{ marginTop: 4 }}>Data Size: <strong>{(JSON.stringify(state).length / 1024).toFixed(2)} KB</strong></div>
               </div>
             </div>
