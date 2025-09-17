@@ -2,7 +2,6 @@ import React from 'react'
 import { render } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { axe, toHaveNoViolations } from 'jest-axe'
-import { expect } from 'vitest'
 import { StoreProvider } from '../state/store'
 
 expect.extend(toHaveNoViolations)
