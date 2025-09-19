@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Integration</title>
+</head>
+<body>
+  <h1>Testing Backend Integration</h1>
+  <div id="results"></div>
+
+  <script>
+    async function test() {
+      const results = document.getElementById('results');
+
+      // Test backend directly
+      try {
+        const res1 = await fetch('http://localhost:3001/api/state');
+        const data1 = await res1.json();
+        results.innerHTML += `<p>✅ Backend Direct (3001): ${Object.keys(data1).length} keys, Teams: ${data1.teams?.length || 0}</p>`;
+      } catch (e) {
+        results.innerHTML += `<p>❌ Backend Direct (3001): ${e.message}</p>`;
+      }
+
+      // Test through Vite proxy
+      try {
+        const res2 = await fetch('/api/state');
+        const data2 = await res2.json();
+        results.innerHTML += `<p>✅ Proxy (/api): ${Object.keys(data2).length} keys, Teams: ${data2.teams?.length || 0}</p>`;
+      } catch (e) {
+        results.innerHTML += `<p>❌ Proxy (/api): ${e.message}</p>`;
+      }
+
+      // Check localStorage
+      const stored = localStorage.getItem('kr-tracker-state-v1');
+      if (stored) {
+        const data3 = JSON.parse(stored);
+        results.innerHTML += `<p>📦 LocalStorage: ${Object.keys(data3).length} keys, Teams: ${data3.teams?.length || 0}</p>`;
+      } else {
+        results.innerHTML += `<p>📦 LocalStorage: Empty</p>`;
+      }
+    }
+
+    test();
+  </script>
+</body>
+</html>

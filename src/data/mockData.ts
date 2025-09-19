@@ -1,283 +1,981 @@
-import { Team, Pod, Person, Quarter, KR, Initiative } from '../types';
+import { Team, Pod, Quarter, KR, Initiative, KRComment, WeeklyActual, PodMember, Person } from '../types';
 
 export const mockTeams: Team[] = [
-  { id: 'team-1', name: 'Engineering', color: '#3B82F6' },
-  { id: 'team-2', name: 'Product', color: '#8B5CF6' },
-  { id: 'team-3', name: 'Design', color: '#10B981' },
-  { id: 'team-4', name: 'Marketing', color: '#F59E0B' },
-  { id: 'team-5', name: 'Operations', color: '#EF4444' },
+  {
+    id: 'team-1',
+    name: 'Acquisition',
+    description: 'Customer acquisition and onboarding strategies',
+    color: '#3B82F6'
+  },
+  {
+    id: 'team-2',
+    name: 'Growth',
+    description: 'Revenue growth and market expansion',
+    color: '#10B981'
+  },
+  {
+    id: 'team-3',
+    name: 'Support',
+    description: 'Customer support and workforce management',
+    color: '#F59E0B'
+  },
+  {
+    id: 'team-4',
+    name: 'Integrations',
+    description: 'System integrations and operational excellence',
+    color: '#8B5CF6'
+  },
+  {
+    id: 'team-5',
+    name: 'Live Order Experience',
+    description: 'Real-time order fulfillment and quality assurance',
+    color: '#EF4444'
+  }
 ];
 
 export const mockPods: Pod[] = [
-  { id: 'pod-1', teamId: 'team-1', name: 'Frontend', memberIds: ['person-1', 'person-2'], mission: 'Build amazing user experiences' },
-  { id: 'pod-2', teamId: 'team-1', name: 'Backend', memberIds: ['person-3', 'person-4'], mission: 'Create scalable infrastructure' },
-  { id: 'pod-3', teamId: 'team-1', name: 'DevOps', memberIds: ['person-5'], mission: 'Streamline deployment and operations' },
-  { id: 'pod-4', teamId: 'team-2', name: 'Growth', memberIds: ['person-6', 'person-7'], mission: 'Drive user acquisition' },
-  { id: 'pod-5', teamId: 'team-2', name: 'Platform', memberIds: ['person-8'], mission: 'Build platform capabilities' },
-  { id: 'pod-6', teamId: 'team-3', name: 'UX Research', memberIds: ['person-9', 'person-10'], mission: 'Understand user needs' },
-  { id: 'pod-7', teamId: 'team-3', name: 'Visual Design', memberIds: ['person-11'], mission: 'Create beautiful interfaces' },
-  { id: 'pod-8', teamId: 'team-4', name: 'Content', memberIds: ['person-12'], mission: 'Create compelling content' },
-  { id: 'pod-9', teamId: 'team-4', name: 'SEO', memberIds: ['person-13'], mission: 'Optimize search presence' },
-  { id: 'pod-10', teamId: 'team-5', name: 'Support', memberIds: ['person-14', 'person-15'], mission: 'Deliver excellent customer service' },
-  { id: 'pod-11', teamId: 'team-5', name: 'Analytics', memberIds: ['person-16'], mission: 'Drive data insights' },
+  // Acquisition Team Pods
+  {
+    id: 'pod-1',
+    name: 'Selection',
+    teamId: 'team-1',
+    description: 'Customer selection and targeting strategies',
+    members: [
+      { name: 'Sarah Chen', role: 'Product' },
+      { name: 'Marcus Johnson', role: 'Analytics' },
+      { name: 'Emma Wilson', role: 'S&O' }
+    ] as PodMember[]
+  },
+  {
+    id: 'pod-2',
+    name: 'Onboarding',
+    teamId: 'team-1',
+    description: 'New customer onboarding and activation',
+    members: [
+      { name: 'Lisa Rodriguez', role: 'Product' },
+      { name: 'Tom Anderson', role: 'Design' },
+      { name: 'Jake Martinez', role: 'Engineering' }
+    ] as PodMember[]
+  },
+  
+  // Growth Team Pods
+  {
+    id: 'pod-3',
+    name: 'Profitability',
+    teamId: 'team-2',
+    description: 'Revenue optimization and profitability analysis',
+    members: [
+      { name: 'Michael Brooks', role: 'Analytics' },
+      { name: 'Diana Chang', role: 'Product' },
+      { name: 'Robert Kim', role: 'S&O' }
+    ] as PodMember[]
+  },
+  {
+    id: 'pod-4',
+    name: 'Menu',
+    teamId: 'team-2',
+    description: 'Menu management and optimization',
+    members: [
+      { name: 'Jessica Wu', role: 'Product' },
+      { name: 'David Taylor', role: 'Design' },
+      { name: 'Alex Foster', role: 'Engineering' }
+    ] as PodMember[]
+  },
+  {
+    id: 'pod-5',
+    name: 'GTM',
+    teamId: 'team-2',
+    description: 'Go-to-market strategies and execution',
+    members: [
+      { name: 'Rachel Green', role: 'Product' },
+      { name: 'Kevin Lee', role: 'Analytics' },
+      { name: 'Sophie Davis', role: 'S&O' }
+    ] as PodMember[]
+  },
+  
+  // Support Team Pods
+  {
+    id: 'pod-6',
+    name: 'Workforce Management',
+    teamId: 'team-3',
+    description: 'Support team optimization and management',
+    members: [
+      { name: 'Amanda Clark', role: 'S&O' },
+      { name: 'Chris Miller', role: 'Analytics' },
+      { name: 'Nicole Brown', role: 'Product' }
+    ] as PodMember[]
+  },
+  {
+    id: 'pod-7',
+    name: 'MSR',
+    teamId: 'team-3',
+    description: 'Merchant and customer service relations',
+    members: [
+      { name: 'Ryan Thompson', role: 'Product' },
+      { name: 'Maya Patel', role: 'S&O' },
+      { name: 'Jordan Williams', role: 'Design' }
+    ] as PodMember[]
+  },
+  
+  // Integrations Team Pods
+  {
+    id: 'pod-8',
+    name: 'S&O',
+    teamId: 'team-4',
+    description: 'Strategy and operations integration systems',
+    members: [
+      { name: 'Elena Rodriguez', role: 'S&O' },
+      { name: 'James Wilson', role: 'Engineering' },
+      { name: 'Priya Sharma', role: 'Analytics' }
+    ] as PodMember[]
+  },
+  {
+    id: 'pod-9',
+    name: 'TAMS',
+    teamId: 'team-4',
+    description: 'Technology and merchant solutions',
+    members: [
+      { name: 'Carlos Mendez', role: 'Engineering' },
+      { name: 'Zoe Chen', role: 'Product' },
+      { name: 'Oliver Smith', role: 'S&O' }
+    ] as PodMember[]
+  },
+  
+  // Live Order Experience Team Pods
+  {
+    id: 'pod-10',
+    name: 'Dasher Handoffs',
+    teamId: 'team-5',
+    description: 'Delivery handoff processes and optimization',
+    members: [
+      { name: 'Tyler Jackson', role: 'Product' },
+      { name: 'Isabella Moore', role: 'Engineering' },
+      { name: 'Nathan Cooper', role: 'S&O' }
+    ] as PodMember[]
+  },
+  {
+    id: 'pod-11',
+    name: 'Quality',
+    teamId: 'team-5',
+    description: 'Order quality assurance and monitoring',
+    members: [
+      { name: 'Grace Liu', role: 'Analytics' },
+      { name: 'Ethan Price', role: 'Product' },
+      { name: 'Samantha Reed', role: 'Design' }
+    ] as PodMember[]
+  }
+];
+
+export const mockQuarters: Quarter[] = [
+  {
+    id: 'q4-2024',
+    name: 'Q4 2024',
+    startDate: '2024-10-01',
+    endDate: '2024-12-31',
+    year: 2024
+  },
+  {
+    id: 'q1-2025',
+    name: 'Q1 2025',
+    startDate: '2025-01-01',
+    endDate: '2025-03-31',
+    year: 2025
+  }
 ];
 
 export const mockPeople: Person[] = [
-  { id: 'person-1', name: 'Alice Johnson', email: 'alice@example.com', role: 'Frontend Engineer', level: 'Senior', teamId: 'team-1', podId: 'pod-1', active: true },
-  { id: 'person-2', name: 'Bob Smith', email: 'bob@example.com', role: 'Frontend Engineer', level: 'Mid', teamId: 'team-1', podId: 'pod-1', managerId: 'person-1', active: true },
-  { id: 'person-3', name: 'Carol White', email: 'carol@example.com', role: 'Backend Engineer', level: 'Staff', teamId: 'team-1', podId: 'pod-2', active: true },
-  { id: 'person-4', name: 'David Brown', email: 'david@example.com', role: 'Backend Engineer', level: 'Senior', teamId: 'team-1', podId: 'pod-2', managerId: 'person-3', active: true },
-  { id: 'person-5', name: 'Eve Davis', email: 'eve@example.com', role: 'DevOps Engineer', level: 'Senior', teamId: 'team-1', podId: 'pod-3', active: true },
-  { id: 'person-6', name: 'Frank Miller', email: 'frank@example.com', role: 'Product Manager', level: 'Senior', teamId: 'team-2', podId: 'pod-4', active: true },
-  { id: 'person-7', name: 'Grace Wilson', email: 'grace@example.com', role: 'Growth Analyst', level: 'Mid', teamId: 'team-2', podId: 'pod-4', managerId: 'person-6', active: true },
-  { id: 'person-8', name: 'Henry Moore', email: 'henry@example.com', role: 'Platform PM', level: 'Staff', teamId: 'team-2', podId: 'pod-5', active: true },
-  { id: 'person-9', name: 'Iris Taylor', email: 'iris@example.com', role: 'UX Researcher', level: 'Senior', teamId: 'team-3', podId: 'pod-6', active: true },
-  { id: 'person-10', name: 'Jack Anderson', email: 'jack@example.com', role: 'UX Researcher', level: 'Junior', teamId: 'team-3', podId: 'pod-6', managerId: 'person-9', active: true },
-  { id: 'person-11', name: 'Kate Thomas', email: 'kate@example.com', role: 'Visual Designer', level: 'Senior', teamId: 'team-3', podId: 'pod-7', active: true },
-  { id: 'person-12', name: 'Liam Jackson', email: 'liam@example.com', role: 'Content Writer', level: 'Mid', teamId: 'team-4', podId: 'pod-8', active: true },
-  { id: 'person-13', name: 'Mia Martin', email: 'mia@example.com', role: 'SEO Specialist', level: 'Senior', teamId: 'team-4', podId: 'pod-9', active: true },
-  { id: 'person-14', name: 'Noah Garcia', email: 'noah@example.com', role: 'Support Lead', level: 'Senior', teamId: 'team-5', podId: 'pod-10', active: true },
-  { id: 'person-15', name: 'Olivia Martinez', email: 'olivia@example.com', role: 'Support Agent', level: 'Junior', teamId: 'team-5', podId: 'pod-10', managerId: 'person-14', active: true },
-  { id: 'person-16', name: 'Peter Rodriguez', email: 'peter@example.com', role: 'Data Analyst', level: 'Senior', teamId: 'team-5', podId: 'pod-11', active: true },
-  // Additional people with managers
-  { id: 'person-17', name: 'Quinn Lee', email: 'quinn@example.com', role: 'Engineering Manager', level: 'Manager', teamId: 'team-1', active: true },
-  { id: 'person-18', name: 'Rachel Walker', email: 'rachel@example.com', role: 'Product Director', level: 'Director', teamId: 'team-2', active: true },
-  { id: 'person-19', name: 'Sam Hall', email: 'sam@example.com', role: 'Design Director', level: 'Director', teamId: 'team-3', active: true },
-  { id: 'person-20', name: 'Tina Allen', email: 'tina@example.com', role: 'Marketing Manager', level: 'Manager', teamId: 'team-4', active: true },
-  { id: 'person-21', name: 'Uma Young', email: 'uma@example.com', role: 'Operations Manager', level: 'Manager', teamId: 'team-5', active: true },
+  // Leadership / Managers
+  {
+    id: 'person-1',
+    name: 'Sarah Chen',
+    email: 'sarah.chen@company.com',
+    function: 'Product',
+    teamId: 'team-1',
+    podId: 'pod-1',
+    joinDate: '2023-01-15',
+    active: true
+  },
+  {
+    id: 'person-2',
+    name: 'Michael Brooks',
+    email: 'michael.brooks@company.com',
+    function: 'Analytics',
+    managerId: 'person-1',
+    teamId: 'team-2',
+    podId: 'pod-3',
+    joinDate: '2023-02-20',
+    active: true
+  },
+  {
+    id: 'person-3',
+    name: 'Amanda Clark',
+    email: 'amanda.clark@company.com',
+    function: 'S&O',
+    teamId: 'team-3',
+    podId: 'pod-6',
+    joinDate: '2023-03-10',
+    active: true
+  },
+  {
+    id: 'person-4',
+    name: 'Elena Rodriguez',
+    email: 'elena.rodriguez@company.com',
+    function: 'S&O',
+    teamId: 'team-4',
+    podId: 'pod-8',
+    joinDate: '2023-01-05',
+    active: true
+  },
+  {
+    id: 'person-5',
+    name: 'Tyler Jackson',
+    email: 'tyler.jackson@company.com',
+    function: 'Product',
+    managerId: 'person-1',
+    teamId: 'team-5',
+    podId: 'pod-10',
+    joinDate: '2023-04-12',
+    active: true
+  },
+  // Team Members
+  {
+    id: 'person-6',
+    name: 'Lisa Rodriguez',
+    email: 'lisa.rodriguez@company.com',
+    function: 'Product',
+    managerId: 'person-1',
+    teamId: 'team-1',
+    podId: 'pod-2',
+    joinDate: '2023-05-20',
+    active: true
+  },
+  {
+    id: 'person-7',
+    name: 'Marcus Johnson',
+    email: 'marcus.johnson@company.com',
+    function: 'Analytics',
+    managerId: 'person-2',
+    teamId: 'team-1',
+    podId: 'pod-1',
+    joinDate: '2023-06-15',
+    active: true
+  },
+  {
+    id: 'person-8',
+    name: 'Emma Wilson',
+    email: 'emma.wilson@company.com',
+    function: 'S&O',
+    managerId: 'person-3',
+    teamId: 'team-1',
+    podId: 'pod-1',
+    joinDate: '2023-07-10',
+    active: true
+  },
+  {
+    id: 'person-9',
+    name: 'Tom Anderson',
+    email: 'tom.anderson@company.com',
+    function: 'Design',
+    teamId: 'team-1',
+    podId: 'pod-2',
+    joinDate: '2023-08-05',
+    active: true
+  },
+  {
+    id: 'person-10',
+    name: 'Jake Martinez',
+    email: 'jake.martinez@company.com',
+    function: 'Engineering',
+    teamId: 'team-1',
+    podId: 'pod-2',
+    joinDate: '2023-09-01',
+    active: true
+  },
+  {
+    id: 'person-11',
+    name: 'Diana Chang',
+    email: 'diana.chang@company.com',
+    function: 'Product',
+    managerId: 'person-2',
+    teamId: 'team-2',
+    podId: 'pod-3',
+    joinDate: '2023-03-25',
+    active: true
+  },
+  {
+    id: 'person-12',
+    name: 'Robert Kim',
+    email: 'robert.kim@company.com',
+    function: 'S&O',
+    managerId: 'person-3',
+    teamId: 'team-2',
+    podId: 'pod-3',
+    joinDate: '2023-04-18',
+    active: true
+  },
+  {
+    id: 'person-13',
+    name: 'Jessica Wu',
+    email: 'jessica.wu@company.com',
+    function: 'Product',
+    managerId: 'person-1',
+    teamId: 'team-2',
+    podId: 'pod-4',
+    joinDate: '2023-05-12',
+    active: true
+  },
+  {
+    id: 'person-14',
+    name: 'David Taylor',
+    email: 'david.taylor@company.com',
+    function: 'Design',
+    teamId: 'team-2',
+    podId: 'pod-4',
+    joinDate: '2023-06-20',
+    active: true
+  },
+  {
+    id: 'person-15',
+    name: 'Alex Foster',
+    email: 'alex.foster@company.com',
+    function: 'Engineering',
+    teamId: 'team-2',
+    podId: 'pod-4',
+    joinDate: '2023-07-15',
+    active: true
+  },
+  {
+    id: 'person-16',
+    name: 'Rachel Green',
+    email: 'rachel.green@company.com',
+    function: 'Product',
+    managerId: 'person-1',
+    teamId: 'team-2',
+    podId: 'pod-5',
+    joinDate: '2023-08-10',
+    active: true
+  },
+  {
+    id: 'person-17',
+    name: 'Kevin Lee',
+    email: 'kevin.lee@company.com',
+    function: 'Analytics',
+    managerId: 'person-2',
+    teamId: 'team-2',
+    podId: 'pod-5',
+    joinDate: '2023-09-05',
+    active: true
+  },
+  {
+    id: 'person-18',
+    name: 'Sophie Davis',
+    email: 'sophie.davis@company.com',
+    function: 'S&O',
+    managerId: 'person-3',
+    teamId: 'team-2',
+    podId: 'pod-5',
+    joinDate: '2023-10-01',
+    active: true
+  },
+  {
+    id: 'person-19',
+    name: 'Chris Miller',
+    email: 'chris.miller@company.com',
+    function: 'Analytics',
+    managerId: 'person-2',
+    teamId: 'team-3',
+    podId: 'pod-6',
+    joinDate: '2023-04-25',
+    active: true
+  },
+  {
+    id: 'person-20',
+    name: 'Nicole Brown',
+    email: 'nicole.brown@company.com',
+    function: 'Product',
+    managerId: 'person-1',
+    teamId: 'team-3',
+    podId: 'pod-6',
+    joinDate: '2023-05-30',
+    active: true
+  },
+  {
+    id: 'person-21',
+    name: 'Ryan Thompson',
+    email: 'ryan.thompson@company.com',
+    function: 'Product',
+    managerId: 'person-1',
+    teamId: 'team-3',
+    podId: 'pod-7',
+    joinDate: '2023-06-12',
+    active: true
+  },
+  {
+    id: 'person-22',
+    name: 'Maya Patel',
+    email: 'maya.patel@company.com',
+    function: 'S&O',
+    managerId: 'person-3',
+    teamId: 'team-3',
+    podId: 'pod-7',
+    joinDate: '2023-07-08',
+    active: true
+  },
+  {
+    id: 'person-23',
+    name: 'Jordan Williams',
+    email: 'jordan.williams@company.com',
+    function: 'Design',
+    teamId: 'team-3',
+    podId: 'pod-7',
+    joinDate: '2023-08-15',
+    active: true
+  },
+  {
+    id: 'person-24',
+    name: 'James Wilson',
+    email: 'james.wilson@company.com',
+    function: 'Engineering',
+    teamId: 'team-4',
+    podId: 'pod-8',
+    joinDate: '2023-03-20',
+    active: true
+  },
+  {
+    id: 'person-25',
+    name: 'Priya Sharma',
+    email: 'priya.sharma@company.com',
+    function: 'Analytics',
+    managerId: 'person-2',
+    teamId: 'team-4',
+    podId: 'pod-8',
+    joinDate: '2023-04-28',
+    active: true
+  },
+  {
+    id: 'person-26',
+    name: 'Carlos Mendez',
+    email: 'carlos.mendez@company.com',
+    function: 'Engineering',
+    teamId: 'team-4',
+    podId: 'pod-9',
+    joinDate: '2023-05-15',
+    active: true
+  },
+  {
+    id: 'person-27',
+    name: 'Zoe Chen',
+    email: 'zoe.chen@company.com',
+    function: 'Product',
+    managerId: 'person-1',
+    teamId: 'team-4',
+    podId: 'pod-9',
+    joinDate: '2023-06-08',
+    active: true
+  },
+  {
+    id: 'person-28',
+    name: 'Oliver Smith',
+    email: 'oliver.smith@company.com',
+    function: 'S&O',
+    managerId: 'person-4',
+    teamId: 'team-4',
+    podId: 'pod-9',
+    joinDate: '2023-07-20',
+    active: true
+  },
+  {
+    id: 'person-29',
+    name: 'Isabella Moore',
+    email: 'isabella.moore@company.com',
+    function: 'Engineering',
+    teamId: 'team-5',
+    podId: 'pod-10',
+    joinDate: '2023-05-25',
+    active: true
+  },
+  {
+    id: 'person-30',
+    name: 'Nathan Cooper',
+    email: 'nathan.cooper@company.com',
+    function: 'S&O',
+    managerId: 'person-4',
+    teamId: 'team-5',
+    podId: 'pod-10',
+    joinDate: '2023-06-30',
+    active: true
+  },
+  {
+    id: 'person-31',
+    name: 'Grace Liu',
+    email: 'grace.liu@company.com',
+    function: 'Analytics',
+    managerId: 'person-2',
+    teamId: 'team-5',
+    podId: 'pod-11',
+    joinDate: '2023-07-12',
+    active: true
+  },
+  {
+    id: 'person-32',
+    name: 'Ethan Price',
+    email: 'ethan.price@company.com',
+    function: 'Product',
+    managerId: 'person-5',
+    teamId: 'team-5',
+    podId: 'pod-11',
+    joinDate: '2023-08-20',
+    active: true
+  },
+  {
+    id: 'person-33',
+    name: 'Samantha Reed',
+    email: 'samantha.reed@company.com',
+    function: 'Design',
+    teamId: 'team-5',
+    podId: 'pod-11',
+    joinDate: '2023-09-15',
+    active: true
+  }
 ];
 
-// Update some people to have managers
-mockPeople[0].managerId = 'person-17'; // Alice reports to Quinn
-mockPeople[2].managerId = 'person-17'; // Carol reports to Quinn
-mockPeople[4].managerId = 'person-17'; // Eve reports to Quinn
-mockPeople[5].managerId = 'person-18'; // Frank reports to Rachel
-mockPeople[7].managerId = 'person-18'; // Henry reports to Rachel
-mockPeople[8].managerId = 'person-19'; // Iris reports to Sam
-mockPeople[10].managerId = 'person-19'; // Kate reports to Sam
-mockPeople[11].managerId = 'person-20'; // Liam reports to Tina
-mockPeople[12].managerId = 'person-20'; // Mia reports to Tina
-mockPeople[13].managerId = 'person-21'; // Noah reports to Uma
-mockPeople[15].managerId = 'person-21'; // Peter reports to Uma
+export const mockComments: KRComment[] = [
+  {
+    id: 'comment-1',
+    krId: 'kr-1',
+    author: 'Lisa Rodriguez',
+    content: 'Onboarding improvements are showing great results. We might exceed our target.',
+    type: 'above-plan',
+    timestamp: '2024-11-15T10:30:00Z'
+  },
+  {
+    id: 'comment-2',
+    krId: 'kr-2',
+    author: 'Michael Brooks',
+    content: 'Menu optimization taking longer than expected. May need to adjust timeline.',
+    type: 'below-plan',
+    timestamp: '2024-11-14T15:45:00Z'
+  }
+];
 
-export const mockQuarters: Quarter[] = [
-  { id: 'q3-2024', name: 'Q3 2024', startDate: '2024-07-01', endDate: '2024-09-30', isCurrent: false },
-  { id: 'q4-2024', name: 'Q4 2024', startDate: '2024-10-01', endDate: '2024-12-31', isCurrent: true },
-  { id: 'q1-2025', name: 'Q1 2025', startDate: '2025-01-01', endDate: '2025-03-31', isCurrent: false },
+export const mockWeeklyActuals: WeeklyActual[] = [
+  // KR-1 (Customer Acquisition) weekly data
+  {
+    id: 'weekly-1',
+    krId: 'kr-1',
+    weekOf: '2024-10-28',
+    actual: '18000',
+    variance: 1500,
+    forecastVariance: -3000,
+    notes: 'Strong week after onboarding improvements launch',
+    enteredBy: 'Lisa Rodriguez',
+    enteredAt: '2024-11-01T09:00:00Z'
+  },
+  {
+    id: 'weekly-2',
+    krId: 'kr-1',
+    weekOf: '2024-11-04',
+    actual: '20000',
+    variance: 2000,
+    forecastVariance: -2000,
+    notes: 'Continued growth from new selection criteria',
+    enteredBy: 'Lisa Rodriguez',
+    enteredAt: '2024-11-08T09:00:00Z'
+  },
+  {
+    id: 'weekly-3',
+    krId: 'kr-1',
+    weekOf: '2024-11-11',
+    actual: '21500',
+    variance: 2500,
+    forecastVariance: -1500,
+    notes: 'On track to hit forecast target',
+    enteredBy: 'Lisa Rodriguez',
+    enteredAt: '2024-11-15T09:00:00Z'
+  },
+  
+  // KR-2 (Average Order Value) weekly data
+  {
+    id: 'weekly-4',
+    krId: 'kr-2',
+    weekOf: '2024-10-28',
+    actual: '30',
+    variance: -1,
+    forecastVariance: 2,
+    notes: 'Menu changes showing gradual improvement',
+    enteredBy: 'Michael Brooks',
+    enteredAt: '2024-11-01T14:00:00Z'
+  },
+  {
+    id: 'weekly-5',
+    krId: 'kr-2',
+    weekOf: '2024-11-04',
+    actual: '31',
+    variance: 0,
+    forecastVariance: 1,
+    notes: 'Profitability strategies gaining traction',
+    enteredBy: 'Michael Brooks',
+    enteredAt: '2024-11-08T14:00:00Z'
+  },
+  {
+    id: 'weekly-6',
+    krId: 'kr-2',
+    weekOf: '2024-11-11',
+    actual: '32',
+    variance: 1,
+    forecastVariance: 0,
+    notes: 'Good progress with menu optimization',
+    enteredBy: 'Michael Brooks',
+    enteredAt: '2024-11-15T14:00:00Z'
+  },
+
+  // KR-3 (Support Resolution Time) weekly data
+  {
+    id: 'weekly-7',
+    krId: 'kr-3',
+    weekOf: '2024-10-21',
+    actual: '4.5',
+    variance: -0.5,
+    forecastVariance: 1.5,
+    notes: 'Workforce management improvements starting to show',
+    enteredBy: 'Amanda Clark',
+    enteredAt: '2024-10-25T11:00:00Z'
+  },
+  {
+    id: 'weekly-8',
+    krId: 'kr-3',
+    weekOf: '2024-11-04',
+    actual: '3.5',
+    variance: 0.5,
+    forecastVariance: 0.5,
+    notes: 'MSR process improvements showing results',
+    enteredBy: 'Amanda Clark',
+    enteredAt: '2024-11-08T11:00:00Z'
+  }
 ];
 
 export const mockKRs: KR[] = [
   {
     id: 'kr-1',
-    title: 'Increase user engagement',
-    description: 'Improve daily active users by optimizing key features',
-    teamId: 'team-2',
+    title: 'Improve Customer Acquisition Rate',
+    description: 'Increase new customer sign-ups through optimized selection and onboarding',
+    teamId: 'team-1',
+    podId: 'pod-2',
+    owner: 'Lisa Rodriguez',
     quarterId: 'q4-2024',
-    owner: 'Frank Miller',
+    
+    target: '25000',
+    unit: 'customers',
+    baseline: '15000',
+    
+    current: '21500',
+    progress: 75,
+    forecast: '24000',
+    
     status: 'on-track',
-    target: '50%',
-    current: '32%',
-    baseline: '20%',
-    forecast: '48%',
-    unit: 'percentage',
-    progress: 64,
+    deadline: '2024-12-31',
+    
+    sqlQuery: 'SELECT COUNT(*) FROM customers WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)',
     autoUpdateEnabled: true,
-    sqlQuery: 'SELECT COUNT(DISTINCT user_id) FROM events WHERE date >= CURRENT_DATE - 30',
-    lastUpdated: new Date().toISOString(),
-    comments: [],
-    weeklyActuals: [],
-    linkedInitiativeIds: ['init-1', 'init-2'],
+    lastUpdated: '2024-11-15T08:00:00Z',
+    
+    weeklyActuals: mockWeeklyActuals.filter(w => w.krId === 'kr-1'),
+    comments: [mockComments[0]],
+    linkedInitiativeIds: ['init-1']
   },
   {
     id: 'kr-2',
-    title: 'Reduce page load time',
-    description: 'Optimize performance across all key pages',
-    teamId: 'team-1',
-    podId: 'pod-1',
+    title: 'Increase Average Order Value',
+    description: 'Optimize menu placement and profitability strategies',
+    teamId: 'team-2',
+    podId: 'pod-3',
+    owner: 'Michael Brooks',
     quarterId: 'q4-2024',
-    owner: 'Alice Johnson',
-    status: 'at-risk',
-    target: '< 2s',
-    current: '2.8s',
-    baseline: '3.5s',
-    forecast: '2.2s',
-    unit: 'seconds',
-    progress: 45,
-    autoUpdateEnabled: false,
-    lastUpdated: new Date().toISOString(),
-    comments: [],
-    weeklyActuals: [],
-    linkedInitiativeIds: ['init-3'],
+    
+    target: '35',
+    unit: '$',
+    baseline: '28',
+    
+    current: '32',
+    progress: 60,
+    forecast: '34',
+    
+    status: 'on-track',
+    deadline: '2024-12-31',
+    
+    sqlQuery: 'SELECT AVG(order_total) FROM orders WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)',
+    autoUpdateEnabled: true,
+    lastUpdated: '2024-11-14T16:00:00Z',
+    
+    weeklyActuals: mockWeeklyActuals.filter(w => w.krId === 'kr-2'),
+    comments: [mockComments[1]],
+    linkedInitiativeIds: ['init-2']
   },
   {
     id: 'kr-3',
-    title: 'Launch mobile app',
-    description: 'Release iOS and Android applications',
-    teamId: 'team-1',
-    podId: 'pod-1',
+    title: 'Reduce Support Ticket Resolution Time',
+    description: 'Improve workforce management and MSR processes',
+    teamId: 'team-3',
+    podId: 'pod-6',
+    owner: 'Amanda Clark',
     quarterId: 'q4-2024',
-    owner: 'Bob Smith',
+    
+    target: '2',
+    unit: 'hours',
+    baseline: '6',
+    
+    current: '3.5',
+    progress: 65,
+    forecast: '2.5',
+    
     status: 'on-track',
-    target: '2 apps',
-    current: '1 app',
-    baseline: '0 apps',
-    forecast: '2 apps',
-    unit: 'count',
-    progress: 50,
-    autoUpdateEnabled: false,
-    lastUpdated: new Date().toISOString(),
+    deadline: '2024-12-31',
+    
+    sqlQuery: 'SELECT AVG(resolution_time_hours) FROM support_tickets WHERE resolved_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)',
+    autoUpdateEnabled: true,
+    lastUpdated: '2024-11-10T12:00:00Z',
+    
+    weeklyActuals: mockWeeklyActuals.filter(w => w.krId === 'kr-3'),
     comments: [],
-    weeklyActuals: [],
-    linkedInitiativeIds: ['init-4'],
+    linkedInitiativeIds: ['init-3']
   },
   {
     id: 'kr-4',
-    title: 'Improve customer satisfaction',
-    description: 'Increase NPS score through better support',
-    teamId: 'team-5',
-    podId: 'pod-10',
+    title: 'Improve System Integration Uptime',
+    description: 'Enhance TAMS and S&O system reliability',
+    teamId: 'team-4',
+    podId: 'pod-8',
+    owner: 'Elena Rodriguez',
     quarterId: 'q4-2024',
-    owner: 'Noah Garcia',
+    
+    target: '99.9',
+    unit: '%',
+    baseline: '97.5',
+    
+    current: '99.2',
+    progress: 85,
+    forecast: '99.7',
+    
     status: 'on-track',
-    target: '4.5/5',
-    current: '4.2/5',
-    baseline: '3.8/5',
-    forecast: '4.4/5',
-    unit: 'rating',
-    progress: 75,
+    deadline: '2024-12-31',
+    
+    sqlQuery: 'SELECT (uptime_seconds / total_seconds) * 100 FROM system_metrics WHERE date >= DATE_SUB(NOW(), INTERVAL 7 DAY)',
     autoUpdateEnabled: true,
-    sqlQuery: 'SELECT AVG(rating) FROM customer_feedback WHERE date >= CURRENT_DATE - 30',
-    lastUpdated: new Date().toISOString(),
-    comments: [],
+    lastUpdated: '2024-11-12T14:00:00Z',
+    
     weeklyActuals: [],
-    linkedInitiativeIds: ['init-5'],
+    comments: [],
+    linkedInitiativeIds: ['init-4']
   },
   {
     id: 'kr-5',
-    title: 'Increase revenue',
-    description: 'Drive revenue growth through new features and optimization',
-    teamId: 'team-2',
-    teamIds: ['team-2', 'team-4'],
+    title: 'Reduce Delivery Handoff Time',
+    description: 'Optimize dasher handoff processes and order quality',
+    teamId: 'team-5',
+    podId: 'pod-10',
+    owner: 'Tyler Jackson',
     quarterId: 'q4-2024',
-    owner: 'Rachel Walker',
+    
+    target: '90',
+    unit: 'seconds',
+    baseline: '180',
+    
+    current: '120',
+    progress: 70,
+    forecast: '100',
+    
     status: 'on-track',
-    target: '$10M',
-    current: '$7.5M',
-    baseline: '$5M',
-    forecast: '$9.8M',
-    unit: 'currency',
-    progress: 75,
+    deadline: '2024-12-31',
+    
+    sqlQuery: 'SELECT AVG(handoff_time_seconds) FROM delivery_handoffs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)',
     autoUpdateEnabled: true,
-    sqlQuery: 'SELECT SUM(amount) FROM transactions WHERE date >= CURRENT_DATE - 30',
-    lastUpdated: new Date().toISOString(),
-    comments: [],
+    lastUpdated: '2024-11-13T10:00:00Z',
+    
     weeklyActuals: [],
-    linkedInitiativeIds: ['init-1', 'init-6'],
-  },
+    comments: [],
+    linkedInitiativeIds: ['init-5']
+  }
 ];
 
 export const mockInitiatives: Initiative[] = [
   {
     id: 'init-1',
-    title: 'Personalization Engine',
-    description: 'Build ML-powered recommendation system',
-    teamId: 'team-2',
-    podId: 'pod-4',
-    owner: 'Frank Miller',
-    status: 'in-progress',
+    title: 'Customer Onboarding Flow Redesign',
+    description: 'Redesign the customer acquisition funnel to improve conversion rates',
+    teamId: 'team-1',
+    podId: 'pod-2',
+    owner: 'Lisa Rodriguez',
+    contributors: ['Tom Anderson', 'Jake Martinez', 'Emma Wilson'],
     priority: 'high',
-    impact: 9,
-    confidence: 7,
-    progress: 60,
-    startDate: '2024-10-01',
-    endDate: '2024-12-15',
+    status: 'in-progress',
+    deadline: '2024-12-15',
+    progress: 65,
     milestones: [
-      { id: 'ms-1', initiativeId: 'init-1', title: 'Data pipeline complete', dueDate: '2024-10-31', completed: true },
-      { id: 'ms-2', initiativeId: 'init-1', title: 'ML model trained', dueDate: '2024-11-30', completed: false },
+      {
+        id: 'milestone-1',
+        title: 'User Journey Analysis',
+        description: 'Analyze current onboarding drop-off points',
+        dueDate: '2024-10-15',
+        completed: true,
+        completedDate: '2024-10-12'
+      },
+      {
+        id: 'milestone-2',
+        title: 'New Flow Prototyping',
+        description: 'Create and test new onboarding prototypes',
+        dueDate: '2024-11-15',
+        completed: true,
+        completedDate: '2024-11-10'
+      },
+      {
+        id: 'milestone-3',
+        title: 'Implementation & Testing',
+        description: 'Deploy new onboarding flow and A/B test',
+        dueDate: '2024-12-10',
+        completed: false
+      }
     ],
-    linkedKRIds: ['kr-1', 'kr-5'],
-    budget: 250000,
-    resources: ['person-6', 'person-7'],
+    linkedKRIds: ['kr-1'],
+    tags: ['Onboarding', 'UX', 'Conversion'],
+    budget: 75000,
+    resources: ['Design System', 'A/B Testing Platform']
   },
   {
     id: 'init-2',
-    title: 'Onboarding Redesign',
-    description: 'Streamline new user experience',
-    teamId: 'team-3',
-    owner: 'Kate Thomas',
-    status: 'in-progress',
+    title: 'Menu Optimization Algorithm',
+    description: 'Develop ML-driven menu optimization to increase average order value',
+    teamId: 'team-2',
+    podId: 'pod-4',
+    owner: 'Jessica Wu',
+    contributors: ['David Taylor', 'Alex Foster', 'Kevin Lee'],
     priority: 'high',
-    impact: 8,
-    confidence: 9,
+    status: 'in-progress',
+    deadline: '2024-12-31',
     progress: 40,
-    startDate: '2024-10-15',
-    endDate: '2024-12-01',
-    milestones: [],
-    linkedKRIds: ['kr-1'],
-    resources: ['person-11', 'person-9'],
+    milestones: [
+      {
+        id: 'milestone-4',
+        title: 'Data Analysis Complete',
+        description: 'Analyze menu performance and customer behavior',
+        dueDate: '2024-10-30',
+        completed: true,
+        completedDate: '2024-10-25'
+      },
+      {
+        id: 'milestone-5',
+        title: 'Algorithm Development',
+        description: 'Build and train menu optimization models',
+        dueDate: '2024-11-30',
+        completed: false
+      },
+      {
+        id: 'milestone-6',
+        title: 'Pilot Testing',
+        description: 'Test algorithm with select merchants',
+        dueDate: '2024-12-20',
+        completed: false
+      }
+    ],
+    linkedKRIds: ['kr-2'],
+    tags: ['Machine Learning', 'Menu', 'Revenue'],
+    budget: 120000
   },
   {
     id: 'init-3',
-    title: 'Performance Optimization',
-    description: 'Reduce load times across all pages',
-    teamId: 'team-1',
-    podId: 'pod-1',
-    owner: 'Alice Johnson',
-    status: 'at-risk',
-    priority: 'high',
-    impact: 7,
-    confidence: 6,
-    progress: 30,
-    milestones: [],
-    linkedKRIds: ['kr-2'],
-    resources: ['person-1', 'person-2'],
+    title: 'Support Automation Platform',
+    description: 'Build automated support routing and resolution system',
+    teamId: 'team-3',
+    podId: 'pod-6',
+    owner: 'Amanda Clark',
+    contributors: ['Chris Miller', 'Nicole Brown', 'Maya Patel'],
+    priority: 'medium',
+    status: 'planning',
+    deadline: '2025-01-31',
+    progress: 20,
+    milestones: [
+      {
+        id: 'milestone-7',
+        title: 'Requirements Gathering',
+        description: 'Define automation requirements and workflows',
+        dueDate: '2024-11-15',
+        completed: true,
+        completedDate: '2024-11-10'
+      },
+      {
+        id: 'milestone-8',
+        title: 'Platform Design',
+        description: 'Design automation platform architecture',
+        dueDate: '2024-12-15',
+        completed: false
+      }
+    ],
+    linkedKRIds: ['kr-3'],
+    tags: ['Automation', 'Support', 'AI'],
+    budget: 90000
   },
   {
     id: 'init-4',
-    title: 'Mobile App Development',
-    description: 'Build native iOS and Android apps',
-    teamId: 'team-1',
-    podId: 'pod-1',
-    owner: 'Bob Smith',
-    status: 'in-progress',
+    title: 'Integration Reliability Upgrade',
+    description: 'Upgrade TAMS and S&O systems for improved reliability and performance',
+    teamId: 'team-4',
+    podId: 'pod-9',
+    owner: 'Carlos Mendez',
+    contributors: ['Zoe Chen', 'Oliver Smith', 'James Wilson'],
     priority: 'high',
-    impact: 9,
-    confidence: 8,
-    progress: 50,
-    milestones: [],
-    linkedKRIds: ['kr-3'],
-    budget: 500000,
-    resources: ['person-1', 'person-2', 'person-3', 'person-4'],
+    status: 'in-progress',
+    deadline: '2024-12-20',
+    progress: 55,
+    milestones: [
+      {
+        id: 'milestone-9',
+        title: 'System Audit',
+        description: 'Identify reliability bottlenecks',
+        dueDate: '2024-10-20',
+        completed: true,
+        completedDate: '2024-10-18'
+      },
+      {
+        id: 'milestone-10',
+        title: 'Infrastructure Upgrade',
+        description: 'Upgrade core integration infrastructure',
+        dueDate: '2024-11-30',
+        completed: false
+      }
+    ],
+    linkedKRIds: ['kr-4'],
+    tags: ['Infrastructure', 'Reliability', 'Integrations'],
+    budget: 150000
   },
   {
     id: 'init-5',
-    title: '24/7 Support Coverage',
-    description: 'Implement round-the-clock customer support',
+    title: 'Delivery Quality Monitoring System',
+    description: 'Real-time monitoring and optimization of delivery handoffs and quality',
     teamId: 'team-5',
-    podId: 'pod-10',
-    owner: 'Noah Garcia',
-    status: 'planning',
+    podId: 'pod-11',
+    owner: 'Grace Liu',
+    contributors: ['Ethan Price', 'Samantha Reed', 'Isabella Moore'],
     priority: 'medium',
-    impact: 6,
-    confidence: 8,
-    progress: 20,
-    milestones: [],
-    linkedKRIds: ['kr-4'],
-    resources: ['person-14', 'person-15'],
-  },
-  {
-    id: 'init-6',
-    title: 'Pricing Optimization',
-    description: 'A/B test new pricing tiers',
-    teamId: 'team-2',
-    owner: 'Henry Moore',
     status: 'in-progress',
-    priority: 'high',
-    impact: 8,
-    confidence: 7,
-    progress: 70,
-    milestones: [],
+    deadline: '2024-12-31',
+    progress: 30,
+    milestones: [
+      {
+        id: 'milestone-11',
+        title: 'Monitoring Framework',
+        description: 'Build real-time quality monitoring framework',
+        dueDate: '2024-11-30',
+        completed: false
+      },
+      {
+        id: 'milestone-12',
+        title: 'Handoff Optimization',
+        description: 'Implement automated handoff optimization',
+        dueDate: '2024-12-20',
+        completed: false
+      }
+    ],
     linkedKRIds: ['kr-5'],
-    resources: ['person-8'],
-  },
+    tags: ['Quality', 'Monitoring', 'Delivery'],
+    budget: 80000
+  }
 ];

@@ -1,5 +1,7 @@
-import { Settings, TrendingUp } from "lucide-react";
 import { AppMode } from "../types";
+import { Button } from "./ui/button";
+import { Card, CardContent } from "./ui/card";
+import { Settings, Play, Calendar, BarChart3 } from "lucide-react";
 
 interface ModeSwitchProps {
   currentMode: AppMode;
@@ -8,30 +10,30 @@ interface ModeSwitchProps {
 
 export function ModeSwitch({ currentMode, onModeChange }: ModeSwitchProps) {
   return (
-    <div className="flex bg-muted rounded-lg p-1">
-      <button
-        onClick={() => onModeChange('plan')}
-        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-          currentMode === 'plan'
-            ? 'bg-background text-foreground shadow-sm'
-            : 'text-muted-foreground hover:text-foreground'
-        }`}
-      >
-        <Settings className="h-4 w-4" />
-        Plan Mode
-      </button>
-      <button
-        onClick={() => onModeChange('execution')}
-        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-          currentMode === 'execution'
-            ? 'bg-background text-foreground shadow-sm'
-            : 'text-muted-foreground hover:text-foreground'
-        }`}
-      >
-        <TrendingUp className="h-4 w-4" />
-        Execution Mode
-      </button>
-    </div>
+    <Card className="w-fit">
+      <CardContent className="p-2">
+        <div className="flex items-center gap-1">
+          <Button
+            variant={currentMode === 'plan' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onModeChange('plan')}
+            className="flex items-center gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            Plan Mode
+          </Button>
+          <Button
+            variant={currentMode === 'execution' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onModeChange('execution')}
+            className="flex items-center gap-2"
+          >
+            <Play className="h-4 w-4" />
+            Execution Mode
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -40,29 +42,42 @@ interface ModeDescriptionProps {
 }
 
 export function ModeDescription({ mode }: ModeDescriptionProps) {
-  if (mode === 'plan') {
-    return (
-      <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Settings className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-          <h3 className="font-semibold text-blue-900 dark:text-blue-100">Plan Mode</h3>
-        </div>
-        <p className="text-sm text-blue-700 dark:text-blue-300">
-          Set up your organizational structure, define KRs and initiatives, configure data sources, and establish quarterly goals.
-        </p>
-      </div>
-    );
-  }
+  const descriptions = {
+    plan: {
+      title: "Plan Mode",
+      description: "Set up your organizational structure, define KRs and initiatives, configure data sources, and establish quarterly goals.",
+      features: ["Manage teams & pods", "Configure KRs & targets", "Link initiatives", "Set up SQL queries", "Define relationships"]
+    },
+    execution: {
+      title: "Execution Mode", 
+      description: "Track progress, update actuals, add comments about performance, and adjust forecasts throughout the quarter.",
+      features: ["Update progress", "Track vs plan", "Add comments", "Adjust forecasts", "View auto-updates"]
+    }
+  };
+
+  const info = descriptions[mode];
 
   return (
-    <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-lg p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
-        <h3 className="font-semibold text-green-900 dark:text-green-100">Execution Mode</h3>
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        {mode === 'plan' ? (
+          <Settings className="h-5 w-5 text-muted-foreground" />
+        ) : (
+          <Play className="h-5 w-5 text-muted-foreground" />
+        )}
+        <h2>{info.title}</h2>
       </div>
-      <p className="text-sm text-green-700 dark:text-green-300">
-        Track progress, update actuals, and monitor performance against your quarterly goals. Use filters to focus on specific teams or initiatives.
-      </p>
+      <p className="text-muted-foreground">{info.description}</p>
+      <div className="flex flex-wrap gap-2 mt-2">
+        {info.features.map((feature, index) => (
+          <span
+            key={index}
+            className="px-2 py-1 bg-secondary text-secondary-foreground rounded-md text-sm"
+          >
+            {feature}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

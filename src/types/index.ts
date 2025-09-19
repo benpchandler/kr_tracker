@@ -1,126 +1,169 @@
-export type AppMode = 'plan' | 'execution';
-export type ViewType = 'cards' | 'spreadsheet';
-
-export interface Organization {
-  id: string;
-  name: string;
-}
-
+// Core organizational types
 export interface Team {
   id: string;
   name: string;
-  leadId?: string;
-  color?: string;
+  description?: string;
+  color: string;
+}
+
+// Function types for consistency across the app
+export type FunctionType = 'Analytics' | 'S&O' | 'Engineering' | 'Design' | 'Product';
+
+// Person entity for organization management
+export interface Person {
+  id: string;
+  name: string;
+  email: string;
+  function: FunctionType;
+  managerId?: string; // Reference to another person
+  teamId: string;
+  podId?: string;
+  joinDate: string;
+  active: boolean;
+}
+
+// Pod member with role information
+export interface PodMember {
+  name: string;
+  role: FunctionType;
 }
 
 export interface Pod {
   id: string;
+  name: string;
   teamId: string;
-  name: string;
-  memberIds: string[];
-  mission?: string;
+  description?: string;
+  members: string[] | PodMember[]; // Support both legacy and new format
 }
 
-export interface Person {
-  id: string;
-  name: string;
-  email?: string;
-  role?: string;
-  level?: string;
-  managerId?: string;
-  teamId?: string;
-  podId?: string;
-  active: boolean;
-}
-
+// Time period management
 export interface Quarter {
   id: string;
   name: string;
   startDate: string;
   endDate: string;
-  isCurrent: boolean;
+  year: number;
 }
 
+// Weekly actuals tracking
+export interface WeeklyActual {
+  id: string;
+  krId: string;
+  weekOf: string; // ISO date string for start of week
+  actual: string;
+  variance: number; // vs plan for that week
+  forecastVariance: number; // vs forecast for that week
+  notes?: string;
+  enteredBy: string;
+  enteredAt: string;
+}
+
+// Enhanced KR with planning and execution data
 export interface KR {
   id: string;
   title: string;
-  description?: string;
+  description: string;
+  
+  // Organizational
   teamId: string;
-  teamIds?: string[]; // For cross-team KRs
+  teamIds?: string[]; // Support for multi-team KRs
   podId?: string;
+  owner: string;
   quarterId: string;
-  owner: string;
-  status: 'on-track' | 'at-risk' | 'off-track' | 'completed' | 'not-started';
+  
+  // Planning data
   target: string;
-  current: string;
-  baseline: string;
-  forecast: string;
   unit: string;
+  baseline: string;
+  
+  // Execution data
+  current: string;
   progress: number;
-  autoUpdateEnabled: boolean;
-  sqlQuery?: string;
-  lastUpdated: string;
-  comments: KRComment[];
+  forecast?: string;
+  
+  // Weekly tracking
   weeklyActuals: WeeklyActual[];
+  
+  // Status and metadata
+  status: 'not-started' | 'on-track' | 'at-risk' | 'off-track' | 'completed';
+  deadline: string;
+  
+  // Advanced features
+  sqlQuery?: string;
+  autoUpdateEnabled: boolean;
+  lastUpdated: string;
+  
+  // Comments and notes
+  comments: KRComment[];
+  
+  // Linked initiatives
   linkedInitiativeIds: string[];
-  driId?: string;
-  goalStart?: number;
-  goalEnd?: number;
-  currentValue?: number;
-}
-
-export interface Initiative {
-  id: string;
-  title: string;
-  description?: string;
-  teamId: string;
-  podId?: string;
-  owner: string;
-  status: 'planning' | 'in-progress' | 'at-risk' | 'on-hold' | 'completed' | 'cancelled';
-  priority: 'high' | 'medium' | 'low';
-  impact: number;
-  confidence: number;
-  progress: number;
-  startDate?: string;
-  endDate?: string;
-  milestones: Milestone[];
-  linkedKRIds: string[];
-  budget?: number;
-  resources: string[];
-  isPlaceholder?: boolean;
-}
-
-export interface Milestone {
-  id: string;
-  initiativeId: string;
-  title: string;
-  dueDate: string;
-  completed: boolean;
 }
 
 export interface KRComment {
   id: string;
   krId: string;
   author: string;
-  text: string;
+  content: string;
+  type: 'general' | 'above-plan' | 'below-plan' | 'forecast-update';
   timestamp: string;
 }
 
-export interface WeeklyActual {
+// Enhanced Initiative
+export interface Initiative {
   id: string;
-  krId: string;
-  week: string;
-  value: number;
-  notes?: string;
+  title: string;
+  description: string;
+  
+  // Organizational
+  teamId: string;
+  podId?: string;
+  owner: string;
+  contributors: string[];
+  
+  // Planning
+  priority: 'high' | 'medium' | 'low';
+  status: 'planning' | 'in-progress' | 'on-hold' | 'completed' | 'cancelled';
+  deadline: string;
+  
+  // Progress tracking
+  progress: number;
+  milestones: Milestone[];
+  
+  // Relationships
+  linkedKRIds: string[];
+  
+  // Metadata
+  tags: string[];
+  budget?: number;
+  resources?: string[];
 }
 
+export interface Milestone {
+  id: string;
+  title: string;
+  description?: string;
+  dueDate: string;
+  completed: boolean;
+  completedDate?: string;
+}
+
+// Application modes
+export type AppMode = 'plan' | 'execution';
+
+// View types for different interfaces
+export type ViewType = 'cards' | 'table' | 'spreadsheet';
+
+// Filter types for advanced filtering
 export interface FilterOptions {
   team?: string;
   pod?: string;
+  quarter?: string;
   owner?: string;
   status?: string;
   priority?: string;
   kr?: string;
   initiative?: string;
-  quarter?: string;
 }
+
+export type FilterType = keyof FilterOptions;
