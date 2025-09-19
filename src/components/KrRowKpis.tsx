@@ -22,16 +22,15 @@ export function KrRowKpis({ weeks, filteredKRs }: { weeks: Week[]; filteredKRs?:
         const team = kr.teamId ? state.teams.find(t => t.id === kr.teamId)?.name : undefined
         const pod = kr.podId ? state.pods.find(p => p.id === kr.podId)?.name : undefined
         const unitSuffix = kr.unit === 'percent' ? ' (%)' : (kr.unit === 'currency' ? ' ($)' : '')
-        const statusLabel = (() => {
-          const s = (kr as any).status as ('on_track'|'at_risk'|'off_track'|'deprioritized'|undefined)
-          if (!s) return undefined
-          return s === 'on_track' ? 'On Track' : s === 'at_risk' ? 'At Risk' : s === 'off_track' ? 'Off Track' : 'Deprioritized'
-        })()
-        const statusClass = (() => {
-          const s = (kr as any).status as ('on_track'|'at_risk'|'off_track'|'deprioritized'|undefined)
-          if (!s) return undefined
-          return s === 'on_track' ? 'green' : s === 'at_risk' ? 'yellow' : s === 'off_track' ? 'red' : 'grey'
-        })()
+        const statusValue = (kr as any).status as ('on_track'|'at_risk'|'off_track'|'deprioritized'|undefined)
+        const statusLabel = statusValue
+          ? (statusValue === 'on_track' ? 'On Track' : statusValue === 'at_risk' ? 'At Risk' : statusValue === 'off_track' ? 'Off Track' : 'Deprioritized')
+          : undefined
+        const statusClass = statusValue
+          ? (statusValue === 'on_track' ? 'green' : statusValue === 'at_risk' ? 'yellow' : statusValue === 'off_track' ? 'red' : 'grey')
+          : undefined
+        const varianceValue = variance !== undefined ? variance.toFixed(2) : '—'
+        const paceValue = pacePct !== undefined ? `${pacePct}%` : '—'
         if (!s) return null
         return (
           <div key={kr.id} className="list-item" style={{ alignItems: 'center' }}>
@@ -50,9 +49,35 @@ export function KrRowKpis({ weeks, filteredKRs }: { weeks: Week[]; filteredKRs?:
                 </div>
               )}
               <div className="row" style={{ gap: 8 }}>
-                <div className="badge" title="Weekly variance (actual - plan)">Δ {variance !== undefined ? variance.toFixed(2) : '—'}</div>
-                <div className="badge" title="Pace to date">Pace {pacePct !== undefined ? `${pacePct}%` : '—'}</div>
-                {statusLabel && <div className={`badge ${statusClass}`}>{statusLabel}</div>}
+                <div
+                  className="badge"
+                  role="status"
+                  aria-live="polite"
+                  aria-label={`Weekly variance (actual minus plan): ${varianceValue}`}
+                  title="Weekly variance (actual - plan)"
+                >
+                  Δ {varianceValue}
+                </div>
+                <div
+                  className="badge"
+                  role="status"
+                  aria-live="polite"
+                  aria-label={`Pace to date: ${paceValue}`}
+                  title="Pace to date"
+                >
+                  Pace {paceValue}
+                </div>
+                {statusLabel && (
+                  <div
+                    className={`badge ${statusClass}`}
+                    role="status"
+                    aria-live="polite"
+                    aria-label={`Status: ${statusLabel}`}
+                    title={`Key result status: ${statusLabel}`}
+                  >
+                    {statusLabel}
+                  </div>
+                )}
               </div>
             </div>
             <div>

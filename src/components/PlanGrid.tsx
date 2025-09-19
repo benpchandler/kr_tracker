@@ -4,29 +4,83 @@ import { weekKey } from '../utils/weeks'
 import { useElementWidth } from '../hooks/useElementWidth'
 import { ID, KeyResult } from '../models/types'
 import { WaterfallChart } from './charts/WaterfallChart'
+import { GridRow } from './GridRow'
+import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation'
 
-type Props = { 
+type Props = {
   weeks: { index: number; startISO: string; iso: string; isoLabel: string; dateLabel: string }[]
   filteredKRs?: KeyResult[]
 }
+
+const GRID_TYPE = 'plan'
 
 export function PlanGrid({ weeks, filteredKRs }: Props) {
   const state = useStore(s => s)
   const dispatch = useDispatch()
   const baseline = state.baselines.find(b => b.id === state.currentBaselineId)
   const readOnly = Boolean(baseline)
-  
-  // Use filtered KRs if provided, otherwise use all KRs
-  const krs = filteredKRs || state.krs
 
+  const krs = filteredKRs || state.krs
   if (krs.length === 0) return null
 
   const [wrapRef] = useElementWidth<HTMLDivElement>()
-  const vis = weeks
   const [activeKrId, setActiveKrId] = React.useState<ID | undefined>(krs[0]?.id)
-  const previewKrId = activeKrId || (krs[0]?.id)
+  const previewKrId = activeKrId || krs[0]?.id
   const activeKr = previewKrId ? krs.find(kr => kr.id === previewKrId) : undefined
+  React.useEffect(() => {
+    if (!wrapRef.current) return
+    const dateISO = (state as any).reportingDateISO as string | undefined
+    if (!dateISO) return
+    const week = weeks.find(w => {
+      const start = new Date(`${w.startISO}T00:00:00Z`)
+      const end = new Date(start.getTime())
+      end.setUTCDate(end.getUTCDate() + 6)
+      const d = new Date(`${dateISO}T00:00:00Z`)
+      return d >= start && d <= end
+    })
+    if (!week) return
+    const th = wrapRef.current.querySelector(`th[data-iso="${week.iso}"]`) as HTMLElement | null
+    if (th) th.scrollIntoView({ behavior: 'auto', inline: 'start', block: 'nearest' })
+  }, [wrapRef, weeks, (state as any).reportingDateISO])
 
+  React.useEffect(() => {
+    if (!wrapRef.current) return
+    if (!state.focusKrId) return
+    const tr = wrapRef.current.querySelector(`tr[data-kr="${state.focusKrId}"]`) as HTMLElement | null
+    if (tr) tr.scrollIntoView({ behavior: 'auto', block: 'center' })
+    dispatch({ type: 'FOCUS_KR', krId: undefined })
+  }, [dispatch, state.focusKrId, wrapRef])
+  const gridState = state.ui?.grids
+  const expandedRowState = gridState?.expandedRows?.[GRID_TYPE]
+  const expandedSet =
+    expandedRowState instanceof Set
+      ? expandedRowState
+      : Array.isArray(expandedRowState)
+        ? new Set(expandedRowState)
+        : new Set<string>()
+  const focusedRowId = gridState?.focusedRowId
+
+  const { handleKeyDown: handleNavigationKeyDown, setFocus } = useKeyboardNavigation({
+    items: krs.map(kr => ({ id: kr.id })),
+    onNavigate: id => dispatch({ type: 'SET_GRID_FOCUSED_ROW', krId: id }),
+    enabled: true,
+    wrap: true,
+  })
+
+  const onGridKeyDown = React.useCallback(
+    (event: React.KeyboardEvent) => {
+      handleNavigationKeyDown(event)
+    },
+    [handleNavigationKeyDown]
+  )
+
+  const handleContextMenuAction = React.useCallback((action: string) => {
+    console.info('KR context menu action', action)
+  }, [])
+
+  const stopRowToggle = React.useCallback((event: React.SyntheticEvent) => {
+    event.stopPropagation()
+  }, [])
   return (
     <>
       <div className="grid-nav">
@@ -37,23 +91,39 @@ export function PlanGrid({ weeks, filteredKRs }: Props) {
         </div>
         <div className="muted">All weeks</div>
       </div>
-      <div className="table-wrap" ref={wrapRef}>
-        <table>
+      <div
+        className="table-wrap"
+        ref={wrapRef}
+        onWheel={(e) => {
+          const dx = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : 0
+          if (dx !== 0 && wrapRef.current) {
+            e.preventDefault()
+            wrapRef.current.scrollLeft += dx
+          }
+        }}
+        onKeyDown={onGridKeyDown}
+      >
+        <table className="compact">
           <thead>
             <tr>
               <th className="kr" style={{ minWidth: 200 }}>Key Result</th>
-              {vis.map(w => {
+              {weeks.map(w => {
                 const highlight = (() => {
                   const dateISO = (state as any).reportingDateISO as string | undefined
                   if (!dateISO) return false
-                  const start = new Date(w.startISO + 'T00:00:00Z')
+                  const start = new Date(`${w.startISO}T00:00:00Z`)
                   const end = new Date(start.getTime())
                   end.setUTCDate(end.getUTCDate() + 6)
-                  const d = new Date(dateISO + 'T00:00:00Z')
+                  const d = new Date(`${dateISO}T00:00:00Z`)
                   return d >= start && d <= end
                 })()
                 return (
-                  <th key={w.iso} data-iso={w.iso} className={highlight ? 'week-highlight' : ''} title={`${w.startISO} • ${w.dateLabel}`}>
+                  <th
+                    key={w.iso}
+                    data-iso={w.iso}
+                    className={highlight ? 'week-highlight' : ''}
+                    title={`${w.startISO} • ${w.dateLabel}`}
+                  >
                     <div>{w.isoLabel}</div>
                     <div className="week-date">{w.dateLabel}</div>
                   </th>
@@ -64,59 +134,96 @@ export function PlanGrid({ weeks, filteredKRs }: Props) {
           <tbody>
             {krs.map(kr => {
               const perWeek = state.planDraft[kr.id] || {}
+              const isExpanded = expandedSet.has(kr.id)
+              const isFocused = focusedRowId === kr.id
+
+              const renderExpandedContent = () => (
+                <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    className="badge accent"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setActiveKrId(kr.id)
+                      setFocus(kr.id)
+                      dispatch({ type: 'SET_GRID_FOCUSED_ROW', krId: kr.id })
+                    }}
+                  >
+                    {previewKrId === kr.id ? 'Viewing waterfall' : 'View waterfall'}
+                  </button>
+                  {readOnly && (
+                    <span className="badge muted" style={{ cursor: 'default' }}>
+                      Baseline locked
+                    </span>
+                  )}
+                </div>
+              )
+
               return (
-                <tr key={kr.id} data-kr={kr.id}>
-                  <td className="kr">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <strong>{kr.name}</strong>
-                      <span className="muted" style={{ fontSize: 12 }}>
-                        {kr.aggregation} • {kr.unit}
-                        {kr.teamId ? ` • ${state.teams.find(t => t.id === kr.teamId)?.name || kr.teamId}` : ''}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setActiveKrId(kr.id)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#2E86AB',
-                          padding: 0,
-                          textAlign: 'left',
-                          cursor: 'pointer',
-                          fontSize: 12,
-                        }}
-                        aria-pressed={previewKrId === kr.id}
-                      >
-                        {previewKrId === kr.id ? 'Viewing waterfall' : 'View waterfall'}
-                      </button>
-                    </div>
-                  </td>
-                  {vis.map(w => {
-                    const k = weekKey(w)
-                    const value = (perWeek[k] ?? perWeek[w.startISO]) ?? ''
-                    const highlight = (() => {
-                      const dateISO = (state as any).reportingDateISO as string | undefined
-                      if (!dateISO) return false
-                      const start = new Date(w.startISO + 'T00:00:00Z')
-                      const end = new Date(start.getTime())
-                      end.setUTCDate(end.getUTCDate() + 6)
-                      const d = new Date(dateISO + 'T00:00:00Z')
-                      return d >= start && d <= end
-                    })()
-                    return (
-                      <td key={k} className={highlight ? 'week-highlight' : ''}>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          step="any"
-                          value={value}
-                          onChange={(e) => dispatch({ type: 'UPDATE_PLAN_DRAFT', krId: kr.id, weekKey: k, value: Number(e.target.value) })}
-                          disabled={readOnly}
-                        />
-                      </td>
-                    )
-                  })}
-                </tr>
+                <GridRow
+                  key={kr.id}
+                  kr={kr}
+                  gridType={GRID_TYPE}
+                  isExpanded={isExpanded}
+                  isFocused={isFocused}
+                  onToggle={() => {
+                    dispatch({ type: 'TOGGLE_GRID_ROW', gridType: GRID_TYPE, krId: kr.id })
+                    setActiveKrId(kr.id)
+                    setFocus(kr.id)
+                    dispatch({ type: 'SET_GRID_FOCUSED_ROW', krId: kr.id })
+                  }}
+                  onFocusRow={() => {
+                    setActiveKrId(kr.id)
+                    setFocus(kr.id)
+                    dispatch({ type: 'SET_GRID_FOCUSED_ROW', krId: kr.id })
+                  }}
+                  onContextMenuAction={handleContextMenuAction}
+                  renderExpandedContent={renderExpandedContent}
+                  renderWeekCells={() => (
+                    <>
+                      {weeks.map(w => {
+                        const wk = weekKey(w)
+                        const value = (perWeek[wk] ?? perWeek[w.startISO]) ?? ''
+                        const highlight = (() => {
+                          const dateISO = (state as any).reportingDateISO as string | undefined
+                          if (!dateISO) return false
+                          const start = new Date(`${w.startISO}T00:00:00Z`)
+                          const end = new Date(start.getTime())
+                          end.setUTCDate(end.getUTCDate() + 6)
+                          const d = new Date(`${dateISO}T00:00:00Z`)
+                          return d >= start && d <= end
+                        })()
+                        return (
+                          <td
+                            key={wk}
+                            className={highlight ? 'week-highlight' : ''}
+                            onClick={stopRowToggle}
+                          >
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              step="any"
+                              aria-label={`${kr.name} plan for ${w.isoLabel}`}
+                              value={value}
+                              disabled={readOnly}
+                              onClick={stopRowToggle}
+                              onFocus={(event) => {
+                                stopRowToggle(event)
+                                setActiveKrId(kr.id)
+                                setFocus(kr.id)
+                                dispatch({ type: 'SET_GRID_FOCUSED_ROW', krId: kr.id })
+                              }}
+                              onChange={(e) => {
+                                const next = Number(e.target.value)
+                                if (Number.isNaN(next)) return
+                                dispatch({ type: 'UPDATE_PLAN_DRAFT', krId: kr.id, weekKey: wk, value: next })
+                              }}
+                            />
+                          </td>
+                        )
+                      })}
+                    </>
+                  )}
+                />
               )
             })}
           </tbody>
@@ -131,31 +238,6 @@ export function PlanGrid({ weeks, filteredKRs }: Props) {
           <WaterfallChart krId={previewKrId} height={320} />
         </section>
       )}
-      {/* Anchor views: scroll reporting week to left; focus specific KR if requested */}
-      {React.useEffect(() => {
-        if (!wrapRef.current) return
-        const dateISO = (state as any).reportingDateISO as string | undefined
-        if (dateISO) {
-          const week = weeks.find(w => {
-            const start = new Date(w.startISO + 'T00:00:00Z')
-            const end = new Date(start.getTime())
-            end.setUTCDate(end.getUTCDate() + 6)
-            const d = new Date(dateISO + 'T00:00:00Z')
-            return d >= start && d <= end
-          })
-          if (week) {
-            const th = wrapRef.current.querySelector(`th[data-iso="${week.iso}"]`) as HTMLElement | null
-            if (th) th.scrollIntoView({ behavior: 'auto', inline: 'start', block: 'nearest' })
-          }
-        }
-        // Focus KR row if provided via hint
-        if (state.focusKrId) {
-          const tr = wrapRef.current.querySelector(`tr[data-kr="${state.focusKrId}"]`) as HTMLElement | null
-          if (tr) tr.scrollIntoView({ behavior: 'auto', block: 'center' })
-          // clear hint
-          dispatch({ type: 'FOCUS_KR', krId: undefined })
-        }
-      }, [wrapRef, weeks, (state as any).reportingDateISO, state.focusKrId])}
     </>
   )
 }

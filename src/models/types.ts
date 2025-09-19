@@ -150,6 +150,92 @@ export type Phase = 'planning' | 'execution'
 
 export type Theme = 'light' | 'dark'
 
+export type NavigationUIState = {
+  expandedSectionIds: string[]
+  activeSectionId?: string
+  lastFocusedItemId?: string
+  drawerOpen?: boolean
+}
+
+export type WizardStepKey =
+  | 'welcome'
+  | 'organization'
+  | 'objectives'
+  | 'keyResults'
+  | 'complete'
+
+export type WizardSkipLogEntry = {
+  step: WizardStepKey
+  atISO: string
+  reason?: string
+}
+
+export type WizardOrganizationDraft = {
+  name: string
+  periodStartISO?: string
+  periodEndISO?: string
+  templateId?: string
+}
+
+export type WizardObjectiveDraft = {
+  id: ID
+  name: string
+  teamId?: ID
+  isSuggestion?: boolean
+  createdObjectiveId?: ID
+}
+
+export type WizardKeyResultDraft = {
+  id: ID
+  name: string
+  unit: Unit
+  aggregation: Aggregation
+  goalStart?: number
+  goalEnd?: number
+  objectiveId?: ID
+  teamId?: ID
+}
+
+export type WizardSeededEntities = {
+  templateId?: string
+  pendingTemplateId?: string
+  teamIds: ID[]
+  objectiveIds: ID[]
+  krIds: ID[]
+  lastSeededAt?: string
+  resetRequired?: boolean
+}
+
+export type WizardUIState = {
+  currentStep: WizardStepKey
+  completedSteps: WizardStepKey[]
+  skippedSteps: WizardStepKey[]
+  lastVisitedStep?: WizardStepKey
+  organization: WizardOrganizationDraft
+  objectives: {
+    drafts: WizardObjectiveDraft[]
+  }
+  keyResults: {
+    drafts: WizardKeyResultDraft[]
+  }
+  seeded: WizardSeededEntities
+  skipLog: WizardSkipLogEntry[]
+  reminderAcknowledged?: boolean
+  completedAt?: string
+}
+
+export type GridUIState = {
+  expandedRows: Record<string, Set<string>>  // gridType -> Set of expanded KR IDs
+  focusedRowId?: string
+  lastInteractionTime?: number
+}
+
+export type UIState = {
+  navigation: NavigationUIState
+  wizard: WizardUIState
+  grids?: GridUIState  // Optional for backward compatibility
+}
+
 export type AppState = {
   organization?: Organization
   objectives: Objective[]
@@ -174,6 +260,7 @@ export type AppState = {
   reportingDateISO?: string
   theme?: Theme
   waterfall?: WaterfallState
+  ui?: UIState
   // UI hint: focus a particular KR row in Plan Builder
   focusKrId?: ID
 }

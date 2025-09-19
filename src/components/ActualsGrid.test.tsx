@@ -107,4 +107,49 @@ describe('ActualsGrid', () => {
       ],
     })
   })
+
+  it('skips blank cells when pasting tabular data', async () => {
+    await renderWithProviders({ ui: <ActualsGrid weeks={weeks} />, withStore: false })
+    const target = screen.getAllByRole('spinbutton')[0]
+    fireEvent.focus(target)
+    await Promise.resolve()
+    const text = '10\t\t12'
+    fireEvent.paste(target, {
+      clipboardData: {
+        getData: () => text,
+      },
+    } as unknown as ClipboardEventInit)
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'PASTE_ACTUALS',
+      updates: [
+        { krId: 'kr-1', weekKey: '2025-W02', value: 10 },
+        { krId: 'kr-1', weekKey: '2025-W04', value: 12 },
+      ],
+    })
+  })
+
+  it('normalizes commas and currency characters when pasting', async () => {
+    await renderWithProviders({ ui: <ActualsGrid weeks={weeks.slice(0, 2)} />, withStore: false })
+    const target = screen.getAllByRole('spinbutton')[0]
+    fireEvent.focus(target)
+    await Promise.resolve()
+    const text = '£1,200.50\t300%'
+    fireEvent.paste(target, {
+      clipboardData: {
+        getData: () => text,
+      },
+    } as unknown as ClipboardEventInit)
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'PASTE_ACTUALS',
+      updates: [
+        { krId: 'kr-1', weekKey: '2025-W02', value: 1200.5 },
+        { krId: 'kr-1', weekKey: '2025-W03', value: 300 },
+      ],
+    })
+  })
+
+  it('passes axe accessibility checks', async () => {
+    const { container, checkA11y } = await renderWithProviders({ ui: <ActualsGrid weeks={weeks} />, withStore: false })
+    await checkA11y(container)
+  })
 })

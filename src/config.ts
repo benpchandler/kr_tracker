@@ -6,6 +6,8 @@ const HEALTH_THRESHOLDS = {
   atRisk: 0.95,
 } as const
 
+const ROLLING_WINDOW_WEEKS = 3
+
 const DEFAULT_NUMBER_FORMAT = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 0,
   maximumFractionDigits: 1,
@@ -22,4 +24,4 @@ export function formatNumeric(value: number | null | undefined, options?: { fall
   return format.format(value)
 }
 
-export { STORAGE_KEY, LEGACY_STORAGE_KEYS, HEALTH_THRESHOLDS, DEFAULT_NUMBER_FORMAT }
+export { STORAGE_KEY, LEGACY_STORAGE_KEYS, HEALTH_THRESHOLDS, ROLLING_WINDOW_WEEKS, DEFAULT_NUMBER_FORMAT }

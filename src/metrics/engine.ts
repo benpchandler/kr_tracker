@@ -1,9 +1,7 @@
-import { HEALTH_THRESHOLDS } from '../config'
-import { AppState, ID, KrMetricsSummary, KrWeekMetrics } from '../models/types'
+import { HEALTH_THRESHOLDS, ROLLING_WINDOW_WEEKS } from '../config'
+import { AppState, ID, KeyResult, KrMetricsSummary, KrWeekMetrics } from '../models/types'
 
 type Week = { index: number; startISO: string; iso: string }
-
-const ROLL_N = 3
 
 function mean(values: number[]): number | undefined {
   const xs = values.filter(v => typeof v === 'number' && !isNaN(v))
@@ -24,116 +22,212 @@ function healthFromPace(pace?: number): 'green' | 'yellow' | 'red' | undefined {
   return 'red'
 }
 
+/**
+ * Computes a rolling mean for a series accessor ending at the provided index.
+ */
+function rollingMeanForSeries(
+  series: KrWeekMetrics[],
+  endIndex: number,
+  windowSize: number,
+  selector: (metrics: KrWeekMetrics) => number | undefined,
+  requireFullWindow = false
+): number | undefined {
+  if (endIndex < 0 || windowSize <= 0) return undefined
+  if (requireFullWindow && endIndex + 1 < windowSize) return undefined
+
+  const startIndex = Math.max(0, endIndex - windowSize + 1)
+  const values: number[] = []
+  for (let idx = startIndex; idx <= endIndex; idx++) {
+    const metrics = series[idx]
+    if (!metrics) continue
+    const value = selector(metrics)
+    if (value !== undefined && !Number.isNaN(value)) {
+      values.push(value)
+    }
+  }
+
+  return mean(values)
+}
+
+/**
+ * Builds the per-week metrics series for a key result including cumulative context.
+ */
+function buildBaseSeries(
+  kr: KeyResult,
+  weeks: Week[],
+  perWeekPlan: Record<string, number | undefined>,
+  perWeekActual: Record<string, number | undefined>
+): KrWeekMetrics[] {
+  const series: KrWeekMetrics[] = []
+  let cumulativeActual = 0
+  let cumulativePlan = 0
+
+  for (const week of weeks) {
+    const plan = perWeekPlan[week.iso] ?? perWeekPlan[week.startISO]
+    const actual = perWeekActual[week.iso] ?? perWeekActual[week.startISO]
+    const previous = series[series.length - 1]
+    const prevActual = previous?.actual
+    const deltaWoW = prevActual !== undefined && actual !== undefined ? actual - prevActual : undefined
+    const deltaWoWPct =
+      prevActual !== undefined && prevActual !== 0 && actual !== undefined
+        ? (actual - prevActual) / prevActual
+        : undefined
+
+    if (kr.aggregation === 'cumulative') {
+      cumulativeActual += actual ?? 0
+      cumulativePlan += plan ?? 0
+    }
+
+    const metrics: KrWeekMetrics = {
+      krId: kr.id,
+      isoWeek: week.iso,
+      index: week.index,
+      actual,
+      plan,
+      deltaWoW,
+      deltaWoWPct,
+      varianceWeekly: actual !== undefined && plan !== undefined ? actual - plan : undefined,
+      cumulativeActual: kr.aggregation === 'cumulative' ? cumulativeActual : undefined,
+      cumulativePlan: kr.aggregation === 'cumulative' ? cumulativePlan : undefined,
+    }
+
+    series.push(metrics)
+    metrics.rolling3 = rollingMeanForSeries(series, series.length - 1, ROLLING_WINDOW_WEEKS, m => m.actual, true)
+  }
+
+  return series
+}
+
+/**
+ * Applies the aggregation-specific calculations for pace and forecast.
+ */
+function applyAggregationMetrics(kr: KeyResult, series: KrWeekMetrics[]): void {
+  if (series.length === 0) return
+
+  switch (kr.aggregation) {
+    case 'cumulative':
+      applyCumulativeAggregation(series)
+      break
+    case 'snapshot':
+      applySnapshotAggregation(series)
+      break
+    case 'average':
+      applyAverageAggregation(series)
+      break
+  }
+}
+
+/**
+ * Computes cumulative pace and forecast projections.
+ */
+function applyCumulativeAggregation(series: KrWeekMetrics[]): void {
+  for (let i = 0; i < series.length; i++) {
+    const metrics = series[i]
+    if (
+      metrics.cumulativeActual !== undefined &&
+      metrics.cumulativePlan !== undefined &&
+      metrics.cumulativePlan !== 0
+    ) {
+      metrics.paceToDatePct = metrics.cumulativeActual / metrics.cumulativePlan
+    }
+
+    const remainingWeeks = series.length - 1 - i
+    if (metrics.rolling3 !== undefined && metrics.cumulativeActual !== undefined) {
+      metrics.forecastEOP = metrics.cumulativeActual + metrics.rolling3 * remainingWeeks
+    }
+  }
+}
+
+/**
+ * Computes snapshot pace and forecast values using the latest valid data.
+ */
+function applySnapshotAggregation(series: KrWeekMetrics[]): void {
+  let lastPace: number | undefined
+  for (const metrics of series) {
+    if (metrics.actual !== undefined && metrics.plan !== undefined && metrics.plan !== 0) {
+      lastPace = metrics.actual / metrics.plan
+    }
+
+    metrics.paceToDatePct = lastPace
+    metrics.forecastEOP = metrics.rolling3 ?? metrics.actual
+  }
+}
+
+/**
+ * Computes rolling averages for average aggregations and derives pace/forecast.
+ */
+function applyAverageAggregation(series: KrWeekMetrics[]): void {
+  if (series.length === 0) return
+
+  const rollingActuals = new Array<number | undefined>(series.length)
+  const rollingPlans = new Array<number | undefined>(series.length)
+
+  for (let i = 0; i < series.length; i++) {
+    rollingActuals[i] = rollingMeanForSeries(series, i, ROLLING_WINDOW_WEEKS, m => m.actual)
+    rollingPlans[i] = rollingMeanForSeries(series, i, ROLLING_WINDOW_WEEKS, m => m.plan)
+    series[i].rolling3 = rollingActuals[i]
+
+    const rollActual = rollingActuals[i]
+    const rollPlan = rollingPlans[i]
+    if (rollActual !== undefined && rollPlan !== undefined && rollPlan !== 0) {
+      series[i].paceToDatePct = rollActual / rollPlan
+    }
+
+    series[i].forecastEOP = rollActual
+  }
+}
+
+/**
+ * Assigns KR health based on the most recent pace and goal directionality.
+ */
+function assignHealthState(kr: KeyResult, series: KrWeekMetrics[]): void {
+  if (series.length === 0) return
+
+  const latestIdx = lastIndexWith(series.map(s => s.paceToDatePct)) ?? series.length - 1
+  if (latestIdx < 0 || latestIdx >= series.length) return
+
+  const latest = series[latestIdx]
+  if (!latest) return
+
+  const isDecreaseGoal =
+    typeof kr.goalStart === 'number' &&
+    typeof kr.goalEnd === 'number' &&
+    kr.goalEnd < kr.goalStart
+
+  const pace = latest.paceToDatePct
+  if (pace !== undefined) {
+    const effectivePace = isDecreaseGoal && pace > 0 ? 1 / pace : pace
+    const derivedHealth = healthFromPace(effectivePace)
+    if (derivedHealth) {
+      latest.health = derivedHealth
+    }
+    return
+  }
+
+  if (latest.actual === undefined || latest.plan === undefined) return
+
+  let isOnTrack = false
+  if (isDecreaseGoal) {
+    isOnTrack = latest.actual <= latest.plan
+  } else {
+    isOnTrack = latest.actual >= latest.plan
+  }
+
+  latest.health = isOnTrack ? 'yellow' : 'red'
+}
+
 export function computeMetrics(state: AppState, weeks: Week[]): Map<ID, KrWeekMetrics[]> {
   const map = new Map<ID, KrWeekMetrics[]>()
   const baseline = state.baselines.find(b => b.id === state.currentBaselineId)
   if (!baseline) return map
 
   for (const kr of state.krs) {
-    const perWeekActual = state.actuals[kr.id] || {}
-    const perWeekPlan = baseline.data[kr.id] || {}
-    const series: KrWeekMetrics[] = []
-    let cumA = 0
-    let cumP = 0
-    for (const w of weeks) {
-      const plan = perWeekPlan[w.iso] ?? perWeekPlan[w.startISO]
-      const actual = perWeekActual[w.iso] ?? perWeekActual[w.startISO]
-      const prev = series[series.length - 1]
-      const deltaWoW = prev && actual !== undefined && prev.actual !== undefined ? (actual - prev.actual) : undefined
-      const deltaWoWPct = prev && actual !== undefined && prev.actual ? (actual - prev.actual) / prev.actual : undefined
+    const perWeekActual = state.actuals[kr.id] ?? {}
+    const perWeekPlan = baseline.data[kr.id] ?? {}
+    const series = buildBaseSeries(kr, weeks, perWeekPlan, perWeekActual)
 
-      if (kr.aggregation === 'cumulative') {
-        cumA += (actual ?? 0)
-        cumP += (plan ?? 0)
-      }
-
-      // rolling3 actual
-      let rolling3: number | undefined
-      if (series.length >= ROLL_N - 1) {
-        const window = series.slice(- (ROLL_N - 1)).map(s => s.actual)
-        window.push(actual)
-        rolling3 = mean(window.filter(v => v !== undefined) as number[])
-      }
-
-      const m: KrWeekMetrics = {
-        krId: kr.id,
-        isoWeek: w.iso,
-        index: w.index,
-        actual,
-        plan,
-        deltaWoW,
-        deltaWoWPct,
-        rolling3,
-        varianceWeekly: actual !== undefined && plan !== undefined ? (actual - plan) : undefined,
-        cumulativeActual: kr.aggregation === 'cumulative' ? cumA : undefined,
-        cumulativePlan: kr.aggregation === 'cumulative' ? cumP : undefined,
-      }
-      series.push(m)
-    }
-
-    // compute pace and forecast based on type
-    if (kr.aggregation === 'cumulative') {
-      for (let i = 0; i < series.length; i++) {
-        const s = series[i]
-        if (s.cumulativeActual !== undefined && s.cumulativePlan && s.cumulativePlan > 0) {
-          s.paceToDatePct = s.cumulativeActual / s.cumulativePlan
-        }
-        const remaining = series.length - 1 - i
-        const roll = s.rolling3
-        if (roll !== undefined && s.cumulativeActual !== undefined) {
-          s.forecastEOP = s.cumulativeActual + roll * remaining
-        }
-      }
-    } else if (kr.aggregation === 'snapshot') {
-      // pace = last available weekly actual/plan
-      let lastPace: number | undefined
-      for (let i = 0; i < series.length; i++) {
-        const s = series[i]
-        if (s.actual !== undefined && s.plan !== undefined && s.plan !== 0) {
-          lastPace = s.actual / s.plan
-        }
-        s.paceToDatePct = lastPace
-        s.forecastEOP = s.rolling3 ?? s.actual
-      }
-    } else if (kr.aggregation === 'average') {
-      // rolling average for actual and plan, pace = rollA/rollP
-      const rollA: (number | undefined)[] = []
-      const rollP: (number | undefined)[] = []
-      for (let i = 0; i < series.length; i++) {
-        const aWin: number[] = []
-        const pWin: number[] = []
-        for (let j = Math.max(0, i - (ROLL_N - 1)); j <= i; j++) {
-          if (series[j].actual !== undefined) aWin.push(series[j].actual!)
-          if (series[j].plan !== undefined) pWin.push(series[j].plan!)
-        }
-        rollA[i] = aWin.length ? mean(aWin)! : undefined
-        rollP[i] = pWin.length ? mean(pWin)! : undefined
-        series[i].rolling3 = rollA[i]
-        if (rollA[i] !== undefined && rollP[i]) series[i].paceToDatePct = rollA[i]! / rollP[i]!
-        series[i].forecastEOP = rollA[i]
-      }
-    }
-
-    // Health based on latest pace adjusted for directionality
-    const latestIdx = lastIndexWith(series.map(s => s.paceToDatePct)) ?? (series.length - 1)
-    const latest = series[latestIdx]
-    if (latest) {
-      const isDecrease = (() => {
-        if (typeof kr.goalStart === 'number' && typeof kr.goalEnd === 'number') return kr.goalEnd < kr.goalStart
-        return false
-      })()
-      let p = latest.paceToDatePct
-      if (p !== undefined) {
-        // For decrease goals, being below plan is good → invert pace
-        const effective = isDecrease ? (p > 0 ? 1 / p : undefined) : p
-        const h = healthFromPace(effective)
-        if (h) latest.health = h
-      } else if (latest.actual !== undefined && latest.plan !== undefined) {
-        // Fallback to variance sign when pace undefined
-        const good = isDecrease ? (latest.actual <= latest.plan) : (latest.actual >= latest.plan)
-        latest.health = good ? 'yellow' : 'red'
-      }
-    }
+    applyAggregationMetrics(kr, series)
+    assignHealthState(kr, series)
 
     map.set(kr.id, series)
   }

@@ -1,6 +1,35 @@
 import React from 'react'
 import { STORAGE_KEY, LEGACY_STORAGE_KEYS } from '../config'
-import { AppState, Objective, KeyResult, ID, PlanBaseline, Team, Initiative, Pod, Individual, Organization, ViewFilter, PlanDraft, Phase, Theme, InitiativeWeekly, InitiativeWeeklyMeta, FunctionalArea, PersonLevel, WaterfallState, WaterfallConfig, WaterfallScenarioKey, WaterfallAnnotation } from '../models/types'
+import {
+  AppState,
+  Objective,
+  KeyResult,
+  ID,
+  PlanBaseline,
+  Team,
+  Initiative,
+  Pod,
+  Individual,
+  Organization,
+  ViewFilter,
+  PlanDraft,
+  Phase,
+  Theme,
+  InitiativeWeekly,
+  InitiativeWeeklyMeta,
+  FunctionalArea,
+  PersonLevel,
+  WaterfallState,
+  WaterfallConfig,
+  WaterfallScenarioKey,
+  WaterfallAnnotation,
+  NavigationUIState,
+  UIState,
+  GridUIState,
+  WizardUIState,
+  WizardStepKey,
+} from '../models/types'
+import { DEFAULT_NAVIGATION_SECTION_IDS } from '../config/navigationMap'
 import { generateWeeks, toISODate, parseISO } from '../utils/weeks'
 
 // Seed data for Merchant organization, teams, pods, leaders, and sample KRs
@@ -187,6 +216,201 @@ const inPeriod = (() => {
 })()
 const DEFAULT_REPORTING = inPeriod ? CURRENT_WEEK_MONDAY : (SEED_WEEKS[0]?.startISO || DEFAULT_PERIOD.startISO)
 
+const CLEAN_QUERY_PARAM = 'clean'
+const CLEAN_STORAGE_FLAG = `${STORAGE_KEY}__clean`
+
+const isCleanRequested = () => {
+  if (typeof window === 'undefined') return false
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const raw = params.get(CLEAN_QUERY_PARAM)
+    if (!raw) return false
+    const normalized = raw.trim().toLowerCase()
+    return normalized === '' || normalized === '1' || normalized === 'true' || normalized === 'yes'
+  } catch {
+    return false
+  }
+}
+
+const hasCleanBootstrap = () => {
+  if (typeof window === 'undefined') return false
+  try {
+    return localStorage.getItem(CLEAN_STORAGE_FLAG) === '1'
+  } catch {
+    return false
+  }
+}
+
+export const SETUP_WIZARD_STEPS: WizardStepKey[] = ['welcome', 'organization', 'objectives', 'keyResults', 'complete']
+
+export const createDefaultWizardState = (): WizardUIState => ({
+  currentStep: 'welcome',
+  completedSteps: [],
+  skippedSteps: [],
+  lastVisitedStep: 'welcome',
+  organization: {
+    name: '',
+    periodStartISO: undefined,
+    periodEndISO: undefined,
+    templateId: undefined,
+  },
+  objectives: {
+    drafts: [],
+  },
+  keyResults: {
+    drafts: [],
+  },
+  seeded: {
+    templateId: undefined,
+    pendingTemplateId: undefined,
+    teamIds: [],
+    objectiveIds: [],
+    krIds: [],
+    lastSeededAt: undefined,
+    resetRequired: false,
+  },
+  skipLog: [],
+  reminderAcknowledged: false,
+  completedAt: undefined,
+})
+
+type WizardObjectiveDraft = WizardUIState['objectives']['drafts'][number]
+type WizardKeyResultDraft = WizardUIState['keyResults']['drafts'][number]
+type WizardSkipLogEntry = WizardUIState['skipLog'][number]
+
+const cloneWizardObjectiveDraft = (draft: WizardObjectiveDraft): WizardObjectiveDraft => ({ ...draft })
+const cloneWizardKeyResultDraft = (draft: WizardKeyResultDraft): WizardKeyResultDraft => ({ ...draft })
+const cloneWizardSkipLogEntry = (entry: WizardSkipLogEntry): WizardSkipLogEntry => ({ ...entry })
+
+function mergeWizardState(prev: WizardUIState, patch?: Partial<WizardUIState>): WizardUIState {
+  if (!patch) {
+    return {
+      ...prev,
+      completedSteps: [...prev.completedSteps],
+      skippedSteps: [...prev.skippedSteps],
+      lastVisitedStep: prev.lastVisitedStep,
+      organization: { ...prev.organization },
+      objectives: { ...prev.objectives, drafts: prev.objectives.drafts.map(cloneWizardObjectiveDraft) },
+      keyResults: { ...prev.keyResults, drafts: prev.keyResults.drafts.map(cloneWizardKeyResultDraft) },
+      seeded: {
+        ...prev.seeded,
+        teamIds: [...prev.seeded.teamIds],
+        objectiveIds: [...prev.seeded.objectiveIds],
+        krIds: [...prev.seeded.krIds],
+      },
+      skipLog: prev.skipLog.map(cloneWizardSkipLogEntry),
+      reminderAcknowledged: prev.reminderAcknowledged,
+    }
+  }
+
+  const completedSteps = patch.completedSteps
+    ? (Array.from(new Set(patch.completedSteps)) as WizardStepKey[])
+    : [...prev.completedSteps]
+
+  const skippedSteps = patch.skippedSteps
+    ? (Array.from(new Set(patch.skippedSteps)) as WizardStepKey[])
+    : [...prev.skippedSteps]
+
+  const organization = { ...prev.organization, ...(patch.organization || {}) }
+
+  const nextObjectives = {
+    ...prev.objectives,
+    ...(patch.objectives || {}),
+    drafts: patch.objectives?.drafts
+      ? patch.objectives.drafts.map(cloneWizardObjectiveDraft)
+      : prev.objectives.drafts.map(cloneWizardObjectiveDraft),
+  }
+
+  const nextKeyResults = {
+    ...prev.keyResults,
+    ...(patch.keyResults || {}),
+    drafts: patch.keyResults?.drafts
+      ? patch.keyResults.drafts.map(cloneWizardKeyResultDraft)
+      : prev.keyResults.drafts.map(cloneWizardKeyResultDraft),
+  }
+
+  const seeded = {
+    ...prev.seeded,
+    ...(patch.seeded || {}),
+    teamIds: patch.seeded?.teamIds ? [...patch.seeded.teamIds] : [...prev.seeded.teamIds],
+    objectiveIds: patch.seeded?.objectiveIds ? [...patch.seeded.objectiveIds] : [...prev.seeded.objectiveIds],
+    krIds: patch.seeded?.krIds ? [...patch.seeded.krIds] : [...prev.seeded.krIds],
+  }
+
+  const skipLog = patch.skipLog
+    ? patch.skipLog.map(cloneWizardSkipLogEntry)
+    : prev.skipLog.map(cloneWizardSkipLogEntry)
+
+  return {
+    ...prev,
+    ...patch,
+    currentStep: patch.currentStep ?? prev.currentStep,
+    completedSteps,
+    skippedSteps,
+    lastVisitedStep: patch.lastVisitedStep ?? patch.currentStep ?? prev.lastVisitedStep,
+    organization,
+    objectives: nextObjectives,
+    keyResults: nextKeyResults,
+    seeded: {
+      ...seeded,
+      lastSeededAt: patch.seeded?.lastSeededAt ?? seeded.lastSeededAt,
+      resetRequired: patch.seeded?.resetRequired ?? seeded.resetRequired ?? false,
+    },
+    skipLog,
+    reminderAcknowledged: patch.reminderAcknowledged ?? prev.reminderAcknowledged,
+    completedAt: patch.completedAt ?? prev.completedAt,
+  }
+}
+
+const normalizeWizardState = (value?: Partial<WizardUIState>): WizardUIState =>
+  mergeWizardState(createDefaultWizardState(), value)
+
+const createDefaultNavigationState = (): NavigationUIState => ({
+  expandedSectionIds: Array.from(DEFAULT_NAVIGATION_SECTION_IDS),
+  activeSectionId: DEFAULT_NAVIGATION_SECTION_IDS[0] ?? 'workspace',
+  drawerOpen: false,
+})
+
+const createDefaultGridState = (): GridUIState => ({
+  expandedRows: {},
+  focusedRowId: undefined,
+  lastInteractionTime: undefined,
+})
+
+const createDefaultUIState = (): UIState => ({
+  navigation: createDefaultNavigationState(),
+  wizard: createDefaultWizardState(),
+  grids: createDefaultGridState(),
+})
+
+export const createCleanState = (): AppState => ({
+  organization: undefined,
+  objectives: [],
+  krs: [],
+  teams: [],
+  pods: [],
+  podMemberships: [],
+  individuals: [],
+  people: [],
+  period: DEFAULT_PERIOD,
+  planDraft: {},
+  planMeta: undefined,
+  actuals: {},
+  actualMeta: undefined,
+  baselines: [],
+  currentBaselineId: undefined,
+  initiatives: [],
+  initiativeWeekly: undefined,
+  initiativeWeeklyMeta: undefined,
+  currentView: { level: 'organization' },
+  phase: 'planning',
+  reportingDateISO: DEFAULT_REPORTING,
+  ui: createDefaultUIState(),
+  theme: 'light',
+  waterfall: { ...DEFAULT_WATERFALL_STATE },
+  focusKrId: undefined,
+})
+
 const DEFAULT_STATE: AppState = {
   organization: ORG,
   objectives: OBJECTIVES,
@@ -204,8 +428,9 @@ const DEFAULT_STATE: AppState = {
   currentBaselineId: INITIAL_BASELINE.id,
   initiatives: INITIATIVES,
   currentView: { level: 'organization', targetId: ORG?.id },
-  phase: 'execution',
+  phase: 'planning',
   reportingDateISO: DEFAULT_REPORTING,
+  ui: createDefaultUIState(),
   theme: 'light',
   waterfall: { ...DEFAULT_WATERFALL_STATE },
 }
@@ -249,18 +474,40 @@ function stripGoalsFromName(name: string): string {
   return name.slice(0, idx).trim()
 }
 
-export function coalesceState(parsed: any): AppState {
+export function coalesceState(parsed: any, options?: { skipSeeding?: boolean }): AppState {
+  const skipSeeding = options?.skipSeeding ?? false
+  const baseState = skipSeeding ? createCleanState() : DEFAULT_STATE
   // Merge with defaults and ensure core collections exist.
-  const merged: AppState = { ...DEFAULT_STATE, ...(parsed || {}) }
+  const merged: AppState = { ...baseState, ...(parsed || {}) }
   // Ensure new fields exist
   if (!Array.isArray(merged.podMemberships)) merged.podMemberships = []
   if (!Array.isArray(merged.people)) merged.people = []
   // If critical seed lists are empty, reapply seeds (common after schema changes)
-  if (!Array.isArray(merged.teams) || merged.teams.length === 0) merged.teams = TEAMS
-  if (!Array.isArray(merged.pods) || merged.pods.length === 0) merged.pods = PODS
-  if (!Array.isArray(merged.individuals) || merged.individuals.length === 0) merged.individuals = INDIVIDUALS
-  if (!Array.isArray(merged.krs) || merged.krs.length === 0) merged.krs = KRS
-  if (!Array.isArray(merged.objectives) || merged.objectives.length === 0) merged.objectives = OBJECTIVES
+  if (!Array.isArray(merged.teams)) {
+    merged.teams = []
+  } else if (!skipSeeding && merged.teams.length === 0) {
+    merged.teams = TEAMS
+  }
+  if (!Array.isArray(merged.pods)) {
+    merged.pods = []
+  } else if (!skipSeeding && merged.pods.length === 0) {
+    merged.pods = PODS
+  }
+  if (!Array.isArray(merged.individuals)) {
+    merged.individuals = []
+  } else if (!skipSeeding && merged.individuals.length === 0) {
+    merged.individuals = INDIVIDUALS
+  }
+  if (!Array.isArray(merged.krs)) {
+    merged.krs = []
+  } else if (!skipSeeding && merged.krs.length === 0) {
+    merged.krs = KRS
+  }
+  if (!Array.isArray(merged.objectives)) {
+    merged.objectives = []
+  } else if (!skipSeeding && merged.objectives.length === 0) {
+    merged.objectives = OBJECTIVES
+  }
   if (!merged.period?.startISO || !merged.period?.endISO) merged.period = DEFAULT_PERIOD
   if (!merged.reportingDateISO) merged.reportingDateISO = DEFAULT_REPORTING
   if (!merged.theme) merged.theme = 'light'
@@ -275,6 +522,54 @@ export function coalesceState(parsed: any): AppState {
   // Ensure phase is properly typed
   if (merged.phase && typeof merged.phase === 'string') {
     merged.phase = (merged.phase === 'execution' ? 'execution' : 'planning') as Phase
+  }
+
+  const defaultUI = createDefaultUIState()
+  if (!merged.ui || typeof merged.ui !== 'object') {
+    merged.ui = defaultUI
+  } else {
+    const providedNav = merged.ui.navigation || defaultUI.navigation
+    const navigation: NavigationUIState = {
+      ...defaultUI.navigation,
+      ...providedNav,
+      expandedSectionIds:
+        Array.isArray(providedNav.expandedSectionIds) && providedNav.expandedSectionIds.length > 0
+          ? [...providedNav.expandedSectionIds]
+          : [...defaultUI.navigation.expandedSectionIds],
+      drawerOpen: providedNav.drawerOpen ?? defaultUI.navigation.drawerOpen,
+      activeSectionId: providedNav.activeSectionId ?? defaultUI.navigation.activeSectionId,
+      lastFocusedItemId: providedNav.lastFocusedItemId ?? defaultUI.navigation.lastFocusedItemId,
+    }
+
+    // Handle grids state - convert any serialized Sets back to Sets
+    const providedGrids = (merged.ui as any).grids
+    let grids: GridUIState = defaultUI.grids!
+    if (providedGrids && typeof providedGrids === 'object') {
+      const expandedRows: Record<string, Set<string>> = {}
+      if (providedGrids.expandedRows && typeof providedGrids.expandedRows === 'object') {
+        for (const [gridType, rows] of Object.entries(providedGrids.expandedRows)) {
+          if (Array.isArray(rows)) {
+            expandedRows[gridType] = new Set(rows)
+          } else if (rows instanceof Set) {
+            expandedRows[gridType] = rows
+          } else {
+            expandedRows[gridType] = new Set()
+          }
+        }
+      }
+      grids = {
+        expandedRows,
+        focusedRowId: providedGrids.focusedRowId,
+        lastInteractionTime: providedGrids.lastInteractionTime,
+      }
+    }
+
+    merged.ui = {
+      ...merged.ui,
+      navigation,
+      wizard: normalizeWizardState((merged.ui as any).wizard),
+      grids,
+    }
   }
 
   // Backfill KR goalStart/goalEnd from name if missing
@@ -295,30 +590,103 @@ export function coalesceState(parsed: any): AppState {
 }
 
 export function loadState(): AppState {
+  const cleanRequested = isCleanRequested()
   try {
+    if (cleanRequested) {
+      const bootstrapped = hasCleanBootstrap()
+      if (!bootstrapped) {
+        const cleanState = createCleanState()
+        try {
+          localStorage.setItem(CLEAN_STORAGE_FLAG, '1')
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanState))
+        } catch {}
+        return cleanState
+      }
+
+      try { localStorage.setItem(CLEAN_STORAGE_FLAG, '1') } catch {}
+      const rawClean = (() => {
+        try {
+          return localStorage.getItem(STORAGE_KEY)
+        } catch {
+          return null
+        }
+      })()
+      if (rawClean) {
+        try {
+          return coalesceState(JSON.parse(rawClean), { skipSeeding: true })
+        } catch {
+          // fall through to fresh clean state
+        }
+      }
+      const fallbackClean = createCleanState()
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(fallbackClean)) } catch {}
+      return fallbackClean
+    }
+
+    try { localStorage.removeItem(CLEAN_STORAGE_FLAG) } catch {}
+
     // Try new key first
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return coalesceState(JSON.parse(raw))
+    const raw = (() => {
+      try {
+        return localStorage.getItem(STORAGE_KEY)
+      } catch {
+        return null
+      }
+    })()
+    if (raw) {
+      try {
+        return coalesceState(JSON.parse(raw))
+      } catch {
+        // continue to legacy migration if JSON parse fails
+      }
+    }
 
     // Fallback to any legacy keys once (one-time migration)
     for (const key of LEGACY_STORAGE_KEYS) {
-      const legacy = localStorage.getItem(key)
+      const legacy = (() => {
+        try {
+          return localStorage.getItem(key)
+        } catch {
+          return null
+        }
+      })()
       if (legacy) {
-        const migrated = coalesceState(JSON.parse(legacy))
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated)) } catch {}
-        return migrated
+        try {
+          const migrated = coalesceState(JSON.parse(legacy))
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated)) } catch {}
+          return migrated
+        } catch {
+          // continue to next legacy key
+        }
       }
     }
 
     // Fresh default
     return DEFAULT_STATE
   } catch {
-    return DEFAULT_STATE
+    return cleanRequested ? createCleanState() : DEFAULT_STATE
   }
 }
 
 export function saveState(state: AppState) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) } catch {}
+  try {
+    // Convert Sets to Arrays for serialization
+    const stateToSave = { ...state }
+    if (stateToSave.ui?.grids?.expandedRows) {
+      const expandedRowsAsArrays: Record<string, string[]> = {}
+      for (const [gridType, rowSet] of Object.entries(stateToSave.ui.grids.expandedRows)) {
+        expandedRowsAsArrays[gridType] = Array.from(rowSet)
+      }
+      stateToSave.ui = {
+        ...stateToSave.ui,
+        grids: {
+          ...stateToSave.ui.grids,
+          expandedRows: expandedRowsAsArrays as any,
+        },
+      }
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave))
+  } catch {}
 }
 
 async function syncToServer(action: Action, state: AppState) {
@@ -394,6 +762,12 @@ type Action =
   | { type: 'SET_VIEW_FILTER'; filter: ViewFilter | undefined }
   | { type: 'SET_REPORTING_DATE'; dateISO: string }
   | { type: 'SET_THEME'; theme: Theme }
+  | { type: 'SET_NAVIGATION_UI_STATE'; navigation: Partial<NavigationUIState> }
+  | { type: 'UPDATE_WIZARD_UI_STATE'; patch: Partial<WizardUIState> }
+  | { type: 'TOGGLE_GRID_ROW'; gridType: string; krId: ID }
+  | { type: 'SET_GRID_FOCUSED_ROW'; krId?: ID }
+  | { type: 'COLLAPSE_ALL_GRID_ROWS'; gridType: string }
+  | { type: 'EXPAND_ALL_GRID_ROWS'; gridType: string; krIds: ID[] }
   | { type: 'UPDATE_PLAN_DRAFT'; krId: ID; weekKey: string; value: number }
   | { type: 'UPDATE_ACTUALS'; krId: ID; weekKey: string; value: number }
   | { type: 'PASTE_ACTUALS'; updates: { krId: ID; weekKey: string; value: number }[] }
@@ -644,8 +1018,135 @@ export function reducer(state: AppState, action: Action): AppState {
       void syncToServer(action, next)
       return next
     }
+    case 'SET_NAVIGATION_UI_STATE': {
+      const baseUI = state.ui || createDefaultUIState()
+      const baseNavigation = baseUI.navigation || createDefaultNavigationState()
+      const nextNavigation: NavigationUIState = {
+        ...baseNavigation,
+        ...action.navigation,
+        expandedSectionIds: action.navigation.expandedSectionIds
+          ? [...action.navigation.expandedSectionIds]
+          : [...baseNavigation.expandedSectionIds],
+      }
+      const nextUI: UIState = {
+        ...baseUI,
+        navigation: nextNavigation,
+      }
+      const next = { ...state, ui: nextUI }
+      saveState(next)
+      return next
+    }
+    case 'UPDATE_WIZARD_UI_STATE': {
+      const baseUI = state.ui || createDefaultUIState()
+      const prevWizard = baseUI.wizard || createDefaultWizardState()
+      const nextWizard = mergeWizardState(prevWizard, action.patch)
+      const defaultNavigation = createDefaultNavigationState()
+      const nextNavigation: NavigationUIState = baseUI.navigation
+        ? {
+            ...baseUI.navigation,
+            expandedSectionIds:
+              Array.isArray(baseUI.navigation.expandedSectionIds) && baseUI.navigation.expandedSectionIds.length > 0
+                ? [...baseUI.navigation.expandedSectionIds]
+                : [...defaultNavigation.expandedSectionIds],
+            drawerOpen: baseUI.navigation.drawerOpen ?? defaultNavigation.drawerOpen,
+            activeSectionId: baseUI.navigation.activeSectionId ?? defaultNavigation.activeSectionId,
+            lastFocusedItemId: baseUI.navigation.lastFocusedItemId ?? defaultNavigation.lastFocusedItemId,
+          }
+        : defaultNavigation
+      const nextUI: UIState = {
+        ...baseUI,
+        navigation: nextNavigation,
+        wizard: nextWizard,
+      }
+      const next = { ...state, ui: nextUI }
+      saveState(next)
+      return next
+    }
     case 'FOCUS_KR': {
       const next = { ...state, focusKrId: action.krId }
+      saveState(next)
+      return next
+    }
+    case 'TOGGLE_GRID_ROW': {
+      const baseUI = state.ui || createDefaultUIState()
+      const grids = baseUI.grids || createDefaultGridState()
+      const expandedRows = { ...grids.expandedRows }
+
+      // Ensure the Set exists for this grid type
+      if (!expandedRows[action.gridType]) {
+        expandedRows[action.gridType] = new Set()
+      } else {
+        // Clone the existing Set
+        expandedRows[action.gridType] = new Set(expandedRows[action.gridType])
+      }
+
+      // Toggle the KR ID in the Set
+      if (expandedRows[action.gridType].has(action.krId)) {
+        expandedRows[action.gridType].delete(action.krId)
+      } else {
+        expandedRows[action.gridType].add(action.krId)
+      }
+
+      const nextUI: UIState = {
+        ...baseUI,
+        grids: {
+          ...grids,
+          expandedRows,
+          lastInteractionTime: Date.now(),
+        },
+      }
+      const next = { ...state, ui: nextUI }
+      saveState(next)
+      return next
+    }
+    case 'SET_GRID_FOCUSED_ROW': {
+      const baseUI = state.ui || createDefaultUIState()
+      const grids = baseUI.grids || createDefaultGridState()
+      const nextUI: UIState = {
+        ...baseUI,
+        grids: {
+          ...grids,
+          focusedRowId: action.krId,
+          lastInteractionTime: Date.now(),
+        },
+      }
+      const next = { ...state, ui: nextUI }
+      saveState(next)
+      return next
+    }
+    case 'COLLAPSE_ALL_GRID_ROWS': {
+      const baseUI = state.ui || createDefaultUIState()
+      const grids = baseUI.grids || createDefaultGridState()
+      const expandedRows = { ...grids.expandedRows }
+      expandedRows[action.gridType] = new Set()
+
+      const nextUI: UIState = {
+        ...baseUI,
+        grids: {
+          ...grids,
+          expandedRows,
+          lastInteractionTime: Date.now(),
+        },
+      }
+      const next = { ...state, ui: nextUI }
+      saveState(next)
+      return next
+    }
+    case 'EXPAND_ALL_GRID_ROWS': {
+      const baseUI = state.ui || createDefaultUIState()
+      const grids = baseUI.grids || createDefaultGridState()
+      const expandedRows = { ...grids.expandedRows }
+      expandedRows[action.gridType] = new Set(action.krIds)
+
+      const nextUI: UIState = {
+        ...baseUI,
+        grids: {
+          ...grids,
+          expandedRows,
+          lastInteractionTime: Date.now(),
+        },
+      }
+      const next = { ...state, ui: nextUI }
       saveState(next)
       return next
     }

@@ -2,7 +2,7 @@ KR Tracker MVP
 
 What’s here
 - React + Vite + TypeScript single-page app
-- Static entry template in `public/index.html`
+- Entry template in `index.html`
 - LocalStorage-backed store (no backend)
 - Period and KR setup
 - Teams: create teams; assign one team per KR; assign multiple teams per Objective

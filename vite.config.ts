@@ -3,18 +3,18 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 const projectRoot = __dirname
-const staticDir = path.resolve(projectRoot, 'public/static')
+const publicDir = path.resolve(projectRoot, 'public')
 
 export default defineConfig({
-  root: projectRoot,
-  publicDir: staticDir,
   plugins: [react()],
+  publicDir,
   resolve: {
     alias: {
       '@': path.resolve(projectRoot, './src'),
     },
   },
   server: {
+    host: '127.0.0.1',
     hmr: false,
     proxy: {
       '/api': {
@@ -45,6 +45,7 @@ export default defineConfig({
       'src/**/*.{test,spec}.{ts,tsx}',
       'tests/**/*.{test,spec}.{ts,tsx}',
     ],
+    exclude: ['tests/e2e/**/*'],
     restoreMocks: true,
     clearMocks: true,
   }

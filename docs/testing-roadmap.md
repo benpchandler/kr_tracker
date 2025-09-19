@@ -31,19 +31,20 @@ Focus: `src/state/store.tsx`.
 ### Phase C – Component Interaction (Testing Library + axe)
 Focus components: `PlanGrid`, `ActualsGrid`, `KrRowKpis`, `InitiativesGrid`, `Setup` flows.
 - [ ] Grid editing: assert inputs disabled when plan locked (PlanGrid), always editable for actuals, highlight reporting week, numeric formatting display (1 decimal + thousands).
-- [ ] Paste behaviour: anchor selection, TSV/CSV sanitization, clipping to visible window (mocked hook), meta recency chips.
-- [ ] KPIs: `KrRowKpis` derives pace/variance from summarized metrics; sparkline lengths match visible weeks.
-- [ ] Initiatives coverage: 95% threshold hints use shared config; weekly save updates meta and preserves focus.
-- [ ] Accessibility: role/label checks, keyboard navigation (arrow/tab), focus persistence post-edit; integrate `axe` on critical views.
+- [x] Paste behaviour: anchor selection, TSV/CSV sanitization (blank cells, currency/percent stripping), clipping to visible window (mocked hook), meta recency chips.
+- [x] KPIs: `KrRowKpis` derives pace/variance from summarized metrics; sparkline lengths match visible weeks and expose labelled badges/axe assertions.
+- [x] Initiatives coverage: 95% threshold hints use shared config; weekly save updates meta (timestamp/byline) and preserves focus.
+- [x] Setup data management: import/export/reset flows covered at unit level (confirm sequences, FileReader failure path, storage clearing).
+- [~] Accessibility: role/label checks + axe smoke now in place for grids/KPIs; keyboard nav + focus persistence still TODO.
 
 ### Phase D – End-to-End (Playwright)
 Critical journeys with `tests/e2e/fixtures.ts` guardrails.
-- [ ] Flow 1: seed plan → lock baseline → paste/edit actuals → verify KPI badges → reload (persistence, plan locked, actuals editable).
-- [ ] Flow 2: window navigation/resizing (set viewport widths) → attempt out-of-window edits/pastes to confirm clipping.
-- [ ] Flow 3: missing baseline scenario → metrics degrade gracefully, prompt to lock plan, no console errors.
-- [ ] Import/Export/Reset: load malformed JSON, ensure error surfaced and state intact; reset clears storage and reloads default baseline.
-- [ ] Performance guardrail: measure keypress→cell update latency for moderate KR×weeks, assert P95 < 100ms (use `performance` API with threshold).
-- [ ] Cross-browser matrix (Chromium/WebKit/Firefox) executed nightly; ensure traces/screenshots retained for triage.
+- [~] Flow 1: seed plan → lock baseline → paste/edit actuals → verify KPI badges → reload (**persistence covered; lock banner still TODO via UI once baseline gating refactored**).
+- [x] Flow 2: window navigation/resizing (set viewport widths) → attempt out-of-window edits/pastes to confirm clipping.
+- [ ] Flow 3: missing baseline scenario → metrics degrade gracefully, prompt to lock plan, no console errors (tracked as Playwright `fixme`).
+- [ ] Import/Export/Reset: load malformed JSON, ensure error surfaced and state intact; reset clears storage and reloads default baseline (Playwright `fixme` until Setup tab reliably exposed).
+- [x] Performance guardrail: measure keypress→cell update latency for moderate KR×weeks, assert P95 < 100ms (via navigation timing for now; finer-grained instrumentation pending).
+- [~] Cross-browser matrix (Chromium/WebKit/Firefox) executed nightly; Chromium/Firefox green, WebKit baseline flow skipped pending input locator fix; traces/screenshots retained for triage.
 
 ## Tooling & Commands
 - `npm run lint` → ESLint with guardrails.

@@ -75,16 +75,16 @@ export function InitiativesGrid({ kr, weeks }: Props) {
       <table>
         <thead>
           <tr>
-            <th>Name</th>
-            {reportingWeek && <th>Impact (last wk)</th>}
-            {reportingWeek && <th>Impact (this wk)</th>}
-            <th>Impact Trend</th>
-            {reportingWeek && <th>Conf. (last wk)</th>}
-            {reportingWeek && <th>Conf. (this wk)</th>}
-            <th>Confidence Trend</th>
-            <th>Status</th>
-            <th>Placeholder</th>
-            <th>Actions</th>
+            <th scope="col">Name</th>
+            {reportingWeek && <th scope="col">Impact (last wk)</th>}
+            {reportingWeek && <th scope="col">Impact (this wk)</th>}
+            <th scope="col">Impact Trend</th>
+            {reportingWeek && <th scope="col">Conf. (last wk)</th>}
+            {reportingWeek && <th scope="col">Conf. (this wk)</th>}
+            <th scope="col">Confidence Trend</th>
+            <th scope="col">Status</th>
+            <th scope="col">Placeholder</th>
+            <th scope="col">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -139,12 +139,25 @@ function InitiativeRow({ initiative, reportingWeek }: { initiative: Initiative; 
 
   return (
     <tr>
-      <td><input type="text" value={name} onChange={e => setName(e.target.value)} /></td>
+      <td>
+        <input
+          type="text"
+          aria-label="Initiative name"
+          value={name}
+          onChange={e => setName(e.target.value)}
+        />
+      </td>
       {reportingWeek && (
         <>
           <td className="muted">{lastWeekly.impact ?? '—'}</td>
           <td>
-            <input type="number" step="any" value={wkImpact ?? ''} onChange={e => setWkImpact(e.target.value === '' ? undefined : Number(e.target.value))} />
+            <input
+              type="number"
+              step="any"
+              aria-label={`Impact for ${initiative.name} during ${reportingWeek.iso}`}
+              value={wkImpact ?? ''}
+              onChange={e => setWkImpact(e.target.value === '' ? undefined : Number(e.target.value))}
+            />
           </td>
         </>
       )}
@@ -157,7 +170,15 @@ function InitiativeRow({ initiative, reportingWeek }: { initiative: Initiative; 
         <>
           <td className="muted">{lastWeekly.confidence ?? '—'}</td>
           <td>
-            <input type="number" min="0" max="1" step="0.05" value={wkConf ?? ''} onChange={e => setWkConf(e.target.value === '' ? undefined : Number(e.target.value))} />
+            <input
+              type="number"
+              min="0"
+              max="1"
+              step="0.05"
+              aria-label={`Confidence for ${initiative.name} during ${reportingWeek.iso}`}
+              value={wkConf ?? ''}
+              onChange={e => setWkConf(e.target.value === '' ? undefined : Number(e.target.value))}
+            />
             {meta?.at && <div className="muted" style={{ fontSize: 11 }}>Updated {new Date(meta.at).toLocaleString()} {meta.by ? `by ${meta.by}` : ''}</div>}
           </td>
         </>
@@ -168,7 +189,11 @@ function InitiativeRow({ initiative, reportingWeek }: { initiative: Initiative; 
         </div>
       </td>
       <td>
-        <select value={status} onChange={e => setStatus(e.target.value as InitiativeStatus)}>
+        <select
+          value={status}
+          aria-label={`Status for ${initiative.name}`}
+          onChange={e => setStatus(e.target.value as InitiativeStatus)}
+        >
           <option value="on_track">On Track</option>
           <option value="at_risk">At Risk</option>
           <option value="blocked">Blocked</option>
@@ -176,7 +201,14 @@ function InitiativeRow({ initiative, reportingWeek }: { initiative: Initiative; 
           <option value="needs_support">Needs Support</option>
         </select>
       </td>
-      <td><input type="checkbox" checked={isPlaceholder} onChange={e => setIsPlaceholder(e.target.checked)} /></td>
+      <td>
+        <input
+          type="checkbox"
+          aria-label={`Mark ${initiative.name} as placeholder`}
+          checked={isPlaceholder}
+          onChange={e => setIsPlaceholder(e.target.checked)}
+        />
+      </td>
       <td>
         <button onClick={onSave}>Save</button>
         {reportingWeek && <button onClick={() => {

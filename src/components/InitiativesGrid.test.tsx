@@ -92,9 +92,45 @@ describe('InitiativesGrid', () => {
     await renderWithProviders({ ui: <InitiativesGrid kr={kr} weeks={weeks} />, withStore: false })
     const impactInputs = screen.getAllByRole('spinbutton')
     fireEvent.change(impactInputs[0], { target: { value: '15' } })
+    const saveButtons = screen.getAllByRole('button', { name: /Save This Week/i })
+    fireEvent.click(saveButtons[0])
     expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({
       type: 'UPDATE_INITIATIVE_WEEKLY',
       initiativeId: 'i-1',
     }))
+  })
+
+  it('suppresses coverage hint when initiatives meet target', async () => {
+    resetState({
+      initiatives: [
+        { ...initiatives[0], impact: 60 },
+        { ...initiatives[1], impact: 40 },
+      ],
+    })
+    await renderWithProviders({ ui: <InitiativesGrid kr={kr} weeks={weeks} />, withStore: false })
+    expect(screen.queryByText(/Target 95% coverage/i)).toBeNull()
+  })
+
+  it('displays last update metadata for reporting week confidence edits', async () => {
+    resetState({
+      reportingDateISO: '2025-01-15',
+      initiativeWeeklyMeta: {
+        'i-1': {
+          '2025-W03': { at: '2025-01-14T12:00:00.000Z', by: 'analyst' },
+        },
+      },
+      initiativeWeekly: {
+        'i-1': {
+          '2025-W03': { confidence: 0.75 },
+        },
+      },
+    })
+    await renderWithProviders({ ui: <InitiativesGrid kr={kr} weeks={weeks} />, withStore: false })
+    expect(screen.getByText(/Updated .*analyst/i)).toBeInTheDocument()
+  })
+
+  it('passes axe accessibility checks for default view', async () => {
+    const { container, checkA11y } = await renderWithProviders({ ui: <InitiativesGrid kr={kr} weeks={weeks} />, withStore: false })
+    await checkA11y(container)
   })
 })
