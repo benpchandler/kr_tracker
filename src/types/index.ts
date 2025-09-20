@@ -175,3 +175,47 @@ export interface FilterOptions {
 }
 
 export type FilterType = keyof FilterOptions;
+
+// Aggregation types for metrics calculation
+export type AggregationType = 'cumulative' | 'snapshot' | 'average';
+
+// Health status thresholds
+export interface HealthThresholds {
+  green: number;  // >= this percentage
+  yellow: number; // >= this percentage but < green
+  // red is anything < yellow
+}
+
+// Weekly plan/actual tracking
+export interface WeekData {
+  weekISO: string; // Format: 'YYYY-Www' e.g., '2024-W42'
+  plan?: number;
+  actual?: number;
+  forecast?: number;
+}
+
+// Extended KR with aggregation and weekly data
+export interface ExtendedKR extends KR {
+  aggregationType?: AggregationType;
+  weeklyData?: WeekData[];
+}
+
+// Waterfall analysis state
+export interface WaterfallSegment {
+  label: string;
+  value: number;
+  type: 'increase' | 'decrease' | 'total';
+}
+
+export interface WaterfallScenario {
+  id: string;
+  name: string;
+  segments: WaterfallSegment[];
+  startValue: number;
+  endValue: number;
+}
+
+export interface WaterfallState {
+  scenarios: WaterfallScenario[];
+  selectedScenarioId?: string;
+}

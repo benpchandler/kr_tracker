@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
@@ -14,11 +14,16 @@ import { FilterResultsSummary } from "./components/FilterResultsSummary";
 import { ModeSwitch, ModeDescription } from "./components/ModeSwitch";
 import { OrganizationManager } from "./components/OrganizationManager";
 import { KRSpreadsheetView } from "./components/KRSpreadsheetView";
+import { ActualsGrid } from "./components/ActualsGrid";
+import { MetricsDisplay } from "./components/MetricsDisplay";
+import { BaselineManager } from "./components/BaselineManager";
 import { Target, Lightbulb, TrendingUp, Users, Building2, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { AppMode, Team, Pod, Quarter, KR, Initiative, KRComment, WeeklyActual, ViewType, FilterOptions, Person, OrgFunction } from "./types";
 import { mockTeams, mockPods, mockQuarters, mockKRs, mockInitiatives, mockPeople, mockFunctions } from "./data/mockData";
 import { adaptBackendToFrontend } from "./utils/dataAdapter";
 import { enforceUniqueTeamData } from "./utils/teamNormalization";
+import { AppProvider, useAppState, useFilteredKRs, useFilteredInitiatives, useBaseline } from "./state/store";
+import { computeMetrics, generateWeeks } from "./metrics/engine";
 
 const LOCAL_STORAGE_KEY = "kr-tracker-state-v3";
 
@@ -75,7 +80,7 @@ const sanitizePeople = (value: any, functionsList: OrgFunction[]): Person[] => {
       const rawId = typeof person.id === 'string' && person.id.trim() ? person.id.trim() : `person-${index}`;
       const rawName = typeof person.name === 'string' && person.name.trim() ? person.name.trim() : '';
       const rawEmail = typeof person.email === 'string' && person.email.trim() ? person.email.trim() : `${rawId}@company.com`;
-      const rawTeamId = typeof person.teamId === 'string' && person.teamId.trim() ? person.teamId.trim() : '';
+      const rawTeamId = typeof person.teamId === 'string' ? person.teamId.trim() : '';
       const rawPodId = typeof person.podId === 'string' && person.podId.trim() ? person.podId.trim() : undefined;
       const rawManagerId = typeof person.managerId === 'string' && person.managerId.trim() ? person.managerId.trim() : undefined;
       const candidateFunctionId = typeof person.functionId === 'string' && person.functionId.trim()
@@ -87,7 +92,7 @@ const sanitizePeople = (value: any, functionsList: OrgFunction[]): Person[] => {
         ? candidateFunctionId
         : fallbackFunctionId;
 
-      if (!rawId || !rawName || !rawEmail || !rawTeamId) {
+      if (!rawId || !rawName || !rawEmail) {
         return null;
       }
 
@@ -194,9 +199,12 @@ const convertLegacyInitiatives = (legacyInitiatives: any[]): Initiative[] => {
   }));
 };
 
-export default function App() {
-  // App mode state
-  const [mode, setMode] = useState<AppMode>('plan');
+function AppContent() {
+  // Use the context state
+  const { state: contextState, dispatch } = useAppState();
+
+  // App mode state - prefer context state if available
+  const [mode, setMode] = useState<AppMode>(contextState?.mode || 'plan');
 
   // Organization data - Initialize with empty arrays, will be populated from backend
   const [teams, setTeams] = useState<Team[]>([]);
@@ -825,6 +833,17 @@ export default function App() {
         {/* Execution Mode Content */}
         {mode === 'execution' && (
           <>
+            {/* Baseline Manager */}
+            <div className="mb-6">
+              <BaselineManager
+                krs={filteredKRs}
+                weeks={generateWeeks(
+                  quarters.find(q => q.id === selectedQuarter)?.startDate || '2024-10-01',
+                  quarters.find(q => q.id === selectedQuarter)?.endDate || '2024-12-31'
+                )}
+              />
+            </div>
+
             {/* Advanced Filters */}
             <div className="mb-6">
               <AdvancedFilter
@@ -891,6 +910,53 @@ export default function App() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Actuals Grid and Metrics - Only show if baseline is locked */}
+            {(() => {
+              const baseline = contextState?.planBaselines?.find(b => b.id === contextState.currentBaselineId) || null;
+              const weeks = generateWeeks(
+                quarters.find(q => q.id === selectedQuarter)?.startDate || '2024-10-01',
+                quarters.find(q => q.id === selectedQuarter)?.endDate || '2024-12-31'
+              );
+              const currentWeekIndex = Math.floor(weeks.length / 2); // Use middle week as current
+              const currentWeek = weeks[currentWeekIndex] || weeks[0];
+
+              if (baseline) {
+                const metrics = computeMetrics({
+                  krs: filteredKRs,
+                  baseline,
+                  actuals: contextState?.actuals || {},
+                  weeks,
+                  currentWeekIndex
+                });
+
+                return (
+                  <>
+                    <div className="mb-6">
+                      <ActualsGrid
+                        krs={filteredKRs}
+                        baseline={baseline}
+                        actuals={contextState?.actuals || {}}
+                        weeks={weeks}
+                        onUpdate={(updates) => {
+                          dispatch({ type: 'BULK_UPDATE_ACTUALS', updates });
+                        }}
+                      />
+                    </div>
+
+                    <div className="mb-6">
+                      <MetricsDisplay
+                        krs={filteredKRs}
+                        metrics={metrics}
+                        currentWeek={currentWeek}
+                      />
+                    </div>
+                  </>
+                );
+              }
+
+              return null;
+            })()}
           </>
         )}
 
@@ -1035,5 +1101,13 @@ export default function App() {
         />
       )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AppProvider>
+      <AppContent />
+    </AppProvider>
   );
 }
