@@ -7,13 +7,13 @@ interface InitiativeCardProps {
   id: string;
   title: string;
   description: string;
-  priority: 'high' | 'medium' | 'low';
-  status: 'planning' | 'in-progress' | 'on-hold' | 'completed' | 'cancelled';
+  priority: string;
+  status: string;
   team: string;
   owner: string;
-  contributors: string[];
-  deadline: string;
-  tags: string[];
+  contributors?: string[];
+  deadline?: string;
+  tags?: string[];
 }
 
 const priorityConfig = {
@@ -37,10 +37,15 @@ export function InitiativeCard({
   status,
   team,
   owner,
-  contributors,
+  contributors = [],
   deadline,
-  tags
+  tags = []
 }: InitiativeCardProps) {
+  const priorityInfo = priorityConfig[priority as keyof typeof priorityConfig] ?? priorityConfig.medium;
+  const statusInfo = statusConfig[status as keyof typeof statusConfig] ?? statusConfig.planning;
+
+  const formattedDeadline = deadline ?? 'No deadline set';
+
   return (
     <Card className="w-full">
       <CardHeader className="pb-3">
@@ -48,15 +53,15 @@ export function InitiativeCard({
           <div className="space-y-1 flex-1">
             <div className="flex items-center gap-2">
               <CardTitle className="line-clamp-1">{title}</CardTitle>
-              <Badge variant="outline" className={priorityConfig[priority].color}>
+              <Badge variant="outline" className={priorityInfo.color}>
                 <Flag className="h-3 w-3 mr-1" />
-                {priorityConfig[priority].label}
+                {priorityInfo.label}
               </Badge>
             </div>
             <p className="text-muted-foreground line-clamp-2">{description}</p>
           </div>
-          <Badge variant="outline" className={`ml-2 ${statusConfig[status].color}`}>
-            {statusConfig[status].label}
+          <Badge variant="outline" className={`ml-2 ${statusInfo.color}`}>
+            {statusInfo.label}
           </Badge>
         </div>
       </CardHeader>
@@ -77,7 +82,12 @@ export function InitiativeCard({
               {contributors.slice(0, 3).map((contributor, index) => (
                 <Avatar key={index} className="h-6 w-6 border-2 border-background">
                   <AvatarFallback className="text-xs">
-                    {contributor.split(' ').map(n => n[0]).join('')}
+                    {contributor
+                      .split(' ')
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((n) => n[0])
+                      .join('')}
                   </AvatarFallback>
                 </Avatar>
               ))}
@@ -91,7 +101,7 @@ export function InitiativeCard({
           
           <div className="text-sm text-muted-foreground flex items-center gap-1">
             <Calendar className="h-3 w-3" />
-            {deadline}
+            {formattedDeadline}
           </div>
         </div>
         
