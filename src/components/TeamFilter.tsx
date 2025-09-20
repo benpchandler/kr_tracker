@@ -9,6 +9,9 @@ interface TeamFilterProps {
 }
 
 export function TeamFilter({ selectedTeam, onTeamChange, teams, counts }: TeamFilterProps) {
+  // Deduplicate teams to prevent duplicate keys
+  const uniqueTeams = Array.from(new Set(teams));
+  
   return (
     <div className="flex items-center gap-4">
       <Select value={selectedTeam} onValueChange={onTeamChange}>
@@ -17,8 +20,8 @@ export function TeamFilter({ selectedTeam, onTeamChange, teams, counts }: TeamFi
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Teams</SelectItem>
-          {teams.map((team) => (
-            <SelectItem key={team} value={team}>
+          {uniqueTeams.map((team, index) => (
+            <SelectItem key={`${team}-${index}`} value={team}>
               {team}
             </SelectItem>
           ))}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
@@ -14,10 +14,11 @@ import { FilterResultsSummary } from "./components/FilterResultsSummary";
 import { ModeSwitch, ModeDescription } from "./components/ModeSwitch";
 import { OrganizationManager } from "./components/OrganizationManager";
 import { KRSpreadsheetView } from "./components/KRSpreadsheetView";
-import { Target, Lightbulb, TrendingUp, Users, Settings, Building2, ChevronDown, ChevronRight } from "lucide-react";
+import { Target, Lightbulb, TrendingUp, Users, Building2, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { AppMode, Team, Pod, Quarter, KR, Initiative, KRComment, WeeklyActual, ViewType, FilterOptions, Person, OrgFunction } from "./types";
 import { mockTeams, mockPods, mockQuarters, mockKRs, mockInitiatives, mockPeople, mockFunctions } from "./data/mockData";
 import { adaptBackendToFrontend } from "./utils/dataAdapter";
+import { enforceUniqueTeamData } from "./utils/teamNormalization";
 
 const LOCAL_STORAGE_KEY = "kr-tracker-state-v3";
 
@@ -206,6 +207,8 @@ export default function App() {
 
   // UI state for collapsible sections
   const [isObjectivesCollapsed, setIsObjectivesCollapsed] = useState(true);
+  const [showAddKRDialog, setShowAddKRDialog] = useState(false);
+  const [showAddInitiativeDialog, setShowAddInitiativeDialog] = useState(false);
 
   // KRs and Initiatives with enhanced data - Initialize empty, will be populated from backend
   const [krs, setKRs] = useState<KR[]>([]);
@@ -223,15 +226,45 @@ export default function App() {
 
   const hasHydratedRef = useRef(false);
 
+  const handleTeamsChange = useCallback((nextTeams: Team[]) => {
+    const normalized = enforceUniqueTeamData({
+      teams: nextTeams,
+      pods,
+      people,
+      krs,
+      initiatives,
+    });
+
+    setTeams(normalized.teams);
+
+    const hasTeamIdChanges = Object.entries(normalized.teamIdMap).some(
+      ([originalId, canonicalId]) => originalId !== canonicalId
+    );
+
+    if (hasTeamIdChanges) {
+      setPods(normalized.pods);
+      setPeople(normalized.people);
+      setKRs(normalized.krs);
+      setInitiatives(normalized.initiatives);
+    }
+  }, [pods, people, krs, initiatives]);
+
   const applyPersistedState = (persisted: PersistedAppState) => {
     setMode(persisted.mode);
-    setTeams(persisted.teams);
-    setPods(persisted.pods);
+    const normalized = enforceUniqueTeamData({
+      teams: persisted.teams,
+      pods: persisted.pods,
+      people: persisted.people,
+      krs: persisted.krs,
+      initiatives: persisted.initiatives,
+    });
+    setTeams(normalized.teams);
+    setPods(normalized.pods);
     setFunctions(persisted.functions);
-    setPeople(persisted.people);
+    setPeople(normalized.people);
     setQuarters(persisted.quarters);
-    setKRs(persisted.krs);
-    setInitiatives(persisted.initiatives);
+    setKRs(normalized.krs);
+    setInitiatives(normalized.initiatives);
     setSelectedTeam(persisted.ui.selectedTeam ?? "all");
     setSelectedQuarter(persisted.ui.selectedQuarter ?? "q4-2024");
     setViewType(persisted.ui.viewType);
@@ -250,41 +283,62 @@ export default function App() {
         if (response.ok) {
           const backendData = await response.json();
           const adaptedData = adaptBackendToFrontend(backendData);
+          const normalized = enforceUniqueTeamData({
+            teams: adaptedData.teams,
+            pods: adaptedData.pods,
+            people: adaptedData.people,
+            krs: adaptedData.krs,
+            initiatives: adaptedData.initiatives,
+          });
 
           if (!isMounted) return;
 
-          setTeams(adaptedData.teams);
-          setPods(adaptedData.pods);
+          setTeams(normalized.teams);
+          setPods(normalized.pods);
           setFunctions(adaptedData.functions && adaptedData.functions.length > 0
             ? adaptedData.functions
             : cloneFunctions(mockFunctions));
-          setPeople(adaptedData.people);
+          setPeople(normalized.people);
           setQuarters(adaptedData.quarters);
-          setKRs(adaptedData.krs);
-          setInitiatives(adaptedData.initiatives);
+          setKRs(normalized.krs);
+          setInitiatives(normalized.initiatives);
           setMode(adaptedData.mode);
         } else if (isMounted) {
           // Fallback to mock data if backend is unavailable
           console.warn('Backend unavailable, using mock data');
-          setTeams(mockTeams);
-          setPods(mockPods);
+          const normalized = enforceUniqueTeamData({
+            teams: mockTeams,
+            pods: mockPods,
+            people: mockPeople,
+            krs: mockKRs,
+            initiatives: mockInitiatives,
+          });
+          setTeams(normalized.teams);
+          setPods(normalized.pods);
           setFunctions(cloneFunctions(mockFunctions));
-          setPeople(mockPeople);
+          setPeople(normalized.people);
           setQuarters(mockQuarters);
-          setKRs(mockKRs);
-          setInitiatives(mockInitiatives);
+          setKRs(normalized.krs);
+          setInitiatives(normalized.initiatives);
         }
       } catch (error) {
         if (!isMounted) return;
         // Fallback to mock data on error
         console.error('Error fetching data:', error);
-        setTeams(mockTeams);
-        setPods(mockPods);
+        const normalized = enforceUniqueTeamData({
+          teams: mockTeams,
+          pods: mockPods,
+          people: mockPeople,
+          krs: mockKRs,
+          initiatives: mockInitiatives,
+        });
+        setTeams(normalized.teams);
+        setPods(normalized.pods);
         setFunctions(cloneFunctions(mockFunctions));
-        setPeople(mockPeople);
+        setPeople(normalized.people);
         setQuarters(mockQuarters);
-        setKRs(mockKRs);
-        setInitiatives(mockInitiatives);
+        setKRs(normalized.krs);
+        setInitiatives(normalized.initiatives);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -319,15 +373,23 @@ export default function App() {
   useEffect(() => {
     if (!hasHydratedRef.current) return;
 
-    const persistedState: PersistedAppState = {
-      mode,
+    const normalizedForPersistence = enforceUniqueTeamData({
       teams,
       pods,
-      functions,
       people,
-      quarters,
       krs,
       initiatives,
+    });
+
+    const persistedState: PersistedAppState = {
+      mode,
+      teams: normalizedForPersistence.teams,
+      pods: normalizedForPersistence.pods,
+      functions,
+      people: normalizedForPersistence.people,
+      quarters,
+      krs: normalizedForPersistence.krs,
+      initiatives: normalizedForPersistence.initiatives,
       ui: {
         selectedTeam,
         selectedQuarter,
@@ -357,10 +419,15 @@ export default function App() {
     isLoading,
   ]);
   
+  // Deduplicate teams to prevent duplicate keys in components
+  const uniqueTeams = teams.filter((team, index, arr) => 
+    arr.findIndex(t => t.id === team.id || t.name === team.name) === index
+  );
+  
   // Get team names for legacy compatibility
   const getTeamName = (teamId: string) => {
     if (!teamId) return 'Unknown';
-    return teams.find(t => t.id === teamId)?.name || 'Unknown';
+    return uniqueTeams.find(t => t.id === teamId)?.name || 'Unknown';
   };
   
   // Filter data based on selections
@@ -421,22 +488,22 @@ export default function App() {
     return basicTeamMatch && advancedTeamMatch && podMatch && ownerMatch && statusMatch && priorityMatch && initiativeMatch;
   });
 
-  // Legacy team name array for components that expect it
-  const teamNames = teams.map(t => t.name);
+  // Legacy team name array for components that expect it - deduplicated to prevent duplicate keys
+  const teamNames = uniqueTeams.map(t => t.name);
   
-  const krCounts = teams.reduce((acc, team) => {
+  const krCounts = uniqueTeams.reduce((acc, team) => {
     acc[team.name] = krs.filter(kr => kr.teamId === team.id).length;
     return acc;
   }, {} as Record<string, number>);
 
-  const initiativeCounts = teams.reduce((acc, team) => {
+  const initiativeCounts = uniqueTeams.reduce((acc, team) => {
     acc[team.name] = initiatives.filter(init => init.teamId === team.id).length;
     return acc;
   }, {} as Record<string, number>);
 
   const handleAddKR = (newKR: any) => {
     // Convert team name to team ID
-    const teamId = teams.find(t => t.name === newKR.team)?.id || teams[0]?.id || 'team-1';
+    const teamId = uniqueTeams.find(t => t.name === newKR.team)?.id || uniqueTeams[0]?.id || 'team-1';
     
     const enhancedKR = {
       ...newKR,
@@ -458,7 +525,7 @@ export default function App() {
 
   const handleAddInitiative = (newInitiative: any) => {
     // Convert team name to team ID
-    const teamId = teams.find(t => t.name === newInitiative.team)?.id || teams[0]?.id || 'team-1';
+    const teamId = uniqueTeams.find(t => t.name === newInitiative.team)?.id || uniqueTeams[0]?.id || 'team-1';
     
     const enhancedInitiative = {
       ...newInitiative,
@@ -620,7 +687,7 @@ export default function App() {
               pods={pods}
               people={people}
               functions={functions}
-              onTeamsChange={setTeams}
+              onTeamsChange={handleTeamsChange}
               onPodsChange={setPods}
               onPeopleChange={setPeople}
               onFunctionsChange={setFunctions}
@@ -648,8 +715,14 @@ export default function App() {
                     </div>
                     {isObjectivesCollapsed && (
                       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                        <AddKRDialog onAddKR={handleAddKR} teams={teams} pods={pods} />
-                        <AddInitiativeDialog onAddInitiative={handleAddInitiative} teams={teams} />
+                        <Button onClick={() => setShowAddKRDialog(true)} size="sm">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add KR
+                        </Button>
+                        <Button onClick={() => setShowAddInitiativeDialog(true)} size="sm">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Initiative
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -676,7 +749,10 @@ export default function App() {
                               {krs.filter(kr => kr.autoUpdateEnabled).length} auto-updating
                             </p>
                           </div>
-                          <AddKRDialog onAddKR={handleAddKR} teams={teams} pods={pods} />
+                          <Button onClick={() => setShowAddKRDialog(true)}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add KR
+                          </Button>
                         </div>
                         
                         {krs.length > 0 && (
@@ -716,7 +792,10 @@ export default function App() {
                               {initiatives.filter(i => i.linkedKRIds && i.linkedKRIds.length > 0).length} linked to KRs
                             </p>
                           </div>
-                          <AddInitiativeDialog onAddInitiative={handleAddInitiative} teams={teams} />
+                          <Button onClick={() => setShowAddInitiativeDialog(true)}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Initiative
+                          </Button>
                         </div>
                         
                         {initiatives.length > 0 && (
@@ -936,6 +1015,25 @@ export default function App() {
           </Tabs>
         )}
       </div>
+
+      {showAddKRDialog && (
+        <AddKRDialog
+          open={showAddKRDialog}
+          onOpenChange={setShowAddKRDialog}
+          onAddKR={handleAddKR}
+          teams={teams}
+          pods={pods}
+        />
+      )}
+
+      {showAddInitiativeDialog && (
+        <AddInitiativeDialog
+          open={showAddInitiativeDialog}
+          onOpenChange={setShowAddInitiativeDialog}
+          onAddInitiative={handleAddInitiative}
+          teams={teams}
+        />
+      )}
     </div>
   );
 }

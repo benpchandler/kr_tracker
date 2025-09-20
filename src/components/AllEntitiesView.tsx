@@ -1,13 +1,18 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { Badge } from "./ui/badge";
 import { ScrollArea } from "./ui/scroll-area";
 import { Team, Pod, Person, OrgFunction } from "../types";
-import { Building2, Users, User, Puzzle, Search, Edit2, Trash2, Plus } from "lucide-react";
+import { Building2, Users, User, Puzzle, Search, Edit2, Trash2, Plus, MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 
 interface AllEntitiesViewProps {
   open: boolean;
@@ -57,9 +62,12 @@ export function AllEntitiesView({
 
   // Helper functions
   const getTeamName = (teamId: string) => teams.find(t => t.id === teamId)?.name || "Unknown Team";
-  const getPodName = (podId: string) => pods.find(p => p.id === podId)?.name || "Unknown Pod";
+  const getPodName = (podId: string) => pods.find(p => p.id === podId)?.name || "-";
   const getFunctionName = (functionId: string) => functions.find(f => f.id === functionId)?.name || "Unknown Function";
-  const getManagerName = (managerId: string) => people.find(p => p.id === managerId)?.name || "None";
+  const getManagerName = (managerId: string) => {
+    const manager = people.find(p => p.id === managerId);
+    return manager ? manager.name : "-";
+  };
 
   // Filter functions
   const filteredFunctions = functions.filter(f =>
@@ -86,288 +94,313 @@ export function AllEntitiesView({
   );
 
   // Get counts for each entity type
+  const getPeopleForFunction = (functionId: string) => people.filter(p => p.functionId === functionId);
   const getPodsForTeam = (teamId: string) => pods.filter(p => p.teamId === teamId);
   const getPeopleForTeam = (teamId: string) => people.filter(p => p.teamId === teamId);
   const getPeopleForPod = (podId: string) => people.filter(p => p.podId === podId);
-  const getPeopleForFunction = (functionId: string) => people.filter(p => p.functionId === functionId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[80vh] p-0 flex flex-col">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b">
-          <DialogTitle>Organization Directory</DialogTitle>
-          <DialogDescription>
-            View and manage all teams, pods, people, and functions in your organization
-          </DialogDescription>
-          <div className="mt-4">
+      <DialogContent className="max-w-5xl h-[75vh] p-0 flex flex-col">
+        <DialogHeader className="px-4 py-3 border-b">
+          <DialogTitle className="text-lg">Organization Directory</DialogTitle>
+          <div className="mt-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search across all entities..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-9 h-8"
               />
             </div>
           </div>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "functions" | "teams" | "pods" | "people")} className="flex-1 flex flex-col">
-          <TabsList className="mx-6 grid w-auto grid-cols-4">
-            <TabsTrigger value="functions" className="flex items-center gap-2">
-              <Puzzle className="h-4 w-4" />
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+          <TabsList className="mx-4 mt-2 grid w-auto grid-cols-4">
+            <TabsTrigger value="functions" className="text-xs">
+              <Puzzle className="h-3 w-3 mr-1" />
               Functions ({filteredFunctions.length})
             </TabsTrigger>
-            <TabsTrigger value="teams" className="flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
+            <TabsTrigger value="teams" className="text-xs">
+              <Building2 className="h-3 w-3 mr-1" />
               Teams ({filteredTeams.length})
             </TabsTrigger>
-            <TabsTrigger value="pods" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
+            <TabsTrigger value="pods" className="text-xs">
+              <Users className="h-3 w-3 mr-1" />
               Pods ({filteredPods.length})
             </TabsTrigger>
-            <TabsTrigger value="people" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
+            <TabsTrigger value="people" className="text-xs">
+              <User className="h-3 w-3 mr-1" />
               People ({filteredPeople.length})
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1">
-            <TabsContent value="functions" className="px-6 pb-6 mt-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">All Functions</h3>
+          <ScrollArea className="flex-1 px-4">
+            <TabsContent value="functions" className="mt-4">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-sm font-medium">All Functions</h3>
                 {onAddFunction && (
-                  <Button onClick={onAddFunction} size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
+                  <Button onClick={onAddFunction} size="sm" className="h-7 text-xs">
+                    <Plus className="h-3 w-3 mr-1" />
                     Add Function
                   </Button>
                 )}
               </div>
-              <div className="grid gap-4">
+              <div className="space-y-2">
                 {filteredFunctions.map((func) => (
-                  <Card key={func.id}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: func.color }}
-                          />
-                          <CardTitle className="text-base">{func.name}</CardTitle>
-                          <Badge variant="secondary">
+                  <div
+                    key={func.id}
+                    className="group flex items-center justify-between p-3 bg-card border rounded-md hover:bg-accent/50 transition-colors cursor-pointer"
+                    onClick={() => onEditFunction?.(func)}
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      <div
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: func.color }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{func.name}</span>
+                          <Badge variant="secondary" className="text-xs px-1.5 py-0">
                             {getPeopleForFunction(func.id).length} people
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {onEditFunction && (
-                            <Button
-                              onClick={() => onEditFunction(func)}
-                              size="sm"
-                              variant="ghost"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {onDeleteFunction && (
-                            <Button
-                              onClick={() => onDeleteFunction(func.id)}
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
+                        {func.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{func.description}</p>
+                        )}
                       </div>
-                    </CardHeader>
-                    {func.description && (
-                      <CardContent>
-                        <p className="text-sm text-muted-foreground">{func.description}</p>
-                      </CardContent>
-                    )}
-                  </Card>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditFunction?.(func);
+                        }}
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0"
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Delete function "${func.name}"?`)) {
+                            onDeleteFunction?.(func.id);
+                          }
+                        }}
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </TabsContent>
 
-            <TabsContent value="teams" className="px-6 pb-6 mt-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">All Teams</h3>
+            <TabsContent value="teams" className="mt-4">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-sm font-medium">All Teams</h3>
                 {onAddTeam && (
-                  <Button onClick={onAddTeam} size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
+                  <Button onClick={onAddTeam} size="sm" className="h-7 text-xs">
+                    <Plus className="h-3 w-3 mr-1" />
                     Add Team
                   </Button>
                 )}
               </div>
-              <div className="grid gap-4">
+              <div className="space-y-2">
                 {filteredTeams.map((team) => (
-                  <Card key={team.id}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: team.color }}
-                          />
-                          <CardTitle className="text-base">{team.name}</CardTitle>
-                          <div className="flex gap-2">
-                            <Badge variant="secondary">
-                              {getPodsForTeam(team.id).length} pods
-                            </Badge>
-                            <Badge variant="secondary">
-                              {getPeopleForTeam(team.id).length} people
-                            </Badge>
-                          </div>
-                        </div>
+                  <div
+                    key={team.id}
+                    className="group flex items-center justify-between p-3 bg-card border rounded-md hover:bg-accent/50 transition-colors cursor-pointer"
+                    onClick={() => onEditTeam?.(team)}
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      <div
+                        className="w-2 h-2 rounded flex-shrink-0"
+                        style={{ backgroundColor: team.color }}
+                      />
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          {onEditTeam && (
-                            <Button
-                              onClick={() => onEditTeam(team)}
-                              size="sm"
-                              variant="ghost"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {onDeleteTeam && (
-                            <Button
-                              onClick={() => onDeleteTeam(team.id)}
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
+                          <span className="font-medium text-sm">{team.name}</span>
+                          <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                            {getPodsForTeam(team.id).length} pods
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                            {getPeopleForTeam(team.id).length} people
+                          </Badge>
                         </div>
+                        {team.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{team.description}</p>
+                        )}
                       </div>
-                    </CardHeader>
-                    {team.description && (
-                      <CardContent>
-                        <p className="text-sm text-muted-foreground">{team.description}</p>
-                      </CardContent>
-                    )}
-                  </Card>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditTeam?.(team);
+                        }}
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0"
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Delete team "${team.name}"?`)) {
+                            onDeleteTeam?.(team.id);
+                          }
+                        }}
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </TabsContent>
 
-            <TabsContent value="pods" className="px-6 pb-6 mt-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">All Pods</h3>
+            <TabsContent value="pods" className="mt-4">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-sm font-medium">All Pods</h3>
                 {onAddPod && (
-                  <Button onClick={onAddPod} size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
+                  <Button onClick={onAddPod} size="sm" className="h-7 text-xs">
+                    <Plus className="h-3 w-3 mr-1" />
                     Add Pod
                   </Button>
                 )}
               </div>
-              <div className="grid gap-4">
+              <div className="space-y-2">
                 {filteredPods.map((pod) => (
-                  <Card key={pod.id}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <CardTitle className="text-base">{pod.name}</CardTitle>
-                          <Badge>{getTeamName(pod.teamId)}</Badge>
-                          <Badge variant="secondary">
-                            {getPeopleForPod(pod.id).length} members
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {onEditPod && (
-                            <Button
-                              onClick={() => onEditPod(pod)}
-                              size="sm"
-                              variant="ghost"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {onDeletePod && (
-                            <Button
-                              onClick={() => onDeletePod(pod.id)}
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
+                  <div
+                    key={pod.id}
+                    className="group flex items-center justify-between p-3 bg-card border rounded-md hover:bg-accent/50 transition-colors cursor-pointer"
+                    onClick={() => onEditPod?.(pod)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{pod.name}</span>
+                        <Badge variant="outline" className="text-xs px-1.5 py-0">
+                          {getTeamName(pod.teamId)}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                          {getPeopleForPod(pod.id).length} members
+                        </Badge>
                       </div>
-                    </CardHeader>
-                    {pod.description && (
-                      <CardContent>
-                        <p className="text-sm text-muted-foreground">{pod.description}</p>
-                      </CardContent>
-                    )}
-                  </Card>
+                      {pod.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{pod.description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditPod?.(pod);
+                        }}
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0"
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Delete pod "${pod.name}"?`)) {
+                            onDeletePod?.(pod.id);
+                          }
+                        }}
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </TabsContent>
 
-            <TabsContent value="people" className="px-6 pb-6 mt-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">All People</h3>
+            <TabsContent value="people" className="mt-4">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-sm font-medium">All People</h3>
                 {onAddPerson && (
-                  <Button onClick={onAddPerson} size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
+                  <Button onClick={onAddPerson} size="sm" className="h-7 text-xs">
+                    <Plus className="h-3 w-3 mr-1" />
                     Add Person
                   </Button>
                 )}
               </div>
-              <div className="grid gap-4">
+              <div className="space-y-2">
                 {filteredPeople.map((person) => (
-                  <Card key={person.id}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle className="text-base">{person.name}</CardTitle>
-                          <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                            <span>{person.email}</span>
-                            <Badge variant="outline">
-                              {getFunctionName(person.functionId)}
-                            </Badge>
-                            <Badge variant="outline">
-                              {getTeamName(person.teamId)}
-                            </Badge>
-                            {person.podId && (
-                              <Badge variant="outline">
-                                {getPodName(person.podId)}
-                              </Badge>
-                            )}
-                            {person.managerId && (
-                              <span>Reports to: {getManagerName(person.managerId)}</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {onEditPerson && (
-                            <Button
-                              onClick={() => onEditPerson(person)}
-                              size="sm"
-                              variant="ghost"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {onDeletePerson && (
-                            <Button
-                              onClick={() => onDeletePerson(person.id)}
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
+                  <div
+                    key={person.id}
+                    className="group flex items-center justify-between p-3 bg-card border rounded-md hover:bg-accent/50 transition-colors cursor-pointer"
+                    onClick={() => onEditPerson?.(person)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{person.name}</span>
+                        <span className="text-xs text-muted-foreground">{person.email}</span>
                       </div>
-                    </CardHeader>
-                  </Card>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs px-1.5 py-0">
+                          {getFunctionName(person.functionId)}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs px-1.5 py-0">
+                          {getTeamName(person.teamId)}
+                        </Badge>
+                        {person.podId && (
+                          <Badge variant="outline" className="text-xs px-1.5 py-0">
+                            {getPodName(person.podId)}
+                          </Badge>
+                        )}
+                        {person.managerId && (
+                          <span className="text-xs text-muted-foreground">
+                            Reports to: {getManagerName(person.managerId)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditPerson?.(person);
+                        }}
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0"
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Remove "${person.name}" from the organization?`)) {
+                            onDeletePerson?.(person.id);
+                          }
+                        }}
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </TabsContent>

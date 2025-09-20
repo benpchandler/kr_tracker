@@ -1,78 +1,123 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Plus } from "lucide-react";
 import { Team, Pod } from "../types";
 
 interface AddKRDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onAddKR: (kr: any) => void;
   teams: Team[];
   pods: Pod[];
 }
 
-export function AddKRDialog({ onAddKR, teams, pods }: AddKRDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    target: '',
-    current: '',
-    deadline: '',
-    owner: '',
-    pod: '',
-    status: 'on-track' as const
-  });
+type FormState = {
+  title: string;
+  description: string;
+  target: string;
+  current: string;
+  deadline: string;
+  owner: string;
+  pod: string;
+  status: "not-started" | "on-track" | "at-risk" | "off-track" | "completed";
+};
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
+const createInitialFormState = (): FormState => ({
+  title: "",
+  description: "",
+  target: "",
+  current: "",
+  deadline: "",
+  owner: "",
+  pod: "",
+  status: "on-track",
+});
+
+export function AddKRDialog({ open, onOpenChange, onAddKR, teams: _teams, pods }: AddKRDialogProps) {
+  const [formData, setFormData] = useState<FormState>(() => createInitialFormState());
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (open && titleInputRef.current) {
+      titleInputRef.current.focus({ preventScroll: true });
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      setFormData(createInitialFormState());
+      formRef.current?.reset();
+    }
+  }, [open]);
+
+  const handleInputChange = useCallback((event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = event.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  }, []);
+
+  const handlePodChange = useCallback((value: string) => {
+    setFormData((prev) => ({ ...prev, pod: value }));
+  }, []);
+
+  const handleDeadlineChange = useCallback((value: string) => {
+    setFormData((prev) => ({ ...prev, deadline: value }));
+  }, []);
+
+  const handleStatusChange = useCallback((value: string) => {
+    setFormData((prev) => ({ ...prev, status: value as FormState["status"] }));
+  }, []);
+
+  const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const currentValue = parseFloat(formData.current);
+    const targetValue = parseFloat(formData.target);
     const newKR = {
       id: Date.now().toString(),
       ...formData,
-      progress: Math.round((parseFloat(formData.current) / parseFloat(formData.target)) * 100) || 0
+      progress:
+        Number.isFinite(currentValue) && Number.isFinite(targetValue) && targetValue !== 0
+          ? Math.round((currentValue / targetValue) * 100)
+          : 0,
     };
-    
+
     onAddKR(newKR);
-    setOpen(false);
-    setFormData({
-      title: '',
-      description: '',
-      target: '',
-      current: '',
-      deadline: '',
-      owner: '',
-      pod: '',
-      status: 'on-track'
-    });
-  };
+    onOpenChange(false);
+  }, [formData, onAddKR, onOpenChange]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button onClick={(e) => e.stopPropagation()}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add KR
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+    <Dialog modal open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="sm:max-w-[500px]"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          titleInputRef.current?.focus({ preventScroll: true });
+        }}
+        onInteractOutside={(event) => event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Add New Key Result</DialogTitle>
           <DialogDescription>
             Create a new key result to track progress towards your objectives.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
             <Input
               id="title"
+              name="title"
               value={formData.title}
-              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+              onChange={handleInputChange}
               placeholder="Enter KR title"
+              autoFocus
+              ref={titleInputRef}
               required
             />
           </div>
@@ -81,8 +126,9 @@ export function AddKRDialog({ onAddKR, teams, pods }: AddKRDialogProps) {
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
+              name="description"
               value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              onChange={handleInputChange}
               placeholder="Describe the key result"
               rows={3}
             />
@@ -93,8 +139,9 @@ export function AddKRDialog({ onAddKR, teams, pods }: AddKRDialogProps) {
               <Label htmlFor="current">Starting Value</Label>
               <Input
                 id="current"
+                name="current"
                 value={formData.current}
-                onChange={(e) => setFormData(prev => ({ ...prev, current: e.target.value }))}
+                onChange={handleInputChange}
                 placeholder="0"
                 required
               />
@@ -103,8 +150,9 @@ export function AddKRDialog({ onAddKR, teams, pods }: AddKRDialogProps) {
               <Label htmlFor="target">Target Value</Label>
               <Input
                 id="target"
+                name="target"
                 value={formData.target}
-                onChange={(e) => setFormData(prev => ({ ...prev, target: e.target.value }))}
+                onChange={handleInputChange}
                 placeholder="100"
                 required
               />
@@ -116,15 +164,16 @@ export function AddKRDialog({ onAddKR, teams, pods }: AddKRDialogProps) {
               <Label htmlFor="owner">Owner</Label>
               <Input
                 id="owner"
+                name="owner"
                 value={formData.owner}
-                onChange={(e) => setFormData(prev => ({ ...prev, owner: e.target.value }))}
+                onChange={handleInputChange}
                 placeholder="Team member name"
                 required
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="pod">Pod</Label>
-              <Select value={formData.pod} onValueChange={(value) => setFormData(prev => ({ ...prev, pod: value }))}>
+              <Select value={formData.pod} onValueChange={handlePodChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select pod" />
                 </SelectTrigger>
@@ -142,7 +191,7 @@ export function AddKRDialog({ onAddKR, teams, pods }: AddKRDialogProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="deadline">Deadline (Quarter/Year)</Label>
-              <Select value={formData.deadline} onValueChange={(value) => setFormData(prev => ({ ...prev, deadline: value }))}>
+              <Select value={formData.deadline} onValueChange={handleDeadlineChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select quarter" />
                 </SelectTrigger>
@@ -160,7 +209,7 @@ export function AddKRDialog({ onAddKR, teams, pods }: AddKRDialogProps) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Starting Status</Label>
-              <Select value={formData.status} onValueChange={(value: any) => setFormData(prev => ({ ...prev, status: value }))}>
+              <Select value={formData.status} onValueChange={handleStatusChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
@@ -176,7 +225,7 @@ export function AddKRDialog({ onAddKR, teams, pods }: AddKRDialogProps) {
           </div>
           
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit">

@@ -1,36 +1,47 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { useEffect, useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
-import { Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Team } from "../types";
 
 interface AddInitiativeDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onAddInitiative: (initiative: any) => void;
   teams: Team[];
 }
 
-export function AddInitiativeDialog({ onAddInitiative, teams }: AddInitiativeDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    priority: 'medium' as const,
-    expectedImpact: 'medium' as string,
-    status: 'planning' as const,
-    team: '',
-    owner: '',
-    deadline: '',
-    sizingUrl: '',
-    contributors: [] as string[],
-    tags: [] as string[]
-  });
+const createInitialFormState = () => ({
+  title: '',
+  description: '',
+  priority: 'medium' as const,
+  expectedImpact: 'medium' as string,
+  status: 'planning' as const,
+  team: '',
+  owner: '',
+  deadline: '',
+  sizingUrl: '',
+  contributors: [] as string[],
+  tags: [] as string[]
+});
+
+export function AddInitiativeDialog({ open, onOpenChange, onAddInitiative, teams }: AddInitiativeDialogProps) {
+  const [formData, setFormData] = useState(createInitialFormState);
   const [newContributor, setNewContributor] = useState('');
   const [newTag, setNewTag] = useState('');
+
+  useEffect(() => {
+    if (!open) {
+      setFormData(createInitialFormState());
+      setNewContributor('');
+      setNewTag('');
+    }
+  }, [open]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,20 +52,7 @@ export function AddInitiativeDialog({ onAddInitiative, teams }: AddInitiativeDia
     };
     
     onAddInitiative(newInitiative);
-    setOpen(false);
-    setFormData({
-      title: '',
-      description: '',
-      priority: 'medium',
-      expectedImpact: 'medium' as string,
-      status: 'planning',
-      team: '',
-      owner: '',
-      deadline: '',
-      sizingUrl: '',
-      contributors: [],
-      tags: []
-    });
+    onOpenChange(false);
   };
 
   const addContributor = () => {
@@ -92,13 +90,7 @@ export function AddInitiativeDialog({ onAddInitiative, teams }: AddInitiativeDia
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button onClick={(e) => e.stopPropagation()}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Initiative
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Initiative</DialogTitle>
@@ -264,7 +256,7 @@ export function AddInitiativeDialog({ onAddInitiative, teams }: AddInitiativeDia
           </div>
           
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit">

@@ -104,6 +104,13 @@ function init() {
     );
   `);
 
+  dedupeTeams();
+  try {
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_teams_name_unique ON teams(lower(name))');
+  } catch (err) {
+    console.warn('Failed to enforce unique team names index', err.message);
+  }
+
   // Best-effort migration for older DBs missing columns
   try { db.exec(`ALTER TABLE plan_values ADD COLUMN lastModifiedAt TEXT`); } catch {}
   try { db.exec(`ALTER TABLE plan_values ADD COLUMN lastModifiedBy TEXT`); } catch {}
@@ -120,6 +127,54 @@ function getSetting(key, dflt) {
 function setSetting(key, val) {
   db.prepare('INSERT INTO app_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value')
     .run(key, JSON.stringify(val));
+}
+
+function dedupeTeams() {
+  const teams = db.prepare('SELECT id, name, color FROM teams ORDER BY rowid').all();
+  const seen = new Map();
+  const remaps = [];
+
+  teams.forEach((team) => {
+    if (!team || !team.name) return;
+    const key = team.name.trim().toLowerCase();
+
+    if (!seen.has(key)) {
+      seen.set(key, { ...team });
+      return;
+    }
+
+    remaps.push({ duplicate: team, canonical: seen.get(key) });
+    const canonical = seen.get(key);
+    if (canonical && (!canonical.color || !canonical.color.trim()) && team.color) {
+      canonical.color = team.color;
+    }
+  });
+
+  if (remaps.length === 0) return;
+
+  const updatePods = db.prepare('UPDATE pods SET teamId=? WHERE teamId=?');
+  const updateIndividuals = db.prepare('UPDATE individuals SET teamId=? WHERE teamId=?');
+  const updateObjectiveTeams = db.prepare('UPDATE objective_teams SET teamId=? WHERE teamId=?');
+  const updateKrs = db.prepare('UPDATE krs SET teamId=? WHERE teamId=?');
+  const updateTeamColor = db.prepare('UPDATE teams SET color=? WHERE id=?');
+  const deleteTeam = db.prepare('DELETE FROM teams WHERE id=?');
+
+  db.transaction(() => {
+    remaps.forEach(({ duplicate, canonical }) => {
+      if (!canonical) return;
+
+      if ((!canonical.color || !canonical.color.trim()) && duplicate.color) {
+        updateTeamColor.run(duplicate.color, canonical.id);
+        canonical.color = duplicate.color;
+      }
+
+      updatePods.run(canonical.id, duplicate.id);
+      updateIndividuals.run(canonical.id, duplicate.id);
+      updateObjectiveTeams.run(canonical.id, duplicate.id);
+      updateKrs.run(canonical.id, duplicate.id);
+      deleteTeam.run(duplicate.id);
+    });
+  })();
 }
 
 function seedIfEmpty() {

@@ -15,7 +15,7 @@
     "test:e2e": "playwright test",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
-    "lint": "eslint . --max-warnings=0",
+    "lint": "eslint src server tests --max-warnings=0",
     "checks": "npm run lint && node scripts/check-literals.mjs && npm run test:unit"
   },
   "dependencies": {
