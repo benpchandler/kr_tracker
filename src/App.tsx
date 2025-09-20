@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
@@ -18,6 +18,83 @@ import { Target, Lightbulb, TrendingUp, Users, Settings, Building2, ChevronDown,
 import { AppMode, Team, Pod, Quarter, KR, Initiative, KRComment, WeeklyActual, ViewType, FilterOptions, Person } from "./types";
 import { mockTeams, mockPods, mockQuarters, mockKRs, mockInitiatives, mockPeople } from "./data/mockData";
 import { adaptBackendToFrontend } from "./utils/dataAdapter";
+
+const LOCAL_STORAGE_KEY = "kr-tracker-state-v3";
+
+type PersistedAppState = {
+  mode: AppMode;
+  teams: Team[];
+  pods: Pod[];
+  people: Person[];
+  quarters: Quarter[];
+  krs: KR[];
+  initiatives: Initiative[];
+  ui: {
+    selectedTeam: string;
+    selectedQuarter: string;
+    viewType: ViewType;
+    advancedFilters: FilterOptions;
+    currentTab: "krs" | "initiatives";
+    isObjectivesCollapsed: boolean;
+  };
+};
+
+const sanitizeMode = (value: any): AppMode => (value === "execution" ? "execution" : "plan");
+const sanitizeViewType = (value: any): ViewType => (value === "table" || value === "spreadsheet" ? value : "cards");
+const sanitizeTab = (value: any): "krs" | "initiatives" => (value === "initiatives" ? "initiatives" : "krs");
+const sanitizeFilters = (value: any): FilterOptions => (value && typeof value === "object" ? value : {});
+const sanitizeBoolean = (value: any, fallback: boolean) => (typeof value === "boolean" ? value : fallback);
+
+const loadPersistedState = (): PersistedAppState | null => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+
+    // Ensure initiatives have all required fields, especially linkedKRIds
+    const sanitizedInitiatives = Array.isArray(parsed.initiatives)
+      ? parsed.initiatives.map((init: any) => ({
+          ...init,
+          linkedKRIds: Array.isArray(init.linkedKRIds) ? init.linkedKRIds : []
+        }))
+      : [];
+
+    return {
+      mode: sanitizeMode(parsed.mode),
+      teams: Array.isArray(parsed.teams) ? parsed.teams : [],
+      pods: Array.isArray(parsed.pods) ? parsed.pods : [],
+      people: Array.isArray(parsed.people) ? parsed.people : [],
+      quarters: Array.isArray(parsed.quarters) ? parsed.quarters : [],
+      krs: Array.isArray(parsed.krs) ? parsed.krs : [],
+      initiatives: sanitizedInitiatives,
+      ui: {
+        selectedTeam: parsed.ui?.selectedTeam ?? "all",
+        selectedQuarter: parsed.ui?.selectedQuarter ?? "q4-2024",
+        viewType: sanitizeViewType(parsed.ui?.viewType),
+        advancedFilters: sanitizeFilters(parsed.ui?.advancedFilters),
+        currentTab: sanitizeTab(parsed.ui?.currentTab),
+        isObjectivesCollapsed: sanitizeBoolean(parsed.ui?.isObjectivesCollapsed, true),
+      },
+    };
+  } catch (error) {
+    console.error("Failed to load persisted state", error);
+    return null;
+  }
+};
+
+const persistState = (state: PersistedAppState) => {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    console.error("Failed to persist state", error);
+  }
+};
 
 // Convert legacy data to new format for backward compatibility
 const convertLegacyKRs = (legacyKRs: any[]): KR[] => {
@@ -68,17 +145,46 @@ export default function App() {
   const [krs, setKRs] = useState<KR[]>([]);
   const [initiatives, setInitiatives] = useState<Initiative[]>([]);
 
+  // Filtering and view state
+  const [selectedTeam, setSelectedTeam] = useState("all");
+  const [selectedQuarter, setSelectedQuarter] = useState("q4-2024");
+  const [viewType, setViewType] = useState<ViewType>('cards');
+  const [advancedFilters, setAdvancedFilters] = useState<FilterOptions>({});
+  const [currentTab, setCurrentTab] = useState<'krs' | 'initiatives'>('krs');
+
   // Loading state
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch data from backend on mount
+  const hasHydratedRef = useRef(false);
+
+  const applyPersistedState = (persisted: PersistedAppState) => {
+    setMode(persisted.mode);
+    setTeams(persisted.teams);
+    setPods(persisted.pods);
+    setPeople(persisted.people);
+    setQuarters(persisted.quarters);
+    setKRs(persisted.krs);
+    setInitiatives(persisted.initiatives);
+    setSelectedTeam(persisted.ui.selectedTeam ?? "all");
+    setSelectedQuarter(persisted.ui.selectedQuarter ?? "q4-2024");
+    setViewType(persisted.ui.viewType);
+    setAdvancedFilters(persisted.ui.advancedFilters || {});
+    setCurrentTab(persisted.ui.currentTab);
+    setIsObjectivesCollapsed(persisted.ui.isObjectivesCollapsed);
+  };
+
+  // Fetch data from backend or local storage on mount
   useEffect(() => {
-    async function fetchData() {
+    let isMounted = true;
+
+    const fetchData = async () => {
       try {
         const response = await fetch('/api/state');
         if (response.ok) {
           const backendData = await response.json();
           const adaptedData = adaptBackendToFrontend(backendData);
+
+          if (!isMounted) return;
 
           setTeams(adaptedData.teams);
           setPods(adaptedData.pods);
@@ -87,7 +193,7 @@ export default function App() {
           setKRs(adaptedData.krs);
           setInitiatives(adaptedData.initiatives);
           setMode(adaptedData.mode);
-        } else {
+        } else if (isMounted) {
           // Fallback to mock data if backend is unavailable
           console.warn('Backend unavailable, using mock data');
           setTeams(mockTeams);
@@ -98,6 +204,7 @@ export default function App() {
           setInitiatives(mockInitiatives);
         }
       } catch (error) {
+        if (!isMounted) return;
         // Fallback to mock data on error
         console.error('Error fetching data:', error);
         setTeams(mockTeams);
@@ -107,19 +214,74 @@ export default function App() {
         setKRs(mockKRs);
         setInitiatives(mockInitiatives);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-    }
+    };
 
-    fetchData();
+    const init = async () => {
+      const persisted = loadPersistedState();
+      if (persisted) {
+        applyPersistedState(persisted);
+        setIsLoading(false);
+        return;
+      }
+
+      await fetchData();
+    };
+
+    init();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
-  
-  // Filtering and view state
-  const [selectedTeam, setSelectedTeam] = useState("all");
-  const [selectedQuarter, setSelectedQuarter] = useState("q4-2024");
-  const [viewType, setViewType] = useState<ViewType>('cards');
-  const [advancedFilters, setAdvancedFilters] = useState<FilterOptions>({});
-  const [currentTab, setCurrentTab] = useState<'krs' | 'initiatives'>('krs');
+
+  useEffect(() => {
+    if (!isLoading) {
+      hasHydratedRef.current = true;
+    }
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (!hasHydratedRef.current) return;
+
+    const persistedState: PersistedAppState = {
+      mode,
+      teams,
+      pods,
+      people,
+      quarters,
+      krs,
+      initiatives,
+      ui: {
+        selectedTeam,
+        selectedQuarter,
+        viewType,
+        advancedFilters,
+        currentTab,
+        isObjectivesCollapsed,
+      },
+    };
+
+    persistState(persistedState);
+  }, [
+    mode,
+    teams,
+    pods,
+    people,
+    quarters,
+    krs,
+    initiatives,
+    selectedTeam,
+    selectedQuarter,
+    viewType,
+    advancedFilters,
+    currentTab,
+    isObjectivesCollapsed,
+    isLoading,
+  ]);
   
   // Get team names for legacy compatibility
   const getTeamName = (teamId: string) => {
@@ -372,7 +534,7 @@ export default function App() {
                 <CardContent>
                   <div className="text-2xl font-bold">{initiatives.length}</div>
                   <p className="text-xs text-muted-foreground">
-                    {initiatives.filter(i => i.linkedKRIds.length > 0).length} linked to KRs
+                    {initiatives.filter(i => i.linkedKRIds && i.linkedKRIds.length > 0).length} linked to KRs
                   </p>
                 </CardContent>
               </Card>
@@ -475,7 +637,7 @@ export default function App() {
                           <div>
                             <div className="text-2xl font-bold">{initiatives.length}</div>
                             <p className="text-xs text-muted-foreground">
-                              {initiatives.filter(i => i.linkedKRIds.length > 0).length} linked to KRs
+                              {initiatives.filter(i => i.linkedKRIds && i.linkedKRIds.length > 0).length} linked to KRs
                             </p>
                           </div>
                           <AddInitiativeDialog onAddInitiative={handleAddInitiative} teams={teams} />

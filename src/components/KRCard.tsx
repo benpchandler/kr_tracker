@@ -29,13 +29,14 @@ interface KRCardProps {
   deadline: string;
   owner: string;
   team: string;
-  status: "on-track" | "at-risk" | "off-track" | "completed";
+  status: "not-started" | "on-track" | "at-risk" | "off-track" | "completed";
   onUpdate?: (
     id: string,
     updates: {
       progress: number;
       current: string;
       status:
+        | "not-started"
         | "on-track"
         | "at-risk"
         | "off-track"
@@ -45,6 +46,7 @@ interface KRCardProps {
 }
 
 const statusConfig = {
+  "not-started": { color: "bg-gray-500", label: "Not Started" },
   "on-track": { color: "bg-green-500", label: "On Track" },
   "at-risk": { color: "bg-yellow-500", label: "At Risk" },
   "off-track": { color: "bg-red-500", label: "Off Track" },
@@ -78,8 +80,10 @@ export function KRCard({
         newStatus = "on-track";
       } else if (editProgress >= 50) {
         newStatus = "at-risk";
-      } else {
+      } else if (editProgress > 0) {
         newStatus = "off-track";
+      } else {
+        newStatus = "not-started";
       }
 
       onUpdate(id, {

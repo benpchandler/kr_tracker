@@ -8,7 +8,7 @@ interface InitiativeCardProps {
   title: string;
   description: string;
   priority: 'high' | 'medium' | 'low';
-  status: 'planning' | 'in-progress' | 'on-hold' | 'completed';
+  status: 'planning' | 'in-progress' | 'on-hold' | 'completed' | 'cancelled';
   team: string;
   owner: string;
   contributors: string[];
@@ -26,7 +26,8 @@ const statusConfig = {
   planning: { color: 'bg-gray-100 text-gray-800 border-gray-200', label: 'Planning' },
   'in-progress': { color: 'bg-blue-100 text-blue-800 border-blue-200', label: 'In Progress' },
   'on-hold': { color: 'bg-orange-100 text-orange-800 border-orange-200', label: 'On Hold' },
-  completed: { color: 'bg-green-100 text-green-800 border-green-200', label: 'Completed' }
+  completed: { color: 'bg-green-100 text-green-800 border-green-200', label: 'Completed' },
+  cancelled: { color: 'bg-red-100 text-red-800 border-red-200', label: 'Cancelled' }
 };
 
 export function InitiativeCard({

@@ -244,41 +244,41 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
   return (
     <Card>
       <Collapsible open={!isCollapsed} onOpenChange={(open) => setIsCollapsed(!open)}>
-        <CollapsibleTrigger asChild>
-          <div className="flex items-center justify-between p-4 hover:bg-muted/50 cursor-pointer">
-            <div className="flex items-center gap-3" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCollapsed(!isCollapsed); }}>
+        <div className="flex items-center justify-between p-4">
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center gap-3 hover:bg-muted/50 cursor-pointer flex-1 -m-4 p-4" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCollapsed(!isCollapsed); }}>
               {isCollapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
               <div className="flex items-center gap-3">
                 <Building2 className="h-5 w-5 text-primary" />
                 <div>
                   <h3 className="text-base font-medium leading-none">Organization Structure</h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {isCollapsed 
-                      ? `${safeTeams.length} ${safeTeams.length === 1 ? 'team' : 'teams'}, ${safePods.length} ${safePods.length === 1 ? 'pod' : 'pods'}, ${safePeople.length} ${safePeople.length === 1 ? 'person' : 'people'}` 
+                    {isCollapsed
+                      ? `${safeTeams.length} ${safeTeams.length === 1 ? 'team' : 'teams'}, ${safePods.length} ${safePods.length === 1 ? 'pod' : 'pods'}, ${safePeople.length} ${safePeople.length === 1 ? 'person' : 'people'}`
                       : "Set up your teams, pods, and people for OKR management"
                     }
                   </p>
                 </div>
               </div>
             </div>
-            {isCollapsed && (
-              <div className="flex items-center gap-2">
-                <Button size="sm" onClick={(e) => { e.stopPropagation(); setIsAddingTeam(true); }}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Team
-                </Button>
-                <Button size="sm" onClick={(e) => { e.stopPropagation(); setIsAddingPod(true); }}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Pod
-                </Button>
-                <Button size="sm" onClick={handleAddPersonClick}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Person
-                </Button>
-              </div>
-            )}
-          </div>
-        </CollapsibleTrigger>
+          </CollapsibleTrigger>
+          {isCollapsed && (
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={(e) => { e.stopPropagation(); setIsAddingTeam(true); }}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add Team
+              </Button>
+              <Button size="sm" onClick={(e) => { e.stopPropagation(); setIsAddingPod(true); }}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add Pod
+              </Button>
+              <Button size="sm" onClick={handleAddPersonClick}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add Person
+              </Button>
+            </div>
+          )}
+        </div>
         
         <CollapsibleContent className="px-4 pb-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -729,6 +729,303 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
           </div>
         </CollapsibleContent>
       </Collapsible>
+
+      {/* Dialogs moved outside of Collapsible so they work when collapsed */}
+      <Dialog open={isAddingTeam} onOpenChange={setIsAddingTeam}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Team</DialogTitle>
+            <DialogDescription>Create a new team in your organization</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="team-name">Team Name</Label>
+              <Input
+                id="team-name"
+                value={newTeam.name}
+                onChange={(e) => setNewTeam(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g. Product, Engineering, Marketing"
+              />
+            </div>
+            <div>
+              <Label htmlFor="team-description">Description</Label>
+              <Textarea
+                id="team-description"
+                value={newTeam.description}
+                onChange={(e) => setNewTeam(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Brief description of the team's responsibilities"
+              />
+            </div>
+            <div>
+              <Label htmlFor="team-color">Team Color</Label>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded border" style={{ backgroundColor: newTeam.color }} />
+                <Select value={newTeam.color} onValueChange={(value) => setNewTeam(prev => ({ ...prev, color: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select team color" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COLOR_OPTIONS.map((color) => (
+                      <SelectItem key={color.value} value={color.value}>
+                        {color.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsAddingTeam(false)}>Cancel</Button>
+              <Button onClick={handleAddTeam}>Add Team</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Pod Dialog */}
+      <Dialog open={isAddingPod} onOpenChange={setIsAddingPod}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Pod</DialogTitle>
+            <DialogDescription>Create a new pod within a team</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="pod-team">Team</Label>
+              <Select value={newPod.teamId} onValueChange={(value) => setNewPod(prev => ({ ...prev, teamId: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a team" />
+                </SelectTrigger>
+                <SelectContent>
+                  {safeTeams.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>
+                      {team.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="pod-name">Pod Name</Label>
+              <Input
+                id="pod-name"
+                value={newPod.name}
+                onChange={(e) => setNewPod(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g. Core Product, Growth, Platform"
+              />
+            </div>
+            <div>
+              <Label htmlFor="pod-description">Description</Label>
+              <Textarea
+                id="pod-description"
+                value={newPod.description}
+                onChange={(e) => setNewPod(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Brief description of the pod's focus"
+              />
+            </div>
+            <div>
+              <Label>Team Members</Label>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Input
+                      value={currentMember.name}
+                      onChange={(e) => setCurrentMember(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Member name"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddMember();
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="w-32">
+                    <Select
+                      value={currentMember.role}
+                      onValueChange={(value) => setCurrentMember(prev => ({ ...prev, role: value as any }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ROLE_OPTIONS.map((role) => (
+                          <SelectItem key={role.value} value={role.value}>
+                            {role.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleAddMember}
+                    disabled={!currentMember.name.trim()}
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {newPod.members.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm text-muted-foreground">Added members:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {newPod.members.map((member, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-1 bg-muted rounded-md px-2 py-1"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-2 h-2 rounded-full"
+                              style={{ backgroundColor: getRoleColor(member.role) }}
+                            />
+                            <span className="text-sm">{member.name}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {member.role}
+                            </Badge>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-4 w-4 p-0 ml-1"
+                            onClick={() => handleRemoveMember(index)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {newPod.members.length === 0 && (
+                  <div className="text-sm text-muted-foreground text-center py-4 border border-dashed border-muted-foreground/30 rounded-md">
+                    No members added yet. Add members with their roles above.
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsAddingPod(false)}>Cancel</Button>
+              <Button onClick={handleAddPod}>Add Pod</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Person Dialog */}
+      <Dialog open={isAddingPerson} onOpenChange={setIsAddingPerson}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Person</DialogTitle>
+            <DialogDescription>Add a team member to your organization</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="person-name">Name</Label>
+                <Input
+                  id="person-name"
+                  value={newPerson.name}
+                  onChange={(e) => setNewPerson(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Full name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="person-email">Email</Label>
+                <Input
+                  id="person-email"
+                  type="email"
+                  value={newPerson.email}
+                  onChange={(e) => setNewPerson(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="email@company.com"
+                />
+              </div>
+            </div>
+
+            {/* Native HTML select for Function */}
+            <div>
+              <Label htmlFor="person-function">Function</Label>
+              <select
+                id="person-function"
+                value={newPerson.function}
+                onChange={(e) => setNewPerson(prev => ({ ...prev, function: e.target.value as FunctionType }))}
+                className="w-full mt-1 px-3 py-2 bg-background border border-input rounded-md text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {ROLE_OPTIONS.map((role) => (
+                  <option key={role.value} value={role.value}>
+                    {role.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Native HTML select for Team */}
+            <div>
+              <Label htmlFor="person-team">Team</Label>
+              <select
+                id="person-team"
+                value={newPerson.teamId}
+                onChange={(e) => setNewPerson(prev => ({ ...prev, teamId: e.target.value, podId: '' }))}
+                className="w-full mt-1 px-3 py-2 bg-background border border-input rounded-md text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">Select a team</option>
+                {safeTeams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Native HTML select for Pod (conditional) */}
+            {newPerson.teamId && (
+              <div>
+                <Label htmlFor="person-pod">Pod (Optional)</Label>
+                <select
+                  id="person-pod"
+                  value={newPerson.podId || ""}
+                  onChange={(e) => setNewPerson(prev => ({ ...prev, podId: e.target.value }))}
+                  className="w-full mt-1 px-3 py-2 bg-background border border-input rounded-md text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">No Pod</option>
+                  {getPodsForTeam(newPerson.teamId).map((pod) => (
+                    <option key={pod.id} value={pod.id}>
+                      {pod.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Native HTML select for Manager */}
+            <div>
+              <Label htmlFor="person-manager">Manager (Optional)</Label>
+              <select
+                id="person-manager"
+                value={newPerson.managerId || ""}
+                onChange={(e) => setNewPerson(prev => ({ ...prev, managerId: e.target.value }))}
+                className="w-full mt-1 px-3 py-2 bg-background border border-input rounded-md text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">No Manager</option>
+                {safePeople.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={handleClosePersonDialog}>Cancel</Button>
+              <Button onClick={handleAddPerson}>Add Person</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

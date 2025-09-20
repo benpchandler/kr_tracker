@@ -65,7 +65,7 @@ export function adaptPods(backendPods: BackendState['pods'], individuals: Backen
       description: pod.name,
       members: podMembers.map(member => ({
         name: member.name,
-        role: member.discipline || member.role || 'Member'
+        role: mapDisciplineToFunction(member.discipline || member.role)
       }))
     };
   });
@@ -76,7 +76,7 @@ export function adaptPeople(backendIndividuals: BackendState['individuals']): Pe
   return backendIndividuals.map(ind => ({
     id: ind.id,
     name: ind.name,
-    email: ind.email,
+    email: ind.email || `${ind.id}@company.com`,
     function: mapDisciplineToFunction(ind.discipline),
     teamId: ind.teamId,
     podId: ind.podId,
@@ -86,8 +86,8 @@ export function adaptPeople(backendIndividuals: BackendState['individuals']): Pe
   }));
 }
 
-function mapDisciplineToFunction(discipline?: string): string {
-  const disciplineMap: Record<string, string> = {
+function mapDisciplineToFunction(discipline?: string): 'Analytics' | 'S&O' | 'Engineering' | 'Design' | 'Product' {
+  const disciplineMap: Record<string, 'Analytics' | 'S&O' | 'Engineering' | 'Design' | 'Product'> = {
     'product': 'Product',
     'engineering': 'Engineering',
     'analytics': 'Analytics',

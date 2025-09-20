@@ -33,7 +33,7 @@ export function KRDetailDialog({ kr, isOpen, onClose, onUpdate, onAddWeeklyActua
     current: '',
     progress: 0,
     forecast: '',
-    status: 'on-track' as const
+    status: 'on-track' as KR['status']
   });
   
   const [newWeeklyActual, setNewWeeklyActual] = useState({
