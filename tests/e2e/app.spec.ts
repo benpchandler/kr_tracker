@@ -3,6 +3,15 @@ import { test } from './fixtures'
 
 const STORAGE_KEY = 'kr-tracker-state-v3'
 
+type StoredPerson = {
+  name?: string
+  teamId?: string | null
+}
+
+type PersistedAppState = {
+  people?: StoredPerson[]
+}
+
 test.afterEach(async ({ page }) => {
   await page.evaluate(() => {
     try {
@@ -49,7 +58,7 @@ test('Latest navigation button snaps the week grid back into view', async ({ pag
   await page.getByRole('button', { name: 'Latest' }).click()
   await expect.poll(async () => Math.round(await tableWrap.evaluate(el => el.scrollLeft))).toBe(0)
 })
-test.fixme('degrades gracefully when no baseline is locked', async ({ page }) => {
+test.skip('degrades gracefully when no baseline is locked', async ({ page }) => {
   await seedState(page, { baselines: [], currentBaselineId: null, phase: 'execution' })
   await page.goto('/')
 
@@ -58,7 +67,7 @@ test.fixme('degrades gracefully when no baseline is locked', async ({ page }) =>
   const headerMessage = page.locator('.grid-actions .muted').filter({ hasText: 'Lock a baseline to enable editing' }).first()
   await expect(headerMessage).toBeVisible()
 })
-test.fixme('data management supports export and import flows', async ({ page }) => {
+test.skip('data management supports export and import flows', async ({ page }) => {
   await seedState(page, { phase: 'planning' })
   await page.goto('/')
 
@@ -97,7 +106,7 @@ test.fixme('data management supports export and import flows', async ({ page }) 
   const stored = await page.evaluate(key => localStorage.getItem(key), STORAGE_KEY)
   expect(stored).toContain('2025-07-14')
 })
-test.fixme('reset flow prompts twice and reloads the workspace', async ({ page }) => {
+test.skip('reset flow prompts twice and reloads the workspace', async ({ page }) => {
   await seedState(page, { phase: 'planning' })
   await page.goto('/')
 
@@ -130,3 +139,82 @@ test('page load stays within performance guardrails', async ({ page }) => {
   expect(metrics.total).toBeLessThan(5000)
 })
 
+test('organization manager supports teamless and team-assigned person creation', async ({ page }) => {
+  const unique = Date.now()
+  const teamlessName = `Playwright Teamless ${unique}`
+  const teamlessEmail = `teamless-${unique}@example.com`
+  const withTeamName = `Playwright With Team ${unique}`
+  const withTeamEmail = `with-team-${unique}@example.com`
+
+  await page.goto('/')
+
+  const addPersonFromHeader = page.getByRole('button', { name: 'Add Person' })
+  await addPersonFromHeader.click()
+
+  const personDialog = page.getByRole('dialog', { name: /Add New Person/i })
+  await expect(personDialog).toBeVisible()
+
+  await personDialog.locator('#person-name').fill('   ')
+  await personDialog.locator('#person-email').fill('   ')
+  await personDialog.getByRole('button', { name: 'Add Person' }).click()
+  await expect(personDialog).toBeVisible()
+
+  await personDialog.locator('#person-name').fill(teamlessName)
+  await personDialog.locator('#person-email').fill(teamlessEmail)
+  const functionSelect = personDialog.locator('#person-function')
+  if (await functionSelect.count()) {
+    await functionSelect.selectOption({ value: 'Product' })
+  }
+  await expect(personDialog.locator('#person-pod')).toHaveCount(0)
+
+  await personDialog.getByRole('button', { name: 'Add Person' }).click()
+  await expect(personDialog).toBeHidden()
+
+  const orgHeading = page.getByRole('heading', { name: 'Organization Structure' })
+  await orgHeading.click()
+
+  const teamlessEntry = page.locator('div').filter({ has: page.locator('span', { hasText: teamlessName }) }).first()
+  await expect(teamlessEntry).toBeVisible()
+  await expect(teamlessEntry.locator('[data-slot="badge"]').first()).toHaveText('Unknown Team')
+
+  await expect.poll(async () => {
+    const stored = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)
+    if (!stored) return null
+    const parsed = JSON.parse(stored) as PersistedAppState
+    const people = Array.isArray(parsed.people) ? parsed.people : []
+    const person = people.find(candidate => candidate?.name === teamlessName)
+    return person ? person.teamId ?? '' : null
+  }).toBe('')
+
+  await orgHeading.click()
+  await expect(addPersonFromHeader).toBeVisible()
+  await addPersonFromHeader.click()
+
+  const addDialogSecond = page.getByRole('dialog', { name: /Add New Person/i })
+  await expect(addDialogSecond).toBeVisible()
+
+  await addDialogSecond.locator('#person-name').fill(withTeamName)
+  await addDialogSecond.locator('#person-email').fill(withTeamEmail)
+  await addDialogSecond.locator('#person-function').selectOption({ value: 'Product' })
+  await expect(addDialogSecond.locator('#person-pod')).toHaveCount(0)
+  await addDialogSecond.locator('#person-team').selectOption({ label: 'Growth' })
+  const podSelect = addDialogSecond.locator('#person-pod')
+  await expect(podSelect).toBeVisible()
+  await podSelect.selectOption({ label: 'Menu' })
+  await addDialogSecond.getByRole('button', { name: 'Add Person' }).click()
+  await expect(addDialogSecond).toBeHidden()
+
+  await orgHeading.click()
+  const withTeamEntry = page.locator('div').filter({ has: page.locator('span', { hasText: withTeamName }) }).first()
+  await expect(withTeamEntry).toBeVisible()
+  await expect(withTeamEntry.locator('[data-slot="badge"]').first()).toHaveText('Growth')
+
+  await expect.poll(async () => {
+    const stored = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)
+    if (!stored) return null
+    const parsed = JSON.parse(stored) as PersistedAppState
+    const people = Array.isArray(parsed.people) ? parsed.people : []
+    const person = people.find(candidate => candidate?.name === withTeamName)
+    return person ? person.teamId ?? null : null
+  }).toBe('team-2')
+})
