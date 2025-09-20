@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Team, Pod, PodMember, Person, FunctionType, OrgFunction } from "../types";
+import { normalizeTeamName } from "../utils/teamNormalization";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -9,7 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Label } from "./ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
-import { Plus, Users, Building2, Edit2, Trash2, X, ChevronDown, ChevronRight, User, Puzzle } from "lucide-react";
+import { Plus, Users, Building2, Edit2, Trash2, X, ChevronDown, ChevronRight, User, Puzzle, Eye } from "lucide-react";
+import { AllEntitiesView } from "./AllEntitiesView";
 
 const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
@@ -33,7 +35,10 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
   const [isAddingPod, setIsAddingPod] = useState(false);
   const [isAddingFunction, setIsAddingFunction] = useState(false);
   const [isAddingPerson, setIsAddingPerson] = useState(false);
+  const [showAllEntities, setShowAllEntities] = useState(false);
+  const [allEntitiesInitialTab, setAllEntitiesInitialTab] = useState<"functions" | "teams" | "pods" | "people">("functions");
   const [newTeam, setNewTeam] = useState({ name: '', description: '', color: '#3B82F6' });
+  const [teamError, setTeamError] = useState<string | null>(null);
   const [newPod, setNewPod] = useState({ name: '', teamId: '', description: '', members: [] as PodMember[] });
   const [newFunction, setNewFunction] = useState({ name: '', description: '', color: initialFunctionColor });
   const [functionErrors, setFunctionErrors] = useState<{ name?: string; color?: string; description?: string }>({});
@@ -90,24 +95,43 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
     }
   }, [defaultFunctionId, safeFunctions, newFunction.color, newPerson.functionId, currentMember.role]);
 
+  useEffect(() => {
+    if (!isAddingTeam) {
+      setTeamError(null);
+    }
+  }, [isAddingTeam]);
+
   const handleAddTeam = () => {
     try {
       debugLog('handleAddTeam called', { newTeam });
       
-      if (newTeam.name.trim()) {
-        const team: Team = {
-          id: `team-${Date.now()}`,
-          name: newTeam.name,
-          description: newTeam.description,
-          color: newTeam.color
-        };
-        
-        debugLog('Creating new team', team);
-        onTeamsChange([...teams, team]);
-        setNewTeam({ name: '', description: '', color: '#3B82F6' });
-        setIsAddingTeam(false);
-        debugLog('Team added successfully');
+      const trimmedName = newTeam.name.trim();
+      if (!trimmedName) {
+        setTeamError('Team name is required');
+        return;
       }
+
+      const normalizedName = normalizeTeamName(trimmedName);
+      const hasDuplicateName = safeTeams.some(team => normalizeTeamName(team.name) === normalizedName);
+
+      if (hasDuplicateName) {
+        setTeamError('A team with this name already exists.');
+        return;
+      }
+
+      const team: Team = {
+        id: `team-${Date.now()}`,
+        name: trimmedName,
+        description: newTeam.description,
+        color: newTeam.color
+      };
+      
+      debugLog('Creating new team', team);
+      onTeamsChange([...teams, team]);
+      setNewTeam({ name: '', description: '', color: '#3B82F6' });
+      setTeamError(null);
+      setIsAddingTeam(false);
+      debugLog('Team added successfully');
     } catch (error) {
       errorLog('Failed to add team', error);
     }
@@ -461,13 +485,25 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                       {safePods.length} pods total
                     </p>
                   </div>
-                  <Dialog open={isAddingTeam} onOpenChange={setIsAddingTeam}>
-                    <DialogTrigger asChild>
-                      <Button onClick={(e) => e.stopPropagation()}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Team
-                      </Button>
-                    </DialogTrigger>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAllEntitiesInitialTab("teams");
+                        setShowAllEntities(true);
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View All
+                    </Button>
+                    <Dialog open={isAddingTeam} onOpenChange={setIsAddingTeam}>
+                      <DialogTrigger asChild>
+                        <Button onClick={(e) => e.stopPropagation()}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add
+                        </Button>
+                      </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Add New Team</DialogTitle>
@@ -479,9 +515,18 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                           <Input
                             id="team-name"
                             value={newTeam.name}
-                            onChange={(e) => setNewTeam(prev => ({ ...prev, name: e.target.value }))}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setNewTeam(prev => ({ ...prev, name: value }));
+                              if (teamError) {
+                                setTeamError(null);
+                              }
+                            }}
                             placeholder="e.g. Product, Engineering, Marketing"
                           />
+                          {teamError && (
+                            <p className="text-sm text-destructive mt-1">{teamError}</p>
+                          )}
                         </div>
                         <div>
                           <Label htmlFor="team-description">Description</Label>
@@ -516,7 +561,8 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                         </div>
                       </div>
                     </DialogContent>
-                  </Dialog>
+                    </Dialog>
+                  </div>
                 </div>
                 
                 {safeTeams.length > 0 && (
@@ -559,16 +605,28 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                       {safePods.reduce((acc, pod) => acc + (pod.members ? pod.members.length : 0), 0)} members total
                     </p>
                   </div>
-                  <Dialog open={isAddingPod} onOpenChange={setIsAddingPod}>
-                    <DialogTrigger asChild>
-                      <Button onClick={(e) => e.stopPropagation()}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Pod
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add New Pod</DialogTitle>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAllEntitiesInitialTab("pods");
+                        setShowAllEntities(true);
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View All
+                    </Button>
+                    <Dialog open={isAddingPod} onOpenChange={setIsAddingPod}>
+                      <DialogTrigger asChild>
+                        <Button onClick={(e) => e.stopPropagation()}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add New Pod</DialogTitle>
                         <DialogDescription>Create a new pod within a team</DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
@@ -702,7 +760,8 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                         </div>
                       </div>
                     </DialogContent>
-                  </Dialog>
+                    </Dialog>
+                  </div>
                 </div>
                 
                 {safePods.length > 0 && (
@@ -747,27 +806,40 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                       Active functions available for teams and pods
                     </p>
                   </div>
-                  <Dialog
-                    open={isAddingFunction}
-                    onOpenChange={(open) => {
-                      if (open) {
-                        resetFunctionForm();
-                        setIsAddingFunction(true);
-                      } else {
-                        handleCloseFunctionDialog();
-                      }
-                    }}
-                  >
-                    <DialogTrigger asChild>
-                      <Button onClick={(e) => e.stopPropagation()}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Function
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <FunctionDialogBody />
-                    </DialogContent>
-                  </Dialog>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAllEntitiesInitialTab("functions");
+                        setShowAllEntities(true);
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View All
+                    </Button>
+                    <Dialog
+                      open={isAddingFunction}
+                      onOpenChange={(open) => {
+                        if (open) {
+                          resetFunctionForm();
+                          setIsAddingFunction(true);
+                        } else {
+                          handleCloseFunctionDialog();
+                        }
+                      }}
+                    >
+                      <DialogTrigger asChild>
+                        <Button onClick={(e) => e.stopPropagation()}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <FunctionDialogBody />
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </div>
 
                 {recentFunctions.length > 0 ? (
@@ -816,13 +888,25 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                       {safePeople.filter(p => p.managerId).length} with managers
                     </p>
                   </div>
-                  <Dialog open={isAddingPerson} onOpenChange={setIsAddingPerson}>
-                    <DialogTrigger asChild>
-                      <Button onClick={handleAddPersonClick}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Person
-                      </Button>
-                    </DialogTrigger>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAllEntitiesInitialTab("people");
+                        setShowAllEntities(true);
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View All
+                    </Button>
+                    <Dialog open={isAddingPerson} onOpenChange={setIsAddingPerson}>
+                      <DialogTrigger asChild>
+                        <Button onClick={handleAddPersonClick}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add
+                        </Button>
+                      </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Add New Person</DialogTitle>
@@ -934,7 +1018,8 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                         </div>
                       </div>
                     </DialogContent>
-                  </Dialog>
+                    </Dialog>
+                  </div>
                 </div>
                 
                 {safePeople.length > 0 && (
@@ -982,9 +1067,18 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
               <Input
                 id="team-name"
                 value={newTeam.name}
-                onChange={(e) => setNewTeam(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setNewTeam(prev => ({ ...prev, name: value }));
+                  if (teamError) {
+                    setTeamError(null);
+                  }
+                }}
                 placeholder="e.g. Product, Engineering, Marketing"
               />
+              {teamError && (
+                <p className="text-sm text-destructive mt-1">{teamError}</p>
+              )}
             </div>
             <div>
               <Label htmlFor="team-description">Description</Label>
@@ -1292,6 +1386,24 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* All Entities View Dialog */}
+      <AllEntitiesView
+        open={showAllEntities}
+        onOpenChange={setShowAllEntities}
+        teams={safeTeams}
+        pods={safePods}
+        people={safePeople}
+        functions={safeFunctions}
+        initialTab={allEntitiesInitialTab}
+        onAddTeam={() => setIsAddingTeam(true)}
+        onAddPod={() => setIsAddingPod(true)}
+        onAddPerson={() => setIsAddingPerson(true)}
+        onAddFunction={() => {
+          resetFunctionForm();
+          setIsAddingFunction(true);
+        }}
+      />
     </Card>
   );
 }
