@@ -442,8 +442,11 @@ function AppContent() {
   const filteredKRs = krs.filter(kr => {
     // Basic team filter
     const basicTeamMatch = selectedTeam === "all" || getTeamName(kr.teamId) === selectedTeam;
-    const basicQuarterMatch = kr.quarterId === selectedQuarter;
-    
+
+    // In Plan Mode, show all KRs; in Execution Mode, filter by quarter if set
+    const basicQuarterMatch = mode === 'plan' ? true :
+      (!kr.quarterId || kr.quarterId === selectedQuarter);
+
     // Advanced quarter filter overrides basic if set
     const quarterMatch = advancedFilters.quarter && advancedFilters.quarter !== 'all'
       ? quarters.find(q => q.name === advancedFilters.quarter)?.id === kr.quarterId
