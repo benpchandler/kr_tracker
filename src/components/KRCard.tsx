@@ -17,6 +17,7 @@ import {
   Edit2,
   Save,
   X,
+  Trash2,
 } from "lucide-react";
 
 interface KRCardProps {
@@ -43,6 +44,7 @@ interface KRCardProps {
         | "completed";
     },
   ) => void;
+  onDelete?: (id: string) => void;
 }
 
 const statusConfig = {
@@ -65,6 +67,7 @@ export function KRCard({
   team,
   status,
   onUpdate,
+  onDelete,
 }: KRCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editProgress, setEditProgress] = useState(progress);
@@ -128,8 +131,20 @@ export function KRCard({
                 variant="ghost"
                 onClick={() => setIsEditing(true)}
                 className="h-6 w-6 p-0"
+                aria-label="Edit key result"
               >
                 <Edit2 className="h-3 w-3" />
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onDelete(id)}
+                className="h-6 w-6 p-0 text-destructive"
+                aria-label="Delete key result"
+              >
+                <Trash2 className="h-3 w-3" />
               </Button>
             )}
           </div>

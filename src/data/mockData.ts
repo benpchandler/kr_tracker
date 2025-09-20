@@ -1,38 +1,86 @@
-import { Team, Pod, Quarter, KR, Initiative, KRComment, WeeklyActual, PodMember, Person } from '../types';
+import { Team, Pod, Quarter, KR, Initiative, KRComment, WeeklyActual, PodMember, Person, Organization, Objective } from '../types';
 import { defaultFunctions } from './functions';
 
 export const mockFunctions = defaultFunctions;
 
+export const mockOrganizations: Organization[] = [
+  {
+    id: 'org-merchant',
+    name: 'Merchant Operations',
+    description: 'Core organization responsible for merchant and customer success',
+    industry: 'Logistics',
+    headquarters: 'San Francisco'
+  }
+];
+
 export const mockTeams: Team[] = [
   {
     id: 'team-1',
+    organizationId: 'org-merchant',
     name: 'Acquisition',
     description: 'Customer acquisition and onboarding strategies',
     color: '#3B82F6'
   },
   {
     id: 'team-2',
+    organizationId: 'org-merchant',
     name: 'Growth',
     description: 'Revenue growth and market expansion',
     color: '#10B981'
   },
   {
     id: 'team-3',
+    organizationId: 'org-merchant',
     name: 'Support',
     description: 'Customer support and workforce management',
     color: '#F59E0B'
   },
   {
     id: 'team-4',
+    organizationId: 'org-merchant',
     name: 'Integrations',
     description: 'System integrations and operational excellence',
     color: '#8B5CF6'
   },
   {
     id: 'team-5',
+    organizationId: 'org-merchant',
     name: 'Live Order Experience',
     description: 'Real-time order fulfillment and quality assurance',
     color: '#EF4444'
+  }
+];
+
+export const mockObjectives: Objective[] = [
+  {
+    id: 'obj-1',
+    organizationId: 'org-merchant',
+    title: 'Deliver best-in-class merchant onboarding',
+    description: 'Accelerate merchant adoption through seamless onboarding experiences.',
+    owner: 'Sarah Chen',
+    teamId: 'team-1',
+    status: 'active',
+    krIds: ['kr-1']
+  },
+  {
+    id: 'obj-2',
+    organizationId: 'org-merchant',
+    title: 'Grow profitable order volume',
+    description: 'Increase order value while maintaining customer satisfaction.',
+    owner: 'Michael Brooks',
+    teamId: 'team-2',
+    status: 'active',
+    krIds: ['kr-2']
+  },
+  {
+    id: 'obj-3',
+    organizationId: 'org-merchant',
+    title: 'Deliver operational excellence in support and delivery',
+    description: 'Improve reliability and responsiveness across support and delivery operations.',
+    owner: 'Amanda Clark',
+    teamId: 'team-3',
+    status: 'active',
+    krIds: ['kr-3', 'kr-4', 'kr-5']
   }
 ];
 
@@ -660,8 +708,10 @@ export const mockWeeklyActuals: WeeklyActual[] = [
 export const mockKRs: KR[] = [
   {
     id: 'kr-1',
+    organizationId: 'org-merchant',
     title: 'Improve Customer Acquisition Rate',
     description: 'Increase new customer sign-ups through optimized selection and onboarding',
+    objectiveId: 'obj-1',
     teamId: 'team-1',
     podId: 'pod-2',
     owner: 'Lisa Rodriguez',
@@ -688,8 +738,10 @@ export const mockKRs: KR[] = [
   },
   {
     id: 'kr-2',
+    organizationId: 'org-merchant',
     title: 'Increase Average Order Value',
     description: 'Optimize menu placement and profitability strategies',
+    objectiveId: 'obj-2',
     teamId: 'team-2',
     podId: 'pod-3',
     owner: 'Michael Brooks',
@@ -716,8 +768,10 @@ export const mockKRs: KR[] = [
   },
   {
     id: 'kr-3',
+    organizationId: 'org-merchant',
     title: 'Reduce Support Ticket Resolution Time',
     description: 'Improve workforce management and MSR processes',
+    objectiveId: 'obj-3',
     teamId: 'team-3',
     podId: 'pod-6',
     owner: 'Amanda Clark',
@@ -744,8 +798,10 @@ export const mockKRs: KR[] = [
   },
   {
     id: 'kr-4',
+    organizationId: 'org-merchant',
     title: 'Improve System Integration Uptime',
     description: 'Enhance TAMS and S&O system reliability',
+    objectiveId: 'obj-3',
     teamId: 'team-4',
     podId: 'pod-8',
     owner: 'Elena Rodriguez',
@@ -772,8 +828,10 @@ export const mockKRs: KR[] = [
   },
   {
     id: 'kr-5',
+    organizationId: 'org-merchant',
     title: 'Reduce Delivery Handoff Time',
     description: 'Optimize dasher handoff processes and order quality',
+    objectiveId: 'obj-3',
     teamId: 'team-5',
     podId: 'pod-10',
     owner: 'Tyler Jackson',

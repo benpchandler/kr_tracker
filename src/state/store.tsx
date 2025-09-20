@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import {
-  Team, Pod, Person, OrgFunction, Quarter, KR, Initiative, AppMode, FilterOptions
+  Team, Pod, Person, OrgFunction, Quarter, KR, Initiative, AppMode, FilterOptions, Organization, Objective
 } from '../types';
 
 // Extended types for execution mode
@@ -34,6 +34,7 @@ export interface KrWeekMetrics {
 
 export interface AppState {
   // Organization data
+  organizations: Organization[];
   teams: Team[];
   pods: Pod[];
   people: Person[];
@@ -41,6 +42,7 @@ export interface AppState {
   quarters: Quarter[];
 
   // KRs and Initiatives
+  objectives: Objective[];
   krs: KR[];
   initiatives: Initiative[];
 
@@ -69,11 +71,13 @@ export interface AppState {
 type AppAction =
   | { type: 'SET_STATE'; payload: Partial<AppState> }
   | { type: 'SET_MODE'; payload: AppMode }
+  | { type: 'SET_ORGANIZATIONS'; payload: Organization[] }
   | { type: 'SET_TEAMS'; payload: Team[] }
   | { type: 'SET_PODS'; payload: Pod[] }
   | { type: 'SET_PEOPLE'; payload: Person[] }
   | { type: 'SET_FUNCTIONS'; payload: OrgFunction[] }
   | { type: 'SET_QUARTERS'; payload: Quarter[] }
+  | { type: 'SET_OBJECTIVES'; payload: Objective[] }
   | { type: 'SET_KRS'; payload: KR[] }
   | { type: 'SET_INITIATIVES'; payload: Initiative[] }
   | { type: 'UPDATE_KR'; id: string; updates: Partial<KR> }
@@ -99,11 +103,13 @@ type AppAction =
   | { type: 'RESET_STATE' };
 
 const initialState: AppState = {
+  organizations: [],
   teams: [],
   pods: [],
   people: [],
   functions: [],
   quarters: [],
+  objectives: [],
   krs: [],
   initiatives: [],
   planBaselines: [],
@@ -128,6 +134,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_MODE':
       return { ...state, mode: action.payload };
 
+    case 'SET_ORGANIZATIONS':
+      return { ...state, organizations: action.payload };
+
     case 'SET_TEAMS':
       return { ...state, teams: action.payload };
 
@@ -142,6 +151,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'SET_QUARTERS':
       return { ...state, quarters: action.payload };
+
+    case 'SET_OBJECTIVES':
+      return { ...state, objectives: action.payload };
 
     case 'SET_KRS':
       return { ...state, krs: action.payload };

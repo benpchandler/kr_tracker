@@ -105,13 +105,16 @@ export function enforceUniqueTeamData(options: TeamNormalizationOptions): TeamNo
 
   const normalizePeople: Person[] = people
     .map((person) => {
-      const nextTeamId = remapTeamId(person.teamId);
-      if (!nextTeamId) {
+      if (!person) {
         return null;
       }
+
+      const rawTeamId = typeof person.teamId === 'string' ? person.teamId.trim() : '';
+      const resolvedTeamId = rawTeamId ? (teamIdMap[rawTeamId] || rawTeamId) : '';
+
       return {
         ...person,
-        teamId: nextTeamId,
+        teamId: resolvedTeamId,
       };
     })
     .filter((person): person is Person => person !== null);

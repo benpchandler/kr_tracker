@@ -1,8 +1,21 @@
 node_modules
 .DS_Store
-dist
+dist/
 *.log
 vite.svg
 tsconfig.tsbuildinfo
 .claude/
+
+# Vite cache
+.vite/
+
+# Playwright reports and results
+playwright-report/
+test-results/
+
+# Coverage reports
+coverage/
+
+# Mac OS
+.DS_Store
 

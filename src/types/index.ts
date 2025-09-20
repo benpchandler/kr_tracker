@@ -1,6 +1,15 @@
 // Core organizational types
+export interface Organization {
+  id: string;
+  name: string;
+  description?: string;
+  industry?: string;
+  headquarters?: string;
+}
+
 export interface Team {
   id: string;
+  organizationId?: string;
   name: string;
   description?: string;
   color: string;
@@ -67,16 +76,30 @@ export interface WeeklyActual {
 }
 
 // Enhanced KR with planning and execution data
+export interface Objective {
+  id: string;
+  organizationId: string;
+  title: string;
+  description?: string;
+  owner?: string;
+  teamId?: string;
+  podId?: string;
+  status?: 'draft' | 'active' | 'paused' | 'completed';
+  krIds: string[];
+}
+
 export interface KR {
   id: string;
   title: string;
   description: string;
   
   // Organizational
+  organizationId?: string;
   teamId: string;
   teamIds?: string[]; // Support for multi-team KRs
   podId?: string;
   owner: string;
+  objectiveId?: string;
   quarterId: string;
   
   // Planning data

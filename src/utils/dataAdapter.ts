@@ -1,4 +1,4 @@
-import { Team, Pod, Quarter, KR, Initiative, Person, OrgFunction } from '../types';
+import { Team, Pod, Quarter, KR, Initiative, Person, OrgFunction, Organization, Objective } from '../types';
 import { defaultFunctions } from '../data/functions';
 
 interface BackendState {
@@ -46,9 +46,11 @@ interface BackendState {
 }
 
 // Map backend teams to frontend format
-export function adaptTeams(backendTeams: BackendState['teams']): Team[] {
+export function adaptTeams(backendTeams: BackendState['teams'], organization: BackendState['organization'] | null): Team[] {
+  const organizationId = organization?.id || 'org-backend';
   return backendTeams.map(team => ({
     id: team.id,
+    organizationId,
     name: team.name,
     description: `${team.name} team`,
     color: team.color || '#3B82F6'
@@ -105,6 +107,61 @@ export function adaptFunctions(): OrgFunction[] {
   return cloneDefaultFunctions();
 }
 
+export function adaptOrganizations(organization: BackendState['organization']): Organization[] {
+  if (!organization) {
+    return [];
+  }
+
+  return [
+    {
+      id: organization.id,
+      name: organization.name,
+      description: `${organization.name} organization`,
+    },
+  ];
+}
+
+export function adaptObjectives(
+  backendObjectives: BackendState['objectives'],
+  organization: BackendState['organization'] | null,
+  objectiveTeams: BackendState['objectiveTeams'],
+  backendKRs: BackendState['krs']
+): Objective[] {
+  const organizationId = organization?.id || 'org-backend';
+  const objectiveTeamMap = new Map<string, string>();
+  objectiveTeams.forEach((entry) => {
+    if (entry.objectiveId && entry.teamId) {
+      objectiveTeamMap.set(entry.objectiveId, entry.teamId);
+    }
+  });
+
+  const objectiveToKRs = backendKRs.reduce<Record<string, Set<string>>>((acc, kr) => {
+    if (kr.objectiveId) {
+      if (!acc[kr.objectiveId]) {
+        acc[kr.objectiveId] = new Set();
+      }
+      acc[kr.objectiveId].add(kr.id);
+    }
+    return acc;
+  }, {});
+
+  return backendObjectives.map((objective, index) => {
+    const teamId = objectiveTeamMap.get(objective.id);
+    const krIds = Array.from(objectiveToKRs[objective.id] || []);
+
+    return {
+      id: objective.id || `obj-${index}`,
+      organizationId,
+      title: objective.name || `Objective ${index + 1}`,
+      description: objective.name,
+      owner: undefined,
+      teamId,
+      status: 'active',
+      krIds,
+    };
+  });
+}
+
 // Create quarters based on the period
 export function adaptQuarters(period: BackendState['period']): Quarter[] {
   if (!period.startISO || !period.endISO) {
@@ -148,8 +205,10 @@ export function adaptKRs(
   actuals: BackendState['actuals'],
   individuals: BackendState['individuals'],
   objectives: BackendState['objectives'],
-  quarters: Quarter[]
+  quarters: Quarter[],
+  organization: BackendState['organization'] | null,
 ): KR[] {
+  const organizationId = organization?.id || 'org-backend';
   return backendKRs.map(kr => {
     // Extract baseline and target from KR name if present
     let baseline = '0';
@@ -179,8 +238,10 @@ export function adaptKRs(
 
     return {
       id: kr.id,
+      organizationId,
       title: kr.name.replace(/:\s*[\d.]+\s*→\s*[\d.]+.*$/, ''), // Remove target from title
       description: `Key result for ${objectives.find(o => o.id === kr.objectiveId)?.name || 'objective'}`,
+      objectiveId: kr.objectiveId,
       teamId: kr.teamId || 'team-1',
       podId: kr.podId,
       owner: owner?.name || 'Unassigned',
@@ -276,7 +337,8 @@ export function adaptInitiatives(
 
 // Main adapter function to transform backend state to frontend format
 export function adaptBackendToFrontend(backendState: BackendState) {
-  const teams = adaptTeams(backendState.teams);
+  const organizations = adaptOrganizations(backendState.organization);
+  const teams = adaptTeams(backendState.teams, backendState.organization);
   const pods = adaptPods(backendState.pods, backendState.individuals);
   const functions = adaptFunctions();
   const people = adaptPeople(backendState.individuals);
@@ -287,7 +349,14 @@ export function adaptBackendToFrontend(backendState: BackendState) {
     backendState.actuals,
     backendState.individuals,
     backendState.objectives,
-    quarters
+    quarters,
+    backendState.organization,
+  );
+  const objectives = adaptObjectives(
+    backendState.objectives,
+    backendState.organization,
+    backendState.objectiveTeams,
+    backendState.krs
   );
   const initiatives = adaptInitiatives(
     backendState.initiatives,
@@ -296,11 +365,13 @@ export function adaptBackendToFrontend(backendState: BackendState) {
   );
 
   return {
+    organizations,
     teams,
     pods,
     people,
     functions,
     quarters,
+    objectives,
     krs,
     initiatives,
     mode: backendState.phase === 'planning' ? 'plan' as const : 'execution' as const

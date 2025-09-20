@@ -1,25 +1,49 @@
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Avatar, AvatarFallback } from "./ui/avatar";
-import { Calendar, Users, Flag } from "lucide-react";
+import { Button } from "./ui/button";
+import { Calendar, Users, Flag, Trash2 } from "lucide-react";
+
+type PriorityKey = 'high' | 'medium' | 'low';
 
 interface InitiativeCardProps {
   id: string;
   title: string;
   description: string;
-  priority: string;
+  priority?: string | null;
   status: string;
   team: string;
   owner: string;
   contributors?: string[];
-  deadline?: string;
+  deadline?: string | null;
   tags?: string[];
+  onDelete?: (id: string) => void;
 }
 
-const priorityConfig = {
+type PriorityDisplayConfig = { color: string; label: string };
+
+const priorityConfig: Record<PriorityKey, PriorityDisplayConfig> = {
   high: { color: 'bg-red-100 text-red-800 border-red-200', label: 'High' },
   medium: { color: 'bg-yellow-100 text-yellow-800 border-yellow-200', label: 'Medium' },
   low: { color: 'bg-green-100 text-green-800 border-green-200', label: 'Low' }
+};
+
+const fallbackPriorityConfig: PriorityDisplayConfig = {
+  color: 'bg-gray-100 text-gray-800 border-gray-200',
+  label: 'Priority Unknown'
+};
+
+const isValidPriority = (value: unknown): value is PriorityKey =>
+  value === 'high' || value === 'medium' || value === 'low';
+
+const getPriorityInfo = (priority: InitiativeCardProps['priority']): PriorityDisplayConfig => {
+  if (typeof priority === 'string') {
+    const normalizedPriority = priority.toLowerCase();
+    if (isValidPriority(normalizedPriority)) {
+      return priorityConfig[normalizedPriority];
+    }
+  }
+  return fallbackPriorityConfig;
 };
 
 const statusConfig = {
@@ -31,6 +55,7 @@ const statusConfig = {
 };
 
 export function InitiativeCard({
+  id,
   title,
   description,
   priority,
@@ -39,12 +64,16 @@ export function InitiativeCard({
   owner,
   contributors = [],
   deadline,
-  tags = []
+  tags = [],
+  onDelete,
 }: InitiativeCardProps) {
-  const priorityInfo = priorityConfig[priority as keyof typeof priorityConfig] ?? priorityConfig.medium;
+  const priorityInfo = getPriorityInfo(priority);
   const statusInfo = statusConfig[status as keyof typeof statusConfig] ?? statusConfig.planning;
 
-  const formattedDeadline = deadline ?? 'No deadline set';
+  const formattedDeadline =
+    typeof deadline === 'string' && deadline.trim().length > 0
+      ? deadline
+      : 'No deadline set';
 
   return (
     <Card className="w-full">
@@ -60,9 +89,22 @@ export function InitiativeCard({
             </div>
             <p className="text-muted-foreground line-clamp-2">{description}</p>
           </div>
-          <Badge variant="outline" className={`ml-2 ${statusInfo.color}`}>
-            {statusInfo.label}
-          </Badge>
+          <div className="flex items-center gap-2 ml-2">
+            <Badge variant="outline" className={statusInfo.color}>
+              {statusInfo.label}
+            </Badge>
+            {onDelete && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onDelete(id)}
+                className="h-6 w-6 p-0 text-destructive"
+                aria-label="Delete initiative"
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       

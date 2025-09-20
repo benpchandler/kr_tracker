@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Team, Pod, PodMember, Person, FunctionType, OrgFunction } from "../types";
-import { normalizeTeamName } from "../utils/teamNormalization";
+import { checkDuplicate, findSimilarFunctions, findSimilarPeople, findSimilarPods, findSimilarTeams, normalizeEmail } from "../utils/entityValidation";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -12,6 +12,7 @@ import { Label } from "./ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Plus, Users, Building2, Edit2, Trash2, X, ChevronDown, ChevronRight, User, Puzzle, Eye } from "lucide-react";
 import { AllEntitiesView } from "./AllEntitiesView";
+import { AutocompleteInput, type AutocompleteSuggestion, type AutocompleteValidationState } from "./AutocompleteInput";
 
 const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
@@ -24,9 +25,13 @@ interface OrganizationManagerProps {
   onPodsChange: (pods: Pod[]) => void;
   onPeopleChange: (people: Person[]) => void;
   onFunctionsChange: (functions: OrgFunction[]) => void;
+  onRequestDeleteTeam?: (teamId: string) => void;
+  onRequestDeletePod?: (podId: string) => void;
+  onRequestDeletePerson?: (personId: string) => void;
+  onRequestDeleteFunction?: (functionId: string) => void;
 }
 
-export function OrganizationManager({ teams, pods, people, functions, onTeamsChange, onPodsChange, onPeopleChange, onFunctionsChange }: OrganizationManagerProps) {
+export function OrganizationManager({ teams, pods, people, functions, onTeamsChange, onPodsChange, onPeopleChange, onFunctionsChange, onRequestDeleteTeam, onRequestDeletePod, onRequestDeletePerson, onRequestDeleteFunction }: OrganizationManagerProps) {
   const initialFunctionId = functions[0]?.id ?? '';
   const initialFunctionColor = functions[0]?.color ?? '#3B82F6';
 
@@ -48,6 +53,27 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
   const [newPerson, setNewPerson] = useState({ name: '', email: '', functionId: initialFunctionId as FunctionType, managerId: '', teamId: '', podId: '' });
   const [currentMember, setCurrentMember] = useState({ name: '', role: initialFunctionId as FunctionType });
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
+  const [teamValidation, setTeamValidation] = useState<AutocompleteValidationState<Team>>({
+    isDuplicate: false,
+    similarEntities: [],
+  });
+  const [podValidation, setPodValidation] = useState<AutocompleteValidationState<Pod>>({
+    isDuplicate: false,
+    similarEntities: [],
+  });
+  const [functionValidation, setFunctionValidation] = useState<AutocompleteValidationState<OrgFunction>>({
+    isDuplicate: false,
+    similarEntities: [],
+  });
+  const [personNameValidation, setPersonNameValidation] = useState<AutocompleteValidationState<Person>>({
+    isDuplicate: false,
+    similarEntities: [],
+  });
+  const [personEmailValidation, setPersonEmailValidation] = useState<AutocompleteValidationState<Person>>({
+    isDuplicate: false,
+    similarEntities: [],
+  });
+  const [managerSearch, setManagerSearch] = useState('');
 
   const COLOR_OPTIONS = [
     { value: '#3B82F6', label: 'Blue' },
@@ -84,6 +110,188 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
   const getFunctionColor = (id: string) => getFunctionById(id)?.color ?? '#6B7280';
   const getFunctionName = (id: string) => getFunctionById(id)?.name ?? (id || 'Unknown Function');
   const recentFunctions = useMemo(() => safeFunctions.slice(-3).reverse(), [safeFunctions]);
+  const teamById = useMemo(() => {
+    const map = new Map<string, Team>();
+    safeTeams.forEach(team => map.set(team.id, team));
+    return map;
+  }, [safeTeams]);
+
+  const podsByTeam = useMemo(() => {
+    const map = new Map<string, Pod[]>();
+    safePods.forEach(pod => {
+      const list = map.get(pod.teamId) ?? [];
+      list.push(pod);
+      map.set(pod.teamId, list);
+    });
+    return map;
+  }, [safePods]);
+
+  const functionUsageCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+
+    safePeople.forEach(person => {
+      if (!person.functionId) {
+        return;
+      }
+      counts[person.functionId] = (counts[person.functionId] ?? 0) + 1;
+    });
+
+    safePods.forEach(pod => {
+      if (!Array.isArray(pod.members)) {
+        return;
+      }
+
+      pod.members.forEach(member => {
+        if (typeof member === 'object' && member && 'role' in member && member.role) {
+          const role = member.role as string;
+          counts[role] = (counts[role] ?? 0) + 1;
+        }
+      });
+    });
+
+    return counts;
+  }, [safePeople, safePods]);
+
+  const teamSuggestions = useMemo<AutocompleteSuggestion<Team>[]>(() => {
+    const trimmed = newTeam.name.trim();
+    const fallback = [...safeTeams].slice(-5).reverse();
+    const matches = trimmed
+      ? findSimilarTeams(safeTeams, trimmed, 0.5)
+      : fallback;
+
+    return matches.slice(0, 5).map(team => ({
+      id: team.id,
+      value: team.name,
+      label: team.name,
+      description: team.description,
+      icon: <span className="inline-flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: team.color }} />,
+      meta: [`${podsByTeam.get(team.id)?.length ?? 0} pods`],
+      data: team,
+    } as AutocompleteSuggestion<Team>));
+  }, [newTeam.name, podsByTeam, safeTeams]);
+
+  const podSuggestions = useMemo<AutocompleteSuggestion<Pod>[]>(() => {
+    if (!newPod.teamId) {
+      return [];
+    }
+
+    const podsForTeam = podsByTeam.get(newPod.teamId) ?? [];
+    const trimmed = newPod.name.trim();
+    const matches = trimmed
+      ? findSimilarPods(podsForTeam, trimmed, 0.5)
+      : podsForTeam.slice(-5).reverse();
+    const team = teamById.get(newPod.teamId);
+
+    return matches.slice(0, 5).map(pod => {
+      const memberCount = Array.isArray(pod.members) ? pod.members.length : 0;
+      return {
+        id: pod.id,
+        value: pod.name,
+        label: pod.name,
+        description: pod.description,
+        badgeColor: team?.color,
+        badgeText: `${memberCount} member${memberCount === 1 ? '' : 's'}`,
+        data: pod,
+        group: team?.name,
+      } as AutocompleteSuggestion<Pod>;
+    });
+  }, [newPod.name, newPod.teamId, podsByTeam, teamById]);
+
+  const functionSuggestions = useMemo<AutocompleteSuggestion<OrgFunction>[]>(() => {
+    const trimmed = newFunction.name.trim();
+    const fallback = [...safeFunctions].slice(-5).reverse();
+    const matches = trimmed
+      ? findSimilarFunctions(safeFunctions, trimmed, 0.5)
+      : fallback;
+
+    return matches.slice(0, 5).map(fn => {
+      const usage = functionUsageCounts[fn.id] ?? 0;
+      return {
+        id: fn.id,
+        value: fn.name,
+        label: fn.name,
+        description: fn.description,
+        badgeColor: fn.color,
+        badgeText: `${usage} usage${usage === 1 ? '' : 's'}`,
+        data: fn,
+      } satisfies AutocompleteSuggestion<OrgFunction>;
+    });
+  }, [newFunction.name, safeFunctions, functionUsageCounts]);
+
+  const personNameSuggestions = useMemo<AutocompleteSuggestion<Person>[]>(() => {
+    const trimmed = newPerson.name.trim();
+    if (!trimmed) {
+      return [];
+    }
+
+    const matches = findSimilarPeople(safePeople, trimmed, 0.5)
+      .filter(person => person.id !== editingPersonId);
+
+    return matches.slice(0, 5).map(person => {
+      const functionLabel = getFunctionName(person.functionId);
+      const teamLabel = teamById.get(person.teamId)?.name ?? 'No Team';
+      return {
+        id: person.id,
+        value: person.name,
+        label: person.name,
+        description: `${functionLabel} - ${teamLabel}`,
+        meta: [functionLabel, teamLabel],
+        data: person,
+      } satisfies AutocompleteSuggestion<Person>;
+    });
+  }, [editingPersonId, getFunctionName, newPerson.name, safePeople, teamById]);
+
+  const managerSuggestions = useMemo<AutocompleteSuggestion<Person>[]>(() => {
+    const candidates = safePeople.filter(person => person.id !== editingPersonId);
+    const sorted = [...candidates].sort((a, b) => {
+      const aPriority = a.teamId === newPerson.teamId ? 0 : 1;
+      const bPriority = b.teamId === newPerson.teamId ? 0 : 1;
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    const query = managerSearch.trim();
+    const matches = query
+      ? findSimilarPeople(sorted, query, 0.45)
+      : sorted;
+
+    return matches.slice(0, 5).map(person => {
+      const functionLabel = getFunctionName(person.functionId);
+      const teamLabel = teamById.get(person.teamId)?.name ?? 'No Team';
+      return {
+        id: person.id,
+        value: person.name,
+        label: person.name,
+        description: `${functionLabel} - ${teamLabel}`,
+        meta: [functionLabel, teamLabel],
+        group: teamLabel,
+        data: person,
+      } satisfies AutocompleteSuggestion<Person>;
+    });
+  }, [editingPersonId, getFunctionName, managerSearch, newPerson.teamId, safePeople, teamById]);
+
+  const podMemberSuggestions = useMemo<AutocompleteSuggestion<Person>[]>(() => {
+    const trimmed = currentMember.name.trim();
+    const matches = trimmed
+      ? findSimilarPeople(safePeople, trimmed, 0.45)
+      : safePeople.slice(0, 5);
+
+    return matches.slice(0, 5).map(person => {
+      const functionLabel = getFunctionName(person.functionId);
+      const teamLabel = teamById.get(person.teamId)?.name ?? 'No Team';
+      return {
+        id: person.id,
+        value: person.name,
+        label: `${person.name} (${functionLabel})`,
+        description: teamLabel,
+        badgeText: functionLabel,
+        meta: [teamLabel],
+        data: person,
+      } satisfies AutocompleteSuggestion<Person>;
+    });
+  }, [currentMember.name, getFunctionName, safePeople, teamById]);
 
   useEffect(() => {
     if (!newPerson.functionId && defaultFunctionId) {
@@ -105,25 +313,200 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
     }
   }, [isAddingTeam]);
 
+  const populateTeamForm = useCallback((team: Team) => {
+    setNewTeam({
+      name: team.name,
+      description: team.description ?? '',
+      color: team.color,
+    });
+    setEditingTeamId(team.id);
+    setTeamError(null);
+    setTeamValidation({
+      isDuplicate: false,
+      similarEntities: [team],
+      message: `Editing existing team "${team.name}"`,
+      tone: "info",
+    });
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const trimmed = newTeam.name.trim();
+
+      if (!trimmed) {
+        setTeamValidation({ isDuplicate: false, similarEntities: [] });
+        return;
+      }
+
+      const similar = findSimilarTeams(safeTeams, trimmed, 0.6).filter(team => team.id !== editingTeamId);
+      const duplicate = checkDuplicate(safeTeams, trimmed, editingTeamId ?? undefined);
+      const topMatch = similar[0];
+
+      setTeamValidation({
+        isDuplicate: duplicate,
+        similarEntities: similar,
+        message: duplicate
+          ? `A team named "${topMatch?.name ?? trimmed}" already exists.`
+          : topMatch
+            ? `Similar team exists: ${topMatch.name}`
+            : undefined,
+        tone: duplicate ? 'error' : topMatch ? 'warning' : undefined,
+        actionLabel: topMatch && !duplicate ? 'Edit existing' : undefined,
+        onAction: topMatch && !duplicate ? () => populateTeamForm(topMatch) : undefined,
+      });
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [editingTeamId, newTeam.name, populateTeamForm, safeTeams]);
+
+  const populateFunctionForm = useCallback((func: OrgFunction) => {
+    setNewFunction({
+      name: func.name,
+      description: func.description ?? '',
+      color: func.color,
+    });
+    setEditingFunctionId(func.id);
+    setFunctionErrors({});
+    setFunctionValidation({
+      isDuplicate: false,
+      similarEntities: [func],
+      message: `Editing existing function "${func.name}"`,
+      tone: 'info',
+    });
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const trimmed = newFunction.name.trim();
+
+      if (!trimmed) {
+        setFunctionValidation({ isDuplicate: false, similarEntities: [] });
+        return;
+      }
+
+      const similar = findSimilarFunctions(safeFunctions, trimmed, 0.6).filter(fn => fn.id !== editingFunctionId);
+      const duplicate = checkDuplicate(safeFunctions, trimmed, editingFunctionId ?? undefined);
+      const topMatch = similar[0];
+
+      setFunctionValidation({
+        isDuplicate: duplicate,
+        similarEntities: similar,
+        message: duplicate
+          ? `A function named "${topMatch?.name ?? trimmed}" already exists.`
+          : topMatch
+            ? `Did you mean: ${topMatch.name}?`
+            : undefined,
+        tone: duplicate ? 'error' : topMatch ? 'info' : undefined,
+        actionLabel: topMatch && !duplicate ? 'Edit existing' : undefined,
+        onAction: topMatch && !duplicate ? () => populateFunctionForm(topMatch) : undefined,
+      });
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [editingFunctionId, newFunction.name, populateFunctionForm, safeFunctions]);
+
+  const populatePersonForm = useCallback((person: Person) => {
+    const manager = person.managerId ? safePeople.find(p => p.id === person.managerId) : undefined;
+
+    setNewPerson({
+      name: person.name,
+      email: person.email,
+      functionId: person.functionId,
+      managerId: manager?.id ?? '',
+      teamId: person.teamId ?? '',
+      podId: person.podId ?? '',
+    });
+    setEditingPersonId(person.id);
+    setPersonNameValidation({
+      isDuplicate: false,
+      similarEntities: [person],
+      message: `Editing existing person "${person.name}"`,
+      tone: 'info',
+    });
+    setPersonEmailValidation({ isDuplicate: false, similarEntities: [] });
+    setManagerSearch(manager?.name ?? '');
+  }, [safePeople]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const trimmed = newPerson.name.trim();
+
+      if (!trimmed) {
+        setPersonNameValidation({ isDuplicate: false, similarEntities: [] });
+        return;
+      }
+
+      const similar = findSimilarPeople(safePeople, trimmed, 0.6)
+        .filter(person => person.id !== editingPersonId);
+      const topMatch = similar[0];
+
+      setPersonNameValidation({
+        isDuplicate: false,
+        similarEntities: similar,
+        message: topMatch ? `Similar person exists: ${topMatch.name}` : undefined,
+        tone: topMatch ? 'info' : undefined,
+        actionLabel: topMatch ? 'Edit instead' : undefined,
+        onAction: topMatch ? () => populatePersonForm(topMatch) : undefined,
+      });
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [editingPersonId, newPerson.name, populatePersonForm, safePeople]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const trimmed = newPerson.email.trim();
+
+      if (!trimmed) {
+        setPersonEmailValidation({ isDuplicate: false, similarEntities: [] });
+        return;
+      }
+
+      const normalized = normalizeEmail(trimmed);
+      const duplicate = safePeople.find(person =>
+        person.id !== editingPersonId && normalizeEmail(person.email) === normalized
+      );
+
+      if (duplicate) {
+        setPersonEmailValidation({
+          isDuplicate: true,
+          similarEntities: [duplicate],
+          message: `Person with this email already exists: ${duplicate.name}`,
+          tone: 'error',
+          actionLabel: 'Edit existing',
+          onAction: () => populatePersonForm(duplicate),
+        });
+      } else {
+        setPersonEmailValidation({ isDuplicate: false, similarEntities: [] });
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [editingPersonId, newPerson.email, populatePersonForm, safePeople]);
+
   const resetTeamForm = () => {
     setNewTeam({ name: '', description: '', color: '#3B82F6' });
     setTeamError(null);
     setEditingTeamId(null);
+    setTeamValidation({ isDuplicate: false, similarEntities: [] });
   };
 
   const openTeamDialog = (team?: Team) => {
     if (team) {
-      setNewTeam({
-        name: team.name,
-        description: team.description ?? '',
-        color: team.color,
-      });
-      setEditingTeamId(team.id);
-      setTeamError(null);
+      applyTeamFormState(team);
     } else {
       resetTeamForm();
     }
     setIsAddingTeam(true);
+  };
+
+  const handleTeamSuggestionSelect = (suggestion: AutocompleteSuggestion<Team>) => {
+    setTeamError(null);
+    if (suggestion.data) {
+      applyTeamFormState(suggestion.data);
+    } else {
+      setNewTeam(prev => ({ ...prev, name: suggestion.value }));
+    }
   };
 
   const closeTeamDialog = () => {
@@ -141,12 +524,7 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
         return;
       }
 
-      const normalizedName = normalizeTeamName(trimmedName);
-      const hasDuplicateName = safeTeams.some(team =>
-        normalizeTeamName(team.name) === normalizedName && team.id !== editingTeamId
-      );
-
-      if (hasDuplicateName) {
+      if (teamValidation.isDuplicate || checkDuplicate(safeTeams, trimmedName, editingTeamId ?? undefined)) {
         setTeamError('A team with this name already exists.');
         return;
       }
@@ -185,7 +563,7 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
     }
   };
 
-  const clonePodMembersForState = (members: Pod['members']) => {
+  const clonePodMembersForState = useCallback((members: Pod['members']) => {
     if (!Array.isArray(members)) {
       return [] as PodMember[];
     }
@@ -198,7 +576,7 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
           }
         : { name: member.name, role: member.role }
     );
-  };
+  }, [defaultFunctionId, safeFunctions]);
 
   const cloneStateMembersForPersist = (members: PodMember[]) =>
     members.map(member => ({ name: member.name, role: member.role })) as PodMember[];
@@ -207,21 +585,71 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
     setNewPod({ name: '', teamId: '', description: '', members: [] });
     setCurrentMember({ name: '', role: defaultFunctionId as FunctionType });
     setEditingPodId(null);
+    setPodValidation({ isDuplicate: false, similarEntities: [] });
   };
+
+  var populatePodForm = (pod: Pod) => {
+    setNewPod({
+      name: pod.name,
+      teamId: pod.teamId,
+      description: pod.description ?? '',
+      members: clonePodMembersForState(pod.members),
+    });
+    setEditingPodId(pod.id);
+    setPodValidation({
+      isDuplicate: false,
+      similarEntities: [pod],
+      message: `Editing existing pod "${pod.name}"`,
+      tone: 'info',
+    });
+  };
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const trimmed = newPod.name.trim();
+      if (!trimmed || !newPod.teamId) {
+        setPodValidation({ isDuplicate: false, similarEntities: [] });
+        return;
+      }
+
+      const podsForTeam = podsByTeam.get(newPod.teamId) ?? [];
+      const similar = findSimilarPods(podsForTeam, trimmed, 0.6).filter(pod => pod.id !== editingPodId);
+      const duplicate = checkDuplicate(podsForTeam, trimmed, editingPodId ?? undefined);
+      const teamName = teamById.get(newPod.teamId)?.name ?? 'this team';
+      const topMatch = similar[0];
+
+      setPodValidation({
+        isDuplicate: duplicate,
+        similarEntities: similar,
+        message: duplicate
+          ? `A pod named "${trimmed}" already exists in ${teamName}.`
+          : topMatch
+            ? `Similar pod found in ${teamName}: ${topMatch.name}`
+            : undefined,
+        tone: duplicate ? 'error' : topMatch ? 'info' : undefined,
+        actionLabel: topMatch && !duplicate ? 'Edit existing' : undefined,
+        onAction: topMatch && !duplicate ? () => populatePodForm(topMatch) : undefined,
+      });
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [editingPodId, newPod.name, newPod.teamId, podsByTeam, populatePodForm, teamById]);
 
   const openPodDialog = (pod?: Pod) => {
     if (pod) {
-      setNewPod({
-        name: pod.name,
-        teamId: pod.teamId,
-        description: pod.description ?? '',
-        members: clonePodMembersForState(pod.members),
-      });
-      setEditingPodId(pod.id);
+      populatePodForm(pod);
     } else {
       resetPodForm();
     }
     setIsAddingPod(true);
+  };
+
+  const handlePodSuggestionSelect = (suggestion: AutocompleteSuggestion<Pod>) => {
+    if (suggestion.data) {
+      populatePodForm(suggestion.data);
+    } else {
+      setNewPod(prev => ({ ...prev, name: suggestion.value }));
+    }
   };
 
   const closePodDialog = () => {
@@ -233,14 +661,29 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
     try {
       debugLog(editingPodId ? 'handleSavePod (edit)' : 'handleSavePod (add)', { newPod, editingPodId });
 
-      if (!newPod.name.trim() || !newPod.teamId) {
+      const trimmedName = newPod.name.trim();
+      const targetTeamId = newPod.teamId;
+
+      if (!trimmedName || !targetTeamId) {
+        return;
+      }
+
+      const podsForTeam = podsByTeam.get(targetTeamId) ?? [];
+      if (podValidation.isDuplicate || checkDuplicate(podsForTeam, trimmedName, editingPodId ?? undefined)) {
+        const teamName = teamById.get(targetTeamId)?.name ?? 'this team';
+        setPodValidation(prev => ({
+          ...prev,
+          isDuplicate: true,
+          message: `A pod named "${trimmedName}" already exists in ${teamName}.`,
+          tone: 'error',
+        }));
         return;
       }
 
       const podBase: Pod = {
         id: editingPodId ?? `pod-${Date.now()}`,
-        name: newPod.name.trim(),
-        teamId: newPod.teamId,
+        name: trimmedName,
+        teamId: targetTeamId,
         description: newPod.description,
         members: cloneStateMembersForPersist(newPod.members),
       };
@@ -265,21 +708,24 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
     setNewFunction({ name: '', description: '', color: safeFunctions[0]?.color ?? '#3B82F6' });
     setFunctionErrors({});
     setEditingFunctionId(null);
+    setFunctionValidation({ isDuplicate: false, similarEntities: [] });
   };
 
   const openFunctionDialog = (func?: OrgFunction) => {
     if (func) {
-      setNewFunction({
-        name: func.name,
-        description: func.description ?? '',
-        color: func.color,
-      });
-      setEditingFunctionId(func.id);
-      setFunctionErrors({});
+      populateFunctionForm(func);
     } else {
       resetFunctionForm();
     }
     setIsAddingFunction(true);
+  };
+
+  const handleFunctionSuggestionSelect = (suggestion: AutocompleteSuggestion<OrgFunction>) => {
+    if (suggestion.data) {
+      populateFunctionForm(suggestion.data);
+    } else {
+      updateFunctionField('name', suggestion.value);
+    }
   };
 
   const updateFunctionField = (field: 'name' | 'description' | 'color', value: string) => {
@@ -302,11 +748,7 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
 
       if (!trimmedName) {
         errors.name = 'Function name is required';
-      } else if (
-        safeFunctions.some(
-          fn => fn.name.toLowerCase() === trimmedName.toLowerCase() && fn.id !== editingFunctionId
-        )
-      ) {
+      } else if (functionValidation.isDuplicate || checkDuplicate(safeFunctions, trimmedName, editingFunctionId ?? undefined)) {
         errors.name = 'Function name already exists';
       }
 
@@ -388,23 +830,44 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
       podId: '',
     });
     setEditingPersonId(null);
+    setPersonNameValidation({ isDuplicate: false, similarEntities: [] });
+    setPersonEmailValidation({ isDuplicate: false, similarEntities: [] });
+    setManagerSearch('');
   };
 
   const openPersonDialog = (person?: Person) => {
     if (person) {
-      setNewPerson({
-        name: person.name,
-        email: person.email,
-        functionId: person.functionId,
-        managerId: person.managerId ?? '',
-        teamId: person.teamId ?? '',
-        podId: person.podId ?? '',
-      });
-      setEditingPersonId(person.id);
+      populatePersonForm(person);
     } else {
       resetPersonForm();
     }
     setIsAddingPerson(true);
+  };
+
+  const handlePersonNameSuggestionSelect = (suggestion: AutocompleteSuggestion<Person>) => {
+    if (suggestion.data) {
+      populatePersonForm(suggestion.data);
+      setIsAddingPerson(true);
+    } else {
+      setNewPerson(prev => ({ ...prev, name: suggestion.value }));
+    }
+  };
+
+  const handleManagerSuggestionSelect = (suggestion: AutocompleteSuggestion<Person>) => {
+    if (suggestion.data) {
+      setNewPerson(prev => ({ ...prev, managerId: suggestion.data!.id }));
+      setManagerSearch(suggestion.data.name);
+    } else {
+      setManagerSearch(suggestion.value);
+    }
+  };
+
+  const handleMemberSuggestionSelect = (suggestion: AutocompleteSuggestion<Person>) => {
+    if (suggestion.data) {
+      setCurrentMember({ name: suggestion.data.name, role: suggestion.data.functionId });
+    } else {
+      setCurrentMember(prev => ({ ...prev, name: suggestion.value }));
+    }
   };
 
   const handleSavePerson = () => {
@@ -418,6 +881,28 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
       const trimmedEmail = newPerson.email.trim();
 
       if (trimmedName && trimmedEmail && newPerson.functionId) {
+        if (personEmailValidation.isDuplicate) {
+          debugLog('Person email validation blocked save');
+          return;
+        }
+
+        const normalizedEmail = normalizeEmail(trimmedEmail);
+        const duplicate = safePeople.find(person =>
+          person.id !== editingPersonId && normalizeEmail(person.email) === normalizedEmail
+        );
+
+        if (duplicate) {
+          setPersonEmailValidation({
+            isDuplicate: true,
+            similarEntities: [duplicate],
+            message: `Person with this email already exists: ${duplicate.name}`,
+            tone: 'error',
+            actionLabel: 'Edit existing',
+            onAction: () => populatePersonForm(duplicate),
+          });
+          return;
+        }
+
         if (editingPersonId) {
           const existingPerson = people.find(person => person.id === editingPersonId);
           if (!existingPerson) {
@@ -473,297 +958,19 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
   };
 
   const handleDeleteTeam = (teamId: string) => {
-    try {
-      const teamToDelete = safeTeams.find(team => team.id === teamId);
-      if (!teamToDelete) {
-        debugLog('Attempted to delete team that does not exist', { teamId });
-        return;
-      }
-
-      const affectedPods = safePods.filter(pod => pod.teamId === teamId);
-      const affectedPodIds = new Set(affectedPods.map(pod => pod.id));
-      const affectedPeople = safePeople.filter(person => person.teamId === teamId);
-      const removedPeopleIds = new Set(affectedPeople.map(person => person.id));
-
-      const confirmationParts = [`Delete team "${teamToDelete.name}"?`];
-      if (affectedPods.length > 0) {
-        confirmationParts.push(`${affectedPods.length} ${affectedPods.length === 1 ? 'pod' : 'pods'} will also be removed.`);
-      }
-      if (affectedPeople.length > 0) {
-        confirmationParts.push(`${affectedPeople.length} ${affectedPeople.length === 1 ? 'person' : 'people'} will be removed from the organization.`);
-      }
-
-      if (!confirm(confirmationParts.join('\n'))) {
-        debugLog('Team deletion cancelled by user');
-        return;
-      }
-
-      const updatedTeams = teams.filter(team => team.id !== teamId);
-      const updatedPods = pods.filter(pod => pod.teamId !== teamId);
-
-      const updatedPeople = people.reduce<Person[]>((acc, person) => {
-        if (person.teamId === teamId) {
-          return acc;
-        }
-
-        let updatedPerson = person;
-
-        if (person.podId && affectedPodIds.has(person.podId)) {
-          updatedPerson = { ...updatedPerson, podId: undefined };
-        }
-
-        if (person.managerId && removedPeopleIds.has(person.managerId)) {
-          updatedPerson = { ...updatedPerson, managerId: undefined };
-        }
-
-        acc.push(updatedPerson);
-        return acc;
-      }, []);
-
-      onTeamsChange(updatedTeams);
-
-      if (updatedPods.length !== pods.length) {
-        onPodsChange(updatedPods);
-      }
-
-      let peopleChanged = updatedPeople.length !== people.length;
-      if (!peopleChanged) {
-        peopleChanged = updatedPeople.some((person, index) => person !== people[index]);
-      }
-
-      if (peopleChanged) {
-        onPeopleChange(updatedPeople);
-      }
-
-      setNewPod(prev => {
-        if (prev.teamId !== teamId) {
-          return prev;
-        }
-
-        return { ...prev, teamId: '', members: [] };
-      });
-
-      setNewPerson(prev => {
-        const shouldResetTeam = prev.teamId === teamId;
-        const shouldResetPod = !!prev.podId && affectedPodIds.has(prev.podId);
-        const shouldResetManager = !!prev.managerId && removedPeopleIds.has(prev.managerId);
-
-        if (!shouldResetTeam && !shouldResetPod && !shouldResetManager) {
-          return prev;
-        }
-
-        return {
-          ...prev,
-          teamId: shouldResetTeam ? '' : prev.teamId,
-          podId: shouldResetPod ? '' : prev.podId,
-          managerId: shouldResetManager ? '' : prev.managerId,
-        };
-      });
-
-      debugLog('Team deleted successfully', {
-        teamId,
-        podsRemoved: affectedPods.length,
-        peopleRemoved: affectedPeople.length,
-      });
-    } catch (error) {
-      errorLog('Failed to delete team', error);
-    }
+    onRequestDeleteTeam?.(teamId);
   };
 
   const handleDeletePod = (podId: string) => {
-    try {
-      const podToDelete = safePods.find(pod => pod.id === podId);
-      if (!podToDelete) {
-        debugLog('Attempted to delete pod that does not exist', { podId });
-        return;
-      }
-
-      const affectedPeople = safePeople.filter(person => person.podId === podId);
-      const confirmationParts = [`Delete pod "${podToDelete.name}"?`];
-      if (affectedPeople.length > 0) {
-        confirmationParts.push(`${affectedPeople.length} ${affectedPeople.length === 1 ? 'person will be' : 'people will be'} unassigned from this pod.`);
-      }
-
-      if (!confirm(confirmationParts.join('\n'))) {
-        debugLog('Pod deletion cancelled by user');
-        return;
-      }
-
-      const updatedPods = pods.filter(pod => pod.id !== podId);
-
-      let peopleChanged = false;
-      const updatedPeople = people.map(person => {
-        if (person.podId === podId) {
-          peopleChanged = true;
-          return { ...person, podId: undefined };
-        }
-        return person;
-      });
-
-      onPodsChange(updatedPods);
-
-      if (peopleChanged) {
-        onPeopleChange(updatedPeople);
-      }
-
-      setNewPerson(prev => {
-        if (prev.podId !== podId) {
-          return prev;
-        }
-
-        return { ...prev, podId: '' };
-      });
-
-      debugLog('Pod deleted successfully', {
-        podId,
-        peopleUnassigned: affectedPeople.length,
-      });
-    } catch (error) {
-      errorLog('Failed to delete pod', error);
-    }
+    onRequestDeletePod?.(podId);
   };
 
   const handleDeletePerson = (personId: string) => {
-    try {
-      const personToDelete = safePeople.find(person => person.id === personId);
-      if (!personToDelete) {
-        debugLog('Attempted to delete person that does not exist', { personId });
-        return;
-      }
-
-      const directReports = safePeople.filter(person => person.managerId === personId);
-      const confirmationParts = [`Remove "${personToDelete.name}" from the organization?`];
-      if (directReports.length > 0) {
-        confirmationParts.push(`${directReports.length} ${directReports.length === 1 ? 'person has' : 'people have'} this person as their manager. They will be unassigned.`);
-      }
-
-      if (!confirm(confirmationParts.join('\n'))) {
-        debugLog('Person deletion cancelled by user');
-        return;
-      }
-
-      const updatedPeople = people.reduce<Person[]>((acc, person) => {
-        if (person.id === personId) {
-          return acc;
-        }
-
-        if (person.managerId === personId) {
-          acc.push({ ...person, managerId: undefined });
-          return acc;
-        }
-
-        acc.push(person);
-        return acc;
-      }, []);
-
-      onPeopleChange(updatedPeople);
-
-      setNewPerson(prev => {
-        if (prev.managerId !== personId) {
-          return prev;
-        }
-
-        return { ...prev, managerId: '' };
-      });
-
-      debugLog('Person deleted successfully', {
-        personId,
-        directReportsReassigned: directReports.length,
-      });
-    } catch (error) {
-      errorLog('Failed to delete person', error);
-    }
+    onRequestDeletePerson?.(personId);
   };
 
   const handleDeleteFunction = (functionId: string) => {
-    try {
-      const functionToDelete = safeFunctions.find(fn => fn.id === functionId);
-      if (!functionToDelete) {
-        debugLog('Attempted to delete function that does not exist', { functionId });
-        return;
-      }
-
-      const remainingFunctions = functions.filter(fn => fn.id !== functionId);
-      const fallbackFunction = remainingFunctions[0];
-      const affectedPeople = safePeople.filter(person => person.functionId === functionId);
-
-      const confirmationParts = [`Delete function "${functionToDelete.name}"?`];
-      if (affectedPeople.length > 0) {
-        if (fallbackFunction) {
-          confirmationParts.push(`${affectedPeople.length} ${affectedPeople.length === 1 ? 'person will be' : 'people will be'} reassigned to "${fallbackFunction.name}".`);
-        } else {
-          confirmationParts.push(`${affectedPeople.length} ${affectedPeople.length === 1 ? 'person will be' : 'people will be'} removed because no other functions exist.`);
-        }
-      }
-
-      if (!confirm(confirmationParts.join('\n'))) {
-        debugLog('Function deletion cancelled by user');
-        return;
-      }
-
-      let peopleChanged = false;
-      let updatedPeople: Person[] = people;
-
-      if (affectedPeople.length > 0 && fallbackFunction) {
-        updatedPeople = people.map(person => {
-          if (person.functionId === functionId) {
-            peopleChanged = true;
-            return { ...person, functionId: fallbackFunction.id as FunctionType };
-          }
-          return person;
-        });
-      } else if (affectedPeople.length > 0 && !fallbackFunction) {
-        const removedPersonIds = new Set(affectedPeople.map(person => person.id));
-        updatedPeople = people.reduce<Person[]>((acc, person) => {
-          if (person.functionId === functionId) {
-            peopleChanged = true;
-            return acc;
-          }
-
-          if (person.managerId && removedPersonIds.has(person.managerId)) {
-            peopleChanged = true;
-            acc.push({ ...person, managerId: undefined });
-            return acc;
-          }
-
-          acc.push(person);
-          return acc;
-        }, []);
-      }
-
-      onFunctionsChange(remainingFunctions);
-
-      if (peopleChanged) {
-        onPeopleChange(updatedPeople);
-      }
-
-      setNewPerson(prev => {
-        if (prev.functionId !== functionId) {
-          return prev;
-        }
-
-        return {
-          ...prev,
-          functionId: (fallbackFunction?.id ?? '') as FunctionType,
-        };
-      });
-
-      setCurrentMember(prev => {
-        if (prev.role !== functionId) {
-          return prev;
-        }
-
-        return { ...prev, role: (fallbackFunction?.id ?? '') as FunctionType };
-      });
-
-      debugLog('Function deleted successfully', {
-        functionId,
-        peopleAffected: affectedPeople.length,
-        fallbackAssigned: !!fallbackFunction,
-      });
-    } catch (error) {
-      errorLog('Failed to delete function', error);
-    }
+    onRequestDeleteFunction?.(functionId);
   };
 
   const handleAddMember = () => {
@@ -963,17 +1170,19 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                       <div className="space-y-4">
                         <div>
                           <Label htmlFor="team-name">Team Name</Label>
-                          <Input
-                            id="team-name"
+                          <AutocompleteInput<Team>
+                            inputId="team-name"
                             value={newTeam.name}
-                            onChange={(e) => {
-                              const value = e.target.value;
+                            onChange={(value) => {
                               setNewTeam(prev => ({ ...prev, name: value }));
                               if (teamError) {
                                 setTeamError(null);
                               }
                             }}
                             placeholder="e.g. Product, Engineering, Marketing"
+                            suggestions={teamSuggestions}
+                            onSelect={handleTeamSuggestionSelect}
+                            validationState={teamValidation}
                           />
                           {teamError && (
                             <p className="text-sm text-destructive mt-1">{teamError}</p>
@@ -1008,7 +1217,9 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                         </div>
                         <div className="flex justify-end gap-2">
                           <Button variant="outline" onClick={closeTeamDialog}>Cancel</Button>
-                          <Button onClick={handleSaveTeam}>{editingTeamId ? 'Save Changes' : 'Add Team'}</Button>
+                          <Button onClick={handleSaveTeam} disabled={teamValidation.isDuplicate}>
+                            {editingTeamId ? 'Save Changes' : 'Add Team'}
+                          </Button>
                         </div>
                       </div>
                     </DialogContent>
@@ -1096,7 +1307,13 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                       <div className="space-y-4">
                         <div>
                           <Label htmlFor="pod-team">Team</Label>
-                          <Select value={newPod.teamId} onValueChange={(value) => setNewPod(prev => ({ ...prev, teamId: value }))}>
+                          <Select
+                            value={newPod.teamId}
+                            onValueChange={(value) => {
+                              setNewPod(prev => ({ ...prev, teamId: value }));
+                              setPodValidation({ isDuplicate: false, similarEntities: [] });
+                            }}
+                          >
                             <SelectTrigger>
                               <SelectValue placeholder="Select a team" />
                             </SelectTrigger>
@@ -1111,11 +1328,15 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                         </div>
                         <div>
                           <Label htmlFor="pod-name">Pod Name</Label>
-                          <Input
-                            id="pod-name"
+                          <AutocompleteInput<Pod>
+                            inputId="pod-name"
                             value={newPod.name}
-                            onChange={(e) => setNewPod(prev => ({ ...prev, name: e.target.value }))}
+                            onChange={(value) => setNewPod(prev => ({ ...prev, name: value }))}
                             placeholder="e.g. Core Product, Growth, Platform"
+                            suggestions={newPod.teamId ? podSuggestions : []}
+                            onSelect={handlePodSuggestionSelect}
+                            validationState={newPod.teamId ? podValidation : undefined}
+                            disabled={!newPod.teamId}
                           />
                         </div>
                         <div>
@@ -1132,16 +1353,13 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                           <div className="space-y-3">
                             <div className="flex gap-2">
                               <div className="flex-1">
-                                <Input
+                                <AutocompleteInput<Person>
                                   value={currentMember.name}
-                                  onChange={(e) => setCurrentMember(prev => ({ ...prev, name: e.target.value }))}
+                                  onChange={(value) => setCurrentMember(prev => ({ ...prev, name: value }))}
                                   placeholder="Member name"
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      handleAddMember();
-                                    }
-                                  }}
+                                  suggestions={podMemberSuggestions}
+                                  onSelect={handleMemberSuggestionSelect}
+                                  onSubmit={() => handleAddMember()}
                                 />
                               </div>
                               <div className="w-32">
@@ -1220,7 +1438,9 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                         </div>
                         <div className="flex justify-end gap-2">
                           <Button variant="outline" onClick={closePodDialog}>Cancel</Button>
-                          <Button onClick={handleSavePod}>{editingPodId ? 'Save Changes' : 'Add Pod'}</Button>
+                          <Button onClick={handleSavePod} disabled={podValidation.isDuplicate}>
+                            {editingPodId ? 'Save Changes' : 'Add Pod'}
+                          </Button>
                         </div>
                       </div>
                     </DialogContent>
@@ -1313,12 +1533,14 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                         <div className="space-y-4">
                           <div>
                             <Label htmlFor="function-name">Function Name</Label>
-                            <Input
-                              id="function-name"
+                            <AutocompleteInput<OrgFunction>
+                              inputId="function-name"
                               value={newFunction.name}
-                              onChange={(e) => updateFunctionField('name', e.target.value)}
+                              onChange={(value) => updateFunctionField('name', value)}
                               placeholder="e.g. Product, Engineering"
-                              autoComplete="off"
+                              suggestions={functionSuggestions}
+                              onSelect={handleFunctionSuggestionSelect}
+                              validationState={functionValidation}
                             />
                             {functionErrors.name && (
                               <p className="mt-1 text-xs text-destructive">{functionErrors.name}</p>
@@ -1357,7 +1579,9 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                           </div>
                           <div className="flex justify-end gap-2">
                             <Button variant="outline" onClick={handleCloseFunctionDialog}>Cancel</Button>
-                            <Button onClick={handleSaveFunction}>{isEditingFunction ? 'Save Changes' : 'Add Function'}</Button>
+                            <Button onClick={handleSaveFunction} disabled={functionValidation.isDuplicate}>
+                              {isEditingFunction ? 'Save Changes' : 'Add Function'}
+                            </Button>
                           </div>
                         </div>
                       </DialogContent>
@@ -1444,27 +1668,32 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="person-name">Name</Label>
-                            <Input
-                              id="person-name"
-                              value={newPerson.name}
-                              onChange={(e) => setNewPerson(prev => ({ ...prev, name: e.target.value }))}
-                              placeholder="Full name"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="person-email">Email</Label>
-                            <Input
-                              id="person-email"
-                              type="email"
-                              value={newPerson.email}
-                              onChange={(e) => setNewPerson(prev => ({ ...prev, email: e.target.value }))}
-                              placeholder="email@company.com"
-                            />
-                          </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="person-name">Name</Label>
+                          <AutocompleteInput<Person>
+                            inputId="person-name"
+                            value={newPerson.name}
+                            onChange={(value) => setNewPerson(prev => ({ ...prev, name: value }))}
+                            placeholder="Full name"
+                            suggestions={personNameSuggestions}
+                            onSelect={handlePersonNameSuggestionSelect}
+                            validationState={personNameValidation}
+                          />
                         </div>
+                        <div>
+                          <Label htmlFor="person-email">Email</Label>
+                          <AutocompleteInput<Person>
+                            inputId="person-email"
+                            inputType="email"
+                            value={newPerson.email}
+                            onChange={(value) => setNewPerson(prev => ({ ...prev, email: value }))}
+                            placeholder="email@company.com"
+                            suggestions={[]}
+                            validationState={personEmailValidation}
+                          />
+                        </div>
+                      </div>
                         
                         {/* Native HTML select for Function */}
                         <div>
@@ -1493,7 +1722,11 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                           <select
                             id="person-team"
                             value={newPerson.teamId}
-                            onChange={(e) => setNewPerson(prev => ({ ...prev, teamId: e.target.value, podId: '' }))}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setNewPerson(prev => ({ ...prev, teamId: value, podId: '', managerId: '' }));
+                              setManagerSearch('');
+                            }}
                             className="w-full mt-1 px-3 py-2 bg-background border border-input rounded-md text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <option value="">Select a team</option>
@@ -1528,24 +1761,27 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                         {/* Native HTML select for Manager */}
                         <div>
                           <Label htmlFor="person-manager">Manager (Optional)</Label>
-                          <select
-                            id="person-manager"
-                            value={newPerson.managerId || ""}
-                            onChange={(e) => setNewPerson(prev => ({ ...prev, managerId: e.target.value }))}
-                            className="w-full mt-1 px-3 py-2 bg-background border border-input rounded-md text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <option value="">No Manager</option>
-                            {safePeople.map((person) => (
-                              <option key={person.id} value={person.id}>
-                                {person.name}
-                              </option>
-                            ))}
-                          </select>
+                          <AutocompleteInput<Person>
+                            inputId="person-manager"
+                            value={managerSearch}
+                            onChange={(value) => {
+                              setManagerSearch(value);
+                              if (!value) {
+                                setNewPerson(prev => ({ ...prev, managerId: '' }));
+                              }
+                            }}
+                            placeholder="Start typing to find a manager"
+                            suggestions={managerSuggestions}
+                            onSelect={handleManagerSuggestionSelect}
+                          />
+                          <p className="mt-1 text-xs text-muted-foreground">Leave blank if this person reports directly to leadership.</p>
                         </div>
                         
                         <div className="flex justify-end gap-2">
                           <Button variant="outline" onClick={handleClosePersonDialog}>Cancel</Button>
-                          <Button onClick={handleSavePerson}>{editingPersonId ? 'Save Changes' : 'Add Person'}</Button>
+                          <Button onClick={handleSavePerson} disabled={personEmailValidation.isDuplicate}>
+                            {editingPersonId ? 'Save Changes' : 'Add Person'}
+                          </Button>
                         </div>
                       </div>
                     </DialogContent>
@@ -1603,17 +1839,19 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
           <div className="space-y-4">
             <div>
               <Label htmlFor="team-name">Team Name</Label>
-              <Input
-                id="team-name"
+              <AutocompleteInput<Team>
+                inputId="team-name"
                 value={newTeam.name}
-                onChange={(e) => {
-                  const value = e.target.value;
+                onChange={(value) => {
                   setNewTeam(prev => ({ ...prev, name: value }));
                   if (teamError) {
                     setTeamError(null);
                   }
                 }}
                 placeholder="e.g. Product, Engineering, Marketing"
+                suggestions={teamSuggestions}
+                onSelect={handleTeamSuggestionSelect}
+                validationState={teamValidation}
               />
               {teamError && (
                 <p className="text-sm text-destructive mt-1">{teamError}</p>
@@ -1648,7 +1886,9 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={closeTeamDialog}>Cancel</Button>
-              <Button onClick={handleSaveTeam}>{editingTeamId ? 'Save Changes' : 'Add Team'}</Button>
+              <Button onClick={handleSaveTeam} disabled={teamValidation.isDuplicate}>
+                {editingTeamId ? 'Save Changes' : 'Add Team'}
+              </Button>
             </div>
           </div>
         </DialogContent>
@@ -1672,7 +1912,13 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
           <div className="space-y-4">
             <div>
               <Label htmlFor="pod-team">Team</Label>
-              <Select value={newPod.teamId} onValueChange={(value) => setNewPod(prev => ({ ...prev, teamId: value }))}>
+              <Select
+                value={newPod.teamId}
+                onValueChange={(value) => {
+                  setNewPod(prev => ({ ...prev, teamId: value }));
+                  setPodValidation({ isDuplicate: false, similarEntities: [] });
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a team" />
                 </SelectTrigger>
@@ -1687,11 +1933,15 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
             </div>
             <div>
               <Label htmlFor="pod-name">Pod Name</Label>
-              <Input
-                id="pod-name"
+              <AutocompleteInput<Pod>
+                inputId="pod-name"
                 value={newPod.name}
-                onChange={(e) => setNewPod(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(value) => setNewPod(prev => ({ ...prev, name: value }))}
                 placeholder="e.g. Core Product, Growth, Platform"
+                suggestions={newPod.teamId ? podSuggestions : []}
+                onSelect={handlePodSuggestionSelect}
+                validationState={newPod.teamId ? podValidation : undefined}
+                disabled={!newPod.teamId}
               />
             </div>
             <div>
@@ -1708,16 +1958,13 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
               <div className="space-y-3">
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <Input
+                    <AutocompleteInput<Person>
                       value={currentMember.name}
-                      onChange={(e) => setCurrentMember(prev => ({ ...prev, name: e.target.value }))}
+                      onChange={(value) => setCurrentMember(prev => ({ ...prev, name: value }))}
                       placeholder="Member name"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddMember();
-                        }
-                      }}
+                      suggestions={podMemberSuggestions}
+                      onSelect={handleMemberSuggestionSelect}
+                      onSubmit={() => handleAddMember()}
                     />
                   </div>
                   <div className="w-32">
@@ -1796,7 +2043,9 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={closePodDialog}>Cancel</Button>
-              <Button onClick={handleSavePod}>{editingPodId ? 'Save Changes' : 'Add Pod'}</Button>
+              <Button onClick={handleSavePod} disabled={podValidation.isDuplicate}>
+                {editingPodId ? 'Save Changes' : 'Add Pod'}
+              </Button>
             </div>
           </div>
         </DialogContent>
@@ -1823,12 +2072,14 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
           <div className="space-y-4">
             <div>
               <Label htmlFor="function-name-2">Function Name</Label>
-              <Input
-                id="function-name-2"
+              <AutocompleteInput<OrgFunction>
+                inputId="function-name-2"
                 value={newFunction.name}
-                onChange={(e) => updateFunctionField('name', e.target.value)}
+                onChange={(value) => updateFunctionField('name', value)}
                 placeholder="e.g. Product, Engineering"
-                autoComplete="off"
+                suggestions={functionSuggestions}
+                onSelect={handleFunctionSuggestionSelect}
+                validationState={functionValidation}
               />
               {functionErrors.name && (
                 <p className="mt-1 text-xs text-destructive">{functionErrors.name}</p>
@@ -1867,7 +2118,9 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={handleCloseFunctionDialog}>Cancel</Button>
-              <Button onClick={handleSaveFunction}>{isEditingFunction ? 'Save Changes' : 'Add Function'}</Button>
+              <Button onClick={handleSaveFunction} disabled={functionValidation.isDuplicate}>
+                {isEditingFunction ? 'Save Changes' : 'Add Function'}
+              </Button>
             </div>
           </div>
         </DialogContent>
@@ -1892,21 +2145,26 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="person-name">Name</Label>
-                <Input
-                  id="person-name"
+                <AutocompleteInput<Person>
+                  inputId="person-name"
                   value={newPerson.name}
-                  onChange={(e) => setNewPerson(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(value) => setNewPerson(prev => ({ ...prev, name: value }))}
                   placeholder="Full name"
+                  suggestions={personNameSuggestions}
+                  onSelect={handlePersonNameSuggestionSelect}
+                  validationState={personNameValidation}
                 />
               </div>
               <div>
                 <Label htmlFor="person-email">Email</Label>
-                <Input
-                  id="person-email"
-                  type="email"
+                <AutocompleteInput<Person>
+                  inputId="person-email"
+                  inputType="email"
                   value={newPerson.email}
-                  onChange={(e) => setNewPerson(prev => ({ ...prev, email: e.target.value }))}
+                  onChange={(value) => setNewPerson(prev => ({ ...prev, email: value }))}
                   placeholder="email@company.com"
+                  suggestions={[]}
+                  validationState={personEmailValidation}
                 />
               </div>
             </div>
@@ -1938,7 +2196,11 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
               <select
                 id="person-team"
                 value={newPerson.teamId}
-                onChange={(e) => setNewPerson(prev => ({ ...prev, teamId: e.target.value, podId: '' }))}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setNewPerson(prev => ({ ...prev, teamId: value, podId: '', managerId: '' }));
+                  setManagerSearch('');
+                }}
                 className="w-full mt-1 px-3 py-2 bg-background border border-input rounded-md text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="">Select a team</option>
@@ -1973,24 +2235,27 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
             {/* Native HTML select for Manager */}
             <div>
               <Label htmlFor="person-manager">Manager (Optional)</Label>
-              <select
-                id="person-manager"
-                value={newPerson.managerId || ""}
-                onChange={(e) => setNewPerson(prev => ({ ...prev, managerId: e.target.value }))}
-                className="w-full mt-1 px-3 py-2 bg-background border border-input rounded-md text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <option value="">No Manager</option>
-                {safePeople.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name}
-                  </option>
-                ))}
-              </select>
+              <AutocompleteInput<Person>
+                inputId="person-manager"
+                value={managerSearch}
+                onChange={(value) => {
+                  setManagerSearch(value);
+                  if (!value) {
+                    setNewPerson(prev => ({ ...prev, managerId: '' }));
+                  }
+                }}
+                placeholder="Start typing to find a manager"
+                suggestions={managerSuggestions}
+                onSelect={handleManagerSuggestionSelect}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">Leave blank if this person reports directly to leadership.</p>
             </div>
 
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={handleClosePersonDialog}>Cancel</Button>
-              <Button onClick={handleSavePerson}>{editingPersonId ? 'Save Changes' : 'Add Person'}</Button>
+              <Button onClick={handleSavePerson} disabled={personEmailValidation.isDuplicate}>
+                {editingPersonId ? 'Save Changes' : 'Add Person'}
+              </Button>
             </div>
           </div>
         </DialogContent>
