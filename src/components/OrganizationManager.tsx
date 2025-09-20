@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Team, Pod, PodMember, Person, FunctionType } from "../types";
+import { useEffect, useMemo, useState } from "react";
+import { Team, Pod, PodMember, Person, FunctionType, OrgFunction } from "../types";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -9,35 +9,36 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Label } from "./ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
-import { Plus, Users, Building2, Edit2, Trash2, X, ChevronDown, ChevronRight, User } from "lucide-react";
+import { Plus, Users, Building2, Edit2, Trash2, X, ChevronDown, ChevronRight, User, Puzzle } from "lucide-react";
+
+const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
 interface OrganizationManagerProps {
   teams: Team[];
   pods: Pod[];
   people: Person[];
+  functions: OrgFunction[];
   onTeamsChange: (teams: Team[]) => void;
   onPodsChange: (pods: Pod[]) => void;
   onPeopleChange: (people: Person[]) => void;
+  onFunctionsChange: (functions: OrgFunction[]) => void;
 }
 
-export function OrganizationManager({ teams, pods, people, onTeamsChange, onPodsChange, onPeopleChange }: OrganizationManagerProps) {
+export function OrganizationManager({ teams, pods, people, functions, onTeamsChange, onPodsChange, onPeopleChange, onFunctionsChange }: OrganizationManagerProps) {
+  const initialFunctionId = functions[0]?.id ?? '';
+  const initialFunctionColor = functions[0]?.color ?? '#3B82F6';
+
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [isAddingTeam, setIsAddingTeam] = useState(false);
   const [isAddingPod, setIsAddingPod] = useState(false);
+  const [isAddingFunction, setIsAddingFunction] = useState(false);
   const [isAddingPerson, setIsAddingPerson] = useState(false);
   const [newTeam, setNewTeam] = useState({ name: '', description: '', color: '#3B82F6' });
   const [newPod, setNewPod] = useState({ name: '', teamId: '', description: '', members: [] as PodMember[] });
-  const [newPerson, setNewPerson] = useState({ name: '', email: '', function: 'Product' as FunctionType, managerId: '', teamId: '', podId: '' });
-  const [currentMember, setCurrentMember] = useState({ name: '', role: 'Product' as const });
-
-  // Static options arrays to prevent render issues
-  const ROLE_OPTIONS = [
-    { value: 'Analytics', label: 'Analytics', color: '#8B5CF6' },
-    { value: 'S&O', label: 'S&O', color: '#10B981' },
-    { value: 'Engineering', label: 'Engineering', color: '#3B82F6' },
-    { value: 'Design', label: 'Design', color: '#F59E0B' },
-    { value: 'Product', label: 'Product', color: '#EF4444' }
-  ];
+  const [newFunction, setNewFunction] = useState({ name: '', description: '', color: initialFunctionColor });
+  const [functionErrors, setFunctionErrors] = useState<{ name?: string; color?: string; description?: string }>({});
+  const [newPerson, setNewPerson] = useState({ name: '', email: '', functionId: initialFunctionId as FunctionType, managerId: '', teamId: '', podId: '' });
+  const [currentMember, setCurrentMember] = useState({ name: '', role: initialFunctionId as FunctionType });
 
   const COLOR_OPTIONS = [
     { value: '#3B82F6', label: 'Blue' },
@@ -60,9 +61,34 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
   };
 
   // Safe data access with fallbacks
-  const safeTeams = Array.isArray(teams) ? teams.filter(t => t && t.id && t.name) : [];
-  const safePods = Array.isArray(pods) ? pods.filter(p => p && p.id && p.name && p.teamId) : [];
-  const safePeople = Array.isArray(people) ? people.filter(p => p && p.id && p.name && p.active) : [];
+  const safeTeams = useMemo(() => (Array.isArray(teams) ? teams.filter(t => t && t.id && t.name) : []), [teams]);
+  const safePods = useMemo(() => (Array.isArray(pods) ? pods.filter(p => p && p.id && p.name && p.teamId) : []), [pods]);
+  const safeFunctions = useMemo(() => (Array.isArray(functions)
+    ? functions.filter(fn => fn && fn.id && fn.name)
+    : []), [functions]);
+  const safePeople = useMemo(() => (Array.isArray(people)
+    ? people.filter(p => p && p.id && p.name && p.active && p.functionId)
+    : []), [people]);
+
+  const defaultFunctionId = safeFunctions[0]?.id ?? '';
+  const getFunctionById = (id: string) => safeFunctions.find(fn => fn.id === id);
+  const getFunctionColor = (id: string) => getFunctionById(id)?.color ?? '#6B7280';
+  const getFunctionName = (id: string) => getFunctionById(id)?.name ?? (id || 'Unknown Function');
+  const recentFunctions = useMemo(() => safeFunctions.slice(-3).reverse(), [safeFunctions]);
+
+  useEffect(() => {
+    if (!newPerson.functionId && defaultFunctionId) {
+      setNewPerson(prev => ({ ...prev, functionId: defaultFunctionId as FunctionType }));
+    }
+
+    if (!currentMember.role && defaultFunctionId) {
+      setCurrentMember(prev => ({ ...prev, role: defaultFunctionId as FunctionType }));
+    }
+
+    if (!newFunction.color && safeFunctions[0]?.color) {
+      setNewFunction(prev => ({ ...prev, color: safeFunctions[0].color }));
+    }
+  }, [defaultFunctionId, safeFunctions, newFunction.color, newPerson.functionId, currentMember.role]);
 
   const handleAddTeam = () => {
     try {
@@ -103,7 +129,7 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
         debugLog('Creating new pod', pod);
         onPodsChange([...pods, pod]);
         setNewPod({ name: '', teamId: '', description: '', members: [] });
-        setCurrentMember({ name: '', role: 'Product' });
+        setCurrentMember({ name: '', role: defaultFunctionId as FunctionType });
         setIsAddingPod(false);
         debugLog('Pod added successfully');
       }
@@ -112,16 +138,147 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
     }
   };
 
+  const resetFunctionForm = () => {
+    setNewFunction({ name: '', description: '', color: safeFunctions[0]?.color ?? '#3B82F6' });
+    setFunctionErrors({});
+  };
+
+  const updateFunctionField = (field: 'name' | 'description' | 'color', value: string) => {
+    setNewFunction(prev => ({ ...prev, [field]: value }));
+    if (functionErrors[field]) {
+      setFunctionErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const handleAddFunction = () => {
+    try {
+      debugLog('handleAddFunction called', { newFunction });
+
+      const trimmedName = newFunction.name.trim();
+      const trimmedColor = newFunction.color.trim();
+      const errors: { name?: string; color?: string } = {};
+
+      if (!trimmedName) {
+        errors.name = 'Function name is required';
+      } else if (safeFunctions.some(fn => fn.name.toLowerCase() === trimmedName.toLowerCase())) {
+        errors.name = 'Function name already exists';
+      }
+
+      if (!trimmedColor) {
+        errors.color = 'Function color is required';
+      } else if (!HEX_COLOR_PATTERN.test(trimmedColor)) {
+        errors.color = 'Use a valid hex color (e.g. #3B82F6)';
+      }
+
+      if (Object.keys(errors).length > 0) {
+        setFunctionErrors(errors);
+        return;
+      }
+
+      let slugBase = trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      if (!slugBase) {
+        slugBase = 'function';
+      }
+
+      let generatedId = slugBase;
+      let attempt = 1;
+      while (safeFunctions.some(fn => fn.id === generatedId)) {
+        generatedId = `${slugBase}-${attempt++}`;
+      }
+
+      const newEntry: OrgFunction = {
+        id: generatedId,
+        name: trimmedName,
+        description: newFunction.description.trim() ? newFunction.description.trim() : undefined,
+        color: trimmedColor,
+        createdAt: new Date().toISOString(),
+      };
+
+      onFunctionsChange([...functions, newEntry]);
+      setNewPerson(prev => ({ ...prev, functionId: newEntry.id as FunctionType }));
+      setCurrentMember(prev => ({ ...prev, role: newEntry.id as FunctionType }));
+      resetFunctionForm();
+      setIsAddingFunction(false);
+      debugLog('Function added successfully', newEntry);
+    } catch (error) {
+      errorLog('Failed to add function', error);
+    }
+  };
+
+  const handleCloseFunctionDialog = () => {
+    debugLog('Closing function dialog');
+    resetFunctionForm();
+    setIsAddingFunction(false);
+  };
+
+  const FunctionDialogBody = () => (
+    <>
+      <DialogHeader>
+        <DialogTitle>Add New Function</DialogTitle>
+        <DialogDescription>Keep functions in sync across people and pods</DialogDescription>
+      </DialogHeader>
+      <div className="space-y-4">
+        <div>
+          <Label htmlFor="function-name">Function Name</Label>
+          <Input
+            id="function-name"
+            value={newFunction.name}
+            onChange={(e) => updateFunctionField('name', e.target.value)}
+            placeholder="e.g. Product, Engineering"
+          />
+          {functionErrors.name && (
+            <p className="mt-1 text-xs text-destructive">{functionErrors.name}</p>
+          )}
+        </div>
+        <div>
+          <Label htmlFor="function-description">Description (Optional)</Label>
+          <Textarea
+            id="function-description"
+            value={newFunction.description}
+            onChange={(e) => updateFunctionField('description', e.target.value)}
+            placeholder="How this function contributes to execution"
+          />
+        </div>
+        <div>
+          <Label htmlFor="function-color">Color</Label>
+          <div className="flex items-center gap-3">
+            <input
+              id="function-color"
+              type="color"
+              value={HEX_COLOR_PATTERN.test(newFunction.color) ? newFunction.color : '#3B82F6'}
+              onChange={(e) => updateFunctionField('color', e.target.value)}
+              className="h-10 w-12 rounded border border-input bg-background p-0"
+              aria-label="Function color"
+            />
+            <Input
+              value={newFunction.color}
+              onChange={(e) => updateFunctionField('color', e.target.value)}
+              placeholder="#3B82F6"
+            />
+          </div>
+          {functionErrors.color && (
+            <p className="mt-1 text-xs text-destructive">{functionErrors.color}</p>
+          )}
+        </div>
+        {/* TODO: Add edit/delete controls for functions once requirements expand. */}
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={handleCloseFunctionDialog}>Cancel</Button>
+          <Button onClick={handleAddFunction}>Add Function</Button>
+        </div>
+      </div>
+    </>
+  );
+
   const handleAddPerson = () => {
     try {
       debugLog('handleAddPerson called', { newPerson });
       
-      if (newPerson.name.trim() && newPerson.email.trim() && newPerson.teamId) {
+      if (newPerson.name.trim() && newPerson.email.trim() && newPerson.teamId && newPerson.functionId) {
         const person: Person = {
           id: `person-${Date.now()}`,
           name: newPerson.name,
           email: newPerson.email,
-          function: newPerson.function,
+          functionId: newPerson.functionId,
           managerId: newPerson.managerId || undefined,
           teamId: newPerson.teamId,
           podId: newPerson.podId || undefined,
@@ -131,14 +288,15 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
         
         debugLog('Creating new person', person);
         onPeopleChange([...people, person]);
-        setNewPerson({ name: '', email: '', function: 'Product', managerId: '', teamId: '', podId: '' });
+        setNewPerson({ name: '', email: '', functionId: defaultFunctionId as FunctionType, managerId: '', teamId: '', podId: '' });
         setIsAddingPerson(false);
         debugLog('Person added successfully');
       } else {
         debugLog('Person validation failed', {
           hasName: !!newPerson.name.trim(),
           hasEmail: !!newPerson.email.trim(),
-          hasTeam: !!newPerson.teamId
+          hasTeam: !!newPerson.teamId,
+          hasFunction: !!newPerson.functionId
         });
       }
     } catch (error) {
@@ -151,11 +309,12 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
       debugLog('handleAddMember called', { currentMember });
       
       if (currentMember.name.trim()) {
+        const roleId = (currentMember.role || defaultFunctionId) as FunctionType;
         setNewPod(prev => ({
           ...prev,
-          members: [...prev.members, { ...currentMember }]
+          members: [...prev.members, { name: currentMember.name, role: roleId }]
         }));
-        setCurrentMember({ name: '', role: 'Product' });
+        setCurrentMember({ name: '', role: defaultFunctionId as FunctionType });
         debugLog('Member added to pod');
       }
     } catch (error) {
@@ -177,10 +336,7 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
     }
   };
 
-  const getRoleColor = (role: string) => {
-    const roleOption = ROLE_OPTIONS.find(r => r.value === role);
-    return roleOption ? roleOption.color : '#6B7280';
-  };
+  const getRoleColor = (role: string) => getFunctionColor(role);
 
   const getTeamName = (teamId: string) => {
     const team = safeTeams.find(t => t.id === teamId);
@@ -234,7 +390,7 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
     try {
       debugLog('Closing person dialog');
       setIsAddingPerson(false);
-      setNewPerson({ name: '', email: '', function: 'Product', managerId: '', teamId: '', podId: '' });
+      setNewPerson({ name: '', email: '', functionId: defaultFunctionId as FunctionType, managerId: '', teamId: '', podId: '' });
       debugLog('Person dialog closed and state reset');
     } catch (error) {
       errorLog('Failed to close person dialog', error);
@@ -254,8 +410,8 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
                   <h3 className="text-base font-medium leading-none">Organization Structure</h3>
                   <p className="text-sm text-muted-foreground mt-1">
                     {isCollapsed
-                      ? `${safeTeams.length} ${safeTeams.length === 1 ? 'team' : 'teams'}, ${safePods.length} ${safePods.length === 1 ? 'pod' : 'pods'}, ${safePeople.length} ${safePeople.length === 1 ? 'person' : 'people'}`
-                      : "Set up your teams, pods, and people for OKR management"
+                      ? `${safeTeams.length} ${safeTeams.length === 1 ? 'team' : 'teams'}, ${safePods.length} ${safePods.length === 1 ? 'pod' : 'pods'}, ${safeFunctions.length} ${safeFunctions.length === 1 ? 'function' : 'functions'}, ${safePeople.length} ${safePeople.length === 1 ? 'person' : 'people'}`
+                      : "Set up your teams, pods, functions, and people for OKR management"
                     }
                   </p>
                 </div>
@@ -272,6 +428,10 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
                 <Plus className="h-4 w-4 mr-1" />
                 Add Pod
               </Button>
+              <Button size="sm" onClick={(e) => { e.stopPropagation(); resetFunctionForm(); setIsAddingFunction(true); }}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add Function
+              </Button>
               <Button size="sm" onClick={handleAddPersonClick}>
                 <Plus className="h-4 w-4 mr-1" />
                 Add Person
@@ -281,7 +441,7 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
         </div>
         
         <CollapsibleContent className="px-4 pb-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Team Management Card */}
             <Card>
               <CardHeader>
@@ -463,17 +623,23 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
                                 />
                               </div>
                               <div className="w-32">
-                                <Select 
-                                  value={currentMember.role} 
-                                  onValueChange={(value) => setCurrentMember(prev => ({ ...prev, role: value as any }))}
+                                <Select
+                                  value={currentMember.role || defaultFunctionId}
+                                  onValueChange={(value) => setCurrentMember(prev => ({ ...prev, role: value as FunctionType }))}
+                                  disabled={safeFunctions.length === 0}
                                 >
                                   <SelectTrigger>
                                     <SelectValue placeholder="Role" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {ROLE_OPTIONS.map((role) => (
-                                      <SelectItem key={role.value} value={role.value}>
-                                        {role.label}
+                                    {safeFunctions.length === 0 && (
+                                      <SelectItem value="" disabled>
+                                        No functions available
+                                      </SelectItem>
+                                    )}
+                                    {safeFunctions.map((fn) => (
+                                      <SelectItem key={fn.id} value={fn.id}>
+                                        {fn.name}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
@@ -505,7 +671,7 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
                                         />
                                         <span className="text-sm">{member.name}</span>
                                         <Badge variant="secondary" className="text-xs">
-                                          {member.role}
+                                          {getFunctionName(member.role)}
                                         </Badge>
                                       </div>
                                       <Button
@@ -558,6 +724,75 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
                       ))}
                     </div>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Function Management Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Puzzle className="h-5 w-5" />
+                  Functions
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Maintain the shared directory of disciplines and roles
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-2xl font-bold">{safeFunctions.length}</div>
+                    <p className="text-xs text-muted-foreground">
+                      Active functions available for teams and pods
+                    </p>
+                  </div>
+                  <Dialog
+                    open={isAddingFunction}
+                    onOpenChange={(open) => {
+                      if (open) {
+                        resetFunctionForm();
+                        setIsAddingFunction(true);
+                      } else {
+                        handleCloseFunctionDialog();
+                      }
+                    }}
+                  >
+                    <DialogTrigger asChild>
+                      <Button onClick={(e) => e.stopPropagation()}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Function
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <FunctionDialogBody />
+                    </DialogContent>
+                  </Dialog>
+                </div>
+
+                {recentFunctions.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Recent Functions:</p>
+                    <div className="space-y-1">
+                      {recentFunctions.map((fn) => (
+                        <div key={fn.id} className="text-xs p-2 bg-muted/50 rounded flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: fn.color }} />
+                            <span className="truncate">{fn.name}</span>
+                          </div>
+                          {fn.description && (
+                            <span className="text-xs text-muted-foreground truncate max-w-[140px]">
+                              {fn.description}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    No functions yet. Add one to keep role assignments aligned.
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -621,13 +856,17 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
                           <Label htmlFor="person-function">Function</Label>
                           <select
                             id="person-function"
-                            value={newPerson.function}
-                            onChange={(e) => setNewPerson(prev => ({ ...prev, function: e.target.value as FunctionType }))}
+                            value={newPerson.functionId || defaultFunctionId}
+                            onChange={(e) => setNewPerson(prev => ({ ...prev, functionId: e.target.value as FunctionType }))}
+                            disabled={safeFunctions.length === 0}
                             className="w-full mt-1 px-3 py-2 bg-background border border-input rounded-md text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            {ROLE_OPTIONS.map((role) => (
-                              <option key={role.value} value={role.value}>
-                                {role.label}
+                            {safeFunctions.length === 0 && (
+                              <option value="">No functions available</option>
+                            )}
+                            {safeFunctions.map((fn) => (
+                              <option key={fn.id} value={fn.id}>
+                                {fn.name}
                               </option>
                             ))}
                           </select>
@@ -707,7 +946,7 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
                           <div className="flex items-center gap-2">
                             <div 
                               className="w-3 h-3 rounded-full" 
-                              style={{ backgroundColor: getRoleColor(person.function) }}
+                              style={{ backgroundColor: getRoleColor(person.functionId) }}
                             />
                             <span className="truncate">{person.name}</span>
                           </div>
@@ -716,7 +955,7 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
                               {getTeamName(person.teamId)}
                             </Badge>
                             <Badge variant="secondary" className="text-xs">
-                              {person.function}
+                              {getFunctionName(person.functionId)}
                             </Badge>
                           </div>
                         </div>
@@ -842,16 +1081,22 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
                   </div>
                   <div className="w-32">
                     <Select
-                      value={currentMember.role}
-                      onValueChange={(value) => setCurrentMember(prev => ({ ...prev, role: value as any }))}
+                      value={currentMember.role || defaultFunctionId}
+                      onValueChange={(value) => setCurrentMember(prev => ({ ...prev, role: value as FunctionType }))}
+                      disabled={safeFunctions.length === 0}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Role" />
                       </SelectTrigger>
                       <SelectContent>
-                        {ROLE_OPTIONS.map((role) => (
-                          <SelectItem key={role.value} value={role.value}>
-                            {role.label}
+                        {safeFunctions.length === 0 && (
+                          <SelectItem value="" disabled>
+                            No functions available
+                          </SelectItem>
+                        )}
+                        {safeFunctions.map((fn) => (
+                          <SelectItem key={fn.id} value={fn.id}>
+                            {fn.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -883,7 +1128,7 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
                             />
                             <span className="text-sm">{member.name}</span>
                             <Badge variant="secondary" className="text-xs">
-                              {member.role}
+                              {getFunctionName(member.role)}
                             </Badge>
                           </div>
                           <Button
@@ -913,6 +1158,23 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
               <Button onClick={handleAddPod}>Add Pod</Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Function Dialog */}
+      <Dialog
+        open={isAddingFunction}
+        onOpenChange={(open) => {
+          if (open) {
+            resetFunctionForm();
+            setIsAddingFunction(true);
+          } else {
+            handleCloseFunctionDialog();
+          }
+        }}
+      >
+        <DialogContent>
+          <FunctionDialogBody />
         </DialogContent>
       </Dialog>
 
@@ -951,13 +1213,17 @@ export function OrganizationManager({ teams, pods, people, onTeamsChange, onPods
               <Label htmlFor="person-function">Function</Label>
               <select
                 id="person-function"
-                value={newPerson.function}
-                onChange={(e) => setNewPerson(prev => ({ ...prev, function: e.target.value as FunctionType }))}
+                value={newPerson.functionId || defaultFunctionId}
+                onChange={(e) => setNewPerson(prev => ({ ...prev, functionId: e.target.value as FunctionType }))}
+                disabled={safeFunctions.length === 0}
                 className="w-full mt-1 px-3 py-2 bg-background border border-input rounded-md text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {ROLE_OPTIONS.map((role) => (
-                  <option key={role.value} value={role.value}>
-                    {role.label}
+                {safeFunctions.length === 0 && (
+                  <option value="">No functions available</option>
+                )}
+                {safeFunctions.map((fn) => (
+                  <option key={fn.id} value={fn.id}>
+                    {fn.name}
                   </option>
                 ))}
               </select>

@@ -6,15 +6,23 @@ export interface Team {
   color: string;
 }
 
-// Function types for consistency across the app
-export type FunctionType = 'Analytics' | 'S&O' | 'Engineering' | 'Design' | 'Product';
+// Function directory entries used across the organization manager
+export interface OrgFunction {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  createdAt: string;
+}
+
+export type FunctionType = OrgFunction['id'];
 
 // Person entity for organization management
 export interface Person {
   id: string;
   name: string;
   email: string;
-  function: FunctionType;
+  functionId: FunctionType;
   managerId?: string; // Reference to another person
   teamId: string;
   podId?: string;

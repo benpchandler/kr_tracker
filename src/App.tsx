@@ -15,8 +15,8 @@ import { ModeSwitch, ModeDescription } from "./components/ModeSwitch";
 import { OrganizationManager } from "./components/OrganizationManager";
 import { KRSpreadsheetView } from "./components/KRSpreadsheetView";
 import { Target, Lightbulb, TrendingUp, Users, Settings, Building2, ChevronDown, ChevronRight } from "lucide-react";
-import { AppMode, Team, Pod, Quarter, KR, Initiative, KRComment, WeeklyActual, ViewType, FilterOptions, Person } from "./types";
-import { mockTeams, mockPods, mockQuarters, mockKRs, mockInitiatives, mockPeople } from "./data/mockData";
+import { AppMode, Team, Pod, Quarter, KR, Initiative, KRComment, WeeklyActual, ViewType, FilterOptions, Person, OrgFunction } from "./types";
+import { mockTeams, mockPods, mockQuarters, mockKRs, mockInitiatives, mockPeople, mockFunctions } from "./data/mockData";
 import { adaptBackendToFrontend } from "./utils/dataAdapter";
 
 const LOCAL_STORAGE_KEY = "kr-tracker-state-v3";
@@ -26,6 +26,7 @@ type PersistedAppState = {
   teams: Team[];
   pods: Pod[];
   people: Person[];
+  functions: OrgFunction[];
   quarters: Quarter[];
   krs: KR[];
   initiatives: Initiative[];
@@ -44,6 +45,65 @@ const sanitizeViewType = (value: any): ViewType => (value === "table" || value =
 const sanitizeTab = (value: any): "krs" | "initiatives" => (value === "initiatives" ? "initiatives" : "krs");
 const sanitizeFilters = (value: any): FilterOptions => (value && typeof value === "object" ? value : {});
 const sanitizeBoolean = (value: any, fallback: boolean) => (typeof value === "boolean" ? value : fallback);
+const cloneFunctions = (functions: OrgFunction[]): OrgFunction[] => functions.map(fn => ({ ...fn }));
+const sanitizeFunctions = (value: any): OrgFunction[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((fn) => fn && typeof fn === 'object')
+    .map((fn, index) => {
+      const id = typeof fn.id === 'string' && fn.id.trim() ? fn.id.trim() : `function-${index}`;
+      const name = typeof fn.name === 'string' && fn.name.trim() ? fn.name.trim() : id;
+      const description = typeof fn.description === 'string' && fn.description.trim() ? fn.description.trim() : undefined;
+      const color = typeof fn.color === 'string' && fn.color.trim() ? fn.color : '#6B7280';
+      const createdAt = typeof fn.createdAt === 'string' && fn.createdAt.trim() ? fn.createdAt : new Date().toISOString();
+
+      return { id, name, description, color, createdAt } satisfies OrgFunction;
+    });
+};
+
+const sanitizePeople = (value: any, functionsList: OrgFunction[]): Person[] => {
+  if (!Array.isArray(value)) return [];
+
+  const fallbackFunctionId = functionsList[0]?.id || 'Product';
+  const validFunctionIds = new Set(functionsList.map((fn) => fn.id));
+
+  return value
+    .filter((person) => person && typeof person === 'object')
+    .map((person: any, index): Person | null => {
+      const rawId = typeof person.id === 'string' && person.id.trim() ? person.id.trim() : `person-${index}`;
+      const rawName = typeof person.name === 'string' && person.name.trim() ? person.name.trim() : '';
+      const rawEmail = typeof person.email === 'string' && person.email.trim() ? person.email.trim() : `${rawId}@company.com`;
+      const rawTeamId = typeof person.teamId === 'string' && person.teamId.trim() ? person.teamId.trim() : '';
+      const rawPodId = typeof person.podId === 'string' && person.podId.trim() ? person.podId.trim() : undefined;
+      const rawManagerId = typeof person.managerId === 'string' && person.managerId.trim() ? person.managerId.trim() : undefined;
+      const candidateFunctionId = typeof person.functionId === 'string' && person.functionId.trim()
+        ? person.functionId.trim()
+        : typeof person.function === 'string' && person.function.trim()
+          ? person.function.trim()
+          : fallbackFunctionId;
+      const functionId = validFunctionIds.size === 0 || validFunctionIds.has(candidateFunctionId)
+        ? candidateFunctionId
+        : fallbackFunctionId;
+
+      if (!rawId || !rawName || !rawEmail || !rawTeamId) {
+        return null;
+      }
+
+      return {
+        id: rawId,
+        name: rawName,
+        email: rawEmail,
+        functionId,
+        managerId: rawManagerId,
+        teamId: rawTeamId,
+        podId: rawPodId,
+        joinDate: typeof person.joinDate === 'string' && person.joinDate.trim() ? person.joinDate : new Date().toISOString().split('T')[0],
+        active: typeof person.active === 'boolean' ? person.active : true,
+      } satisfies Person;
+    })
+    .filter((person): person is Person => person !== null);
+};
 
 const loadPersistedState = (): PersistedAppState | null => {
   if (typeof window === "undefined") return null;
@@ -63,11 +123,16 @@ const loadPersistedState = (): PersistedAppState | null => {
         }))
       : [];
 
+    const sanitizedFunctions = sanitizeFunctions(parsed.functions);
+    const functions = sanitizedFunctions.length > 0 ? sanitizedFunctions : cloneFunctions(mockFunctions);
+    const sanitizedPeople = sanitizePeople(parsed.people, functions);
+
     return {
       mode: sanitizeMode(parsed.mode),
       teams: Array.isArray(parsed.teams) ? parsed.teams : [],
       pods: Array.isArray(parsed.pods) ? parsed.pods : [],
-      people: Array.isArray(parsed.people) ? parsed.people : [],
+      people: sanitizedPeople,
+      functions,
       quarters: Array.isArray(parsed.quarters) ? parsed.quarters : [],
       krs: Array.isArray(parsed.krs) ? parsed.krs : [],
       initiatives: sanitizedInitiatives,
@@ -135,6 +200,7 @@ export default function App() {
   // Organization data - Initialize with empty arrays, will be populated from backend
   const [teams, setTeams] = useState<Team[]>([]);
   const [pods, setPods] = useState<Pod[]>([]);
+  const [functions, setFunctions] = useState<OrgFunction[]>([]);
   const [quarters, setQuarters] = useState<Quarter[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
 
@@ -161,6 +227,7 @@ export default function App() {
     setMode(persisted.mode);
     setTeams(persisted.teams);
     setPods(persisted.pods);
+    setFunctions(persisted.functions);
     setPeople(persisted.people);
     setQuarters(persisted.quarters);
     setKRs(persisted.krs);
@@ -188,6 +255,9 @@ export default function App() {
 
           setTeams(adaptedData.teams);
           setPods(adaptedData.pods);
+          setFunctions(adaptedData.functions && adaptedData.functions.length > 0
+            ? adaptedData.functions
+            : cloneFunctions(mockFunctions));
           setPeople(adaptedData.people);
           setQuarters(adaptedData.quarters);
           setKRs(adaptedData.krs);
@@ -198,6 +268,7 @@ export default function App() {
           console.warn('Backend unavailable, using mock data');
           setTeams(mockTeams);
           setPods(mockPods);
+          setFunctions(cloneFunctions(mockFunctions));
           setPeople(mockPeople);
           setQuarters(mockQuarters);
           setKRs(mockKRs);
@@ -209,6 +280,7 @@ export default function App() {
         console.error('Error fetching data:', error);
         setTeams(mockTeams);
         setPods(mockPods);
+        setFunctions(cloneFunctions(mockFunctions));
         setPeople(mockPeople);
         setQuarters(mockQuarters);
         setKRs(mockKRs);
@@ -251,6 +323,7 @@ export default function App() {
       mode,
       teams,
       pods,
+      functions,
       people,
       quarters,
       krs,
@@ -271,6 +344,7 @@ export default function App() {
     teams,
     pods,
     people,
+    functions,
     quarters,
     krs,
     initiatives,
@@ -545,9 +619,11 @@ export default function App() {
               teams={teams}
               pods={pods}
               people={people}
+              functions={functions}
               onTeamsChange={setTeams}
               onPodsChange={setPods}
               onPeopleChange={setPeople}
+              onFunctionsChange={setFunctions}
             />
 
             {/* Collapsible Objectives & Key Results Section */}

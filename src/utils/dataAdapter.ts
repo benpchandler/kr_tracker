@@ -1,4 +1,5 @@
-import { Team, Pod, Quarter, KR, Initiative, Person } from '../types';
+import { Team, Pod, Quarter, KR, Initiative, Person, OrgFunction } from '../types';
+import { defaultFunctions } from '../data/functions';
 
 interface BackendState {
   organization: { id: string; name: string } | null;
@@ -65,7 +66,7 @@ export function adaptPods(backendPods: BackendState['pods'], individuals: Backen
       description: pod.name,
       members: podMembers.map(member => ({
         name: member.name,
-        role: mapDisciplineToFunction(member.discipline || member.role)
+        role: mapDisciplineToFunctionId(member.discipline || member.role)
       }))
     };
   });
@@ -77,7 +78,7 @@ export function adaptPeople(backendIndividuals: BackendState['individuals']): Pe
     id: ind.id,
     name: ind.name,
     email: ind.email || `${ind.id}@company.com`,
-    function: mapDisciplineToFunction(ind.discipline),
+    functionId: mapDisciplineToFunctionId(ind.discipline),
     teamId: ind.teamId,
     podId: ind.podId,
     managerId: undefined, // Backend doesn't have manager relationships yet
@@ -86,8 +87,8 @@ export function adaptPeople(backendIndividuals: BackendState['individuals']): Pe
   }));
 }
 
-function mapDisciplineToFunction(discipline?: string): 'Analytics' | 'S&O' | 'Engineering' | 'Design' | 'Product' {
-  const disciplineMap: Record<string, 'Analytics' | 'S&O' | 'Engineering' | 'Design' | 'Product'> = {
+function mapDisciplineToFunctionId(discipline?: string): OrgFunction['id'] {
+  const disciplineMap: Record<string, OrgFunction['id']> = {
     'product': 'Product',
     'engineering': 'Engineering',
     'analytics': 'Analytics',
@@ -95,7 +96,13 @@ function mapDisciplineToFunction(discipline?: string): 'Analytics' | 'S&O' | 'En
     'operations': 'S&O',
     'strategy': 'S&O'
   };
-  return disciplineMap[discipline?.toLowerCase() || ''] || 'S&O';
+  return disciplineMap[discipline?.toLowerCase() || ''] || defaultFunctions[defaultFunctions.length - 1]?.id || 'S&O';
+}
+
+const cloneDefaultFunctions = (): OrgFunction[] => defaultFunctions.map(fn => ({ ...fn }));
+
+export function adaptFunctions(): OrgFunction[] {
+  return cloneDefaultFunctions();
 }
 
 // Create quarters based on the period
@@ -270,6 +277,7 @@ export function adaptInitiatives(
 export function adaptBackendToFrontend(backendState: BackendState) {
   const teams = adaptTeams(backendState.teams);
   const pods = adaptPods(backendState.pods, backendState.individuals);
+  const functions = adaptFunctions();
   const people = adaptPeople(backendState.individuals);
   const quarters = adaptQuarters(backendState.period);
   const krs = adaptKRs(
@@ -290,6 +298,7 @@ export function adaptBackendToFrontend(backendState: BackendState) {
     teams,
     pods,
     people,
+    functions,
     quarters,
     krs,
     initiatives,
