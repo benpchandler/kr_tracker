@@ -169,21 +169,35 @@ const persistState = (state: PersistedAppState) => {
 
 // Convert legacy data to new format for backward compatibility
 const convertLegacyKRs = (legacyKRs: any[]): KR[] => {
-  return legacyKRs.map(kr => ({
-    ...kr,
-    teamId: mockTeams.find(t => t.name === kr.team)?.id || 'team-1',
-    podId: undefined,
-    quarterId: 'q4-2024',
-    unit: kr.target.includes('ms') ? 'ms' : kr.target.includes('/5') ? '/5' : 'users',
-    baseline: '0',
-    forecast: kr.current,
-    weeklyActuals: [],
-    autoUpdateEnabled: false,
-    lastUpdated: new Date().toISOString(),
-    comments: [],
-    linkedInitiativeIds: [],
-    sqlQuery: ''
-  }));
+  return legacyKRs.map(kr => {
+    // Determine status based on progress if available
+    let status: KR['status'] = 'not-started';
+    if (kr.progress !== undefined) {
+      const progress = kr.progress;
+      if (progress >= 90) status = 'completed';
+      else if (progress >= 70) status = 'on-track';
+      else if (progress >= 50) status = 'at-risk';
+      else if (progress > 0) status = 'off-track';
+      else status = 'not-started';
+    }
+
+    return {
+      ...kr,
+      teamId: mockTeams.find(t => t.name === kr.team)?.id || 'team-1',
+      podId: undefined,
+      quarterId: 'q4-2024',
+      unit: kr.target.includes('ms') ? 'ms' : kr.target.includes('/5') ? '/5' : 'users',
+      baseline: '0',
+      forecast: kr.current,
+      status: kr.status || status, // Use existing status or calculated status
+      weeklyActuals: [],
+      autoUpdateEnabled: false,
+      lastUpdated: new Date().toISOString(),
+      comments: [],
+      linkedInitiativeIds: [],
+      sqlQuery: ''
+    };
+  });
 };
 
 const convertLegacyInitiatives = (legacyInitiatives: any[]): Initiative[] => {
@@ -523,6 +537,7 @@ function AppContent() {
       unit: 'count',
       baseline: '0',
       forecast: newKR.current,
+      status: newKR.status || 'not-started', // Add default status
       weeklyActuals: [],
       autoUpdateEnabled: false,
       lastUpdated: new Date().toISOString(),

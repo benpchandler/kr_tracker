@@ -174,7 +174,8 @@ export function adaptKRs(
     // Determine status based on progress
     const status = progress >= 90 ? 'completed' :
                   progress >= 70 ? 'on-track' :
-                  progress >= 50 ? 'at-risk' : 'off-track';
+                  progress >= 50 ? 'at-risk' :
+                  progress > 0 ? 'off-track' : 'not-started';
 
     return {
       id: kr.id,

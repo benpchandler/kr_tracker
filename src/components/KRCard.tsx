@@ -70,10 +70,13 @@ export function KRCard({
   const [editProgress, setEditProgress] = useState(progress);
   const [editCurrent, setEditCurrent] = useState(current);
 
+  // Ensure status is valid, fallback to 'not-started' if invalid
+  const validStatus = statusConfig[status] ? status : 'not-started';
+
   const handleSave = () => {
     if (onUpdate) {
       // Auto-update status based on progress
-      let newStatus = status;
+      let newStatus = validStatus;
       if (editProgress >= 100) {
         newStatus = "completed";
       } else if (editProgress >= 75) {
@@ -115,9 +118,9 @@ export function KRCard({
           <div className="flex items-center gap-2 ml-2">
             <Badge
               variant="secondary"
-              className={`${statusConfig[status].color} text-white border-0`}
+              className={`${statusConfig[validStatus].color} text-white border-0`}
             >
-              {statusConfig[status].label}
+              {statusConfig[validStatus].label}
             </Badge>
             {onUpdate && !isEditing && (
               <Button
