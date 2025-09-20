@@ -376,70 +376,7 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
     setIsAddingFunction(false);
   };
 
-  const FunctionDialogBody = () => {
-    const isEditing = Boolean(editingFunctionId);
-
-    return (
-      <>
-        <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Function' : 'Add New Function'}</DialogTitle>
-          <DialogDescription>
-            {isEditing
-              ? 'Update this function so pods and people stay aligned.'
-              : 'Keep functions in sync across people and pods'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="function-name">Function Name</Label>
-            <Input
-              id="function-name"
-              value={newFunction.name}
-              onChange={(e) => updateFunctionField('name', e.target.value)}
-              placeholder="e.g. Product, Engineering"
-            />
-            {functionErrors.name && (
-              <p className="mt-1 text-xs text-destructive">{functionErrors.name}</p>
-            )}
-          </div>
-          <div>
-            <Label htmlFor="function-description">Description (Optional)</Label>
-            <Textarea
-              id="function-description"
-              value={newFunction.description}
-              onChange={(e) => updateFunctionField('description', e.target.value)}
-              placeholder="How this function contributes to execution"
-            />
-          </div>
-          <div>
-            <Label htmlFor="function-color">Color</Label>
-            <div className="flex items-center gap-3">
-              <input
-                id="function-color"
-                type="color"
-                value={HEX_COLOR_PATTERN.test(newFunction.color) ? newFunction.color : '#3B82F6'}
-                onChange={(e) => updateFunctionField('color', e.target.value)}
-                className="h-10 w-12 rounded border border-input bg-background p-0"
-                aria-label="Function color"
-              />
-              <Input
-                value={newFunction.color}
-                onChange={(e) => updateFunctionField('color', e.target.value)}
-                placeholder="#3B82F6"
-              />
-            </div>
-            {functionErrors.color && (
-              <p className="mt-1 text-xs text-destructive">{functionErrors.color}</p>
-            )}
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={handleCloseFunctionDialog}>Cancel</Button>
-            <Button onClick={handleSaveFunction}>{isEditing ? 'Save Changes' : 'Add Function'}</Button>
-          </div>
-        </div>
-      </>
-    );
-  };
+  const isEditingFunction = Boolean(editingFunctionId);
 
   const resetPersonForm = () => {
     setNewPerson({
@@ -1365,7 +1302,64 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                         </Button>
                       </DialogTrigger>
                       <DialogContent>
-                        <FunctionDialogBody />
+                        <DialogHeader>
+                          <DialogTitle>{isEditingFunction ? 'Edit Function' : 'Add New Function'}</DialogTitle>
+                          <DialogDescription>
+                            {isEditingFunction
+                              ? 'Update this function so pods and people stay aligned.'
+                              : 'Keep functions in sync across people and pods'}
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="function-name">Function Name</Label>
+                            <Input
+                              id="function-name"
+                              value={newFunction.name}
+                              onChange={(e) => updateFunctionField('name', e.target.value)}
+                              placeholder="e.g. Product, Engineering"
+                              autoComplete="off"
+                            />
+                            {functionErrors.name && (
+                              <p className="mt-1 text-xs text-destructive">{functionErrors.name}</p>
+                            )}
+                          </div>
+                          <div>
+                            <Label htmlFor="function-description">Description (Optional)</Label>
+                            <Textarea
+                              id="function-description"
+                              value={newFunction.description}
+                              onChange={(e) => updateFunctionField('description', e.target.value)}
+                              placeholder="How this function contributes to execution"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="function-color">Color</Label>
+                            <div className="flex items-center gap-3">
+                              <input
+                                id="function-color"
+                                type="color"
+                                value={HEX_COLOR_PATTERN.test(newFunction.color) ? newFunction.color : '#3B82F6'}
+                                onChange={(e) => updateFunctionField('color', e.target.value)}
+                                className="h-10 w-12 rounded border border-input bg-background p-0"
+                                aria-label="Function color"
+                              />
+                              <Input
+                                value={newFunction.color}
+                                onChange={(e) => updateFunctionField('color', e.target.value)}
+                                placeholder="#3B82F6"
+                                autoComplete="off"
+                              />
+                            </div>
+                            {functionErrors.color && (
+                              <p className="mt-1 text-xs text-destructive">{functionErrors.color}</p>
+                            )}
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={handleCloseFunctionDialog}>Cancel</Button>
+                            <Button onClick={handleSaveFunction}>{isEditingFunction ? 'Save Changes' : 'Add Function'}</Button>
+                          </div>
+                        </div>
                       </DialogContent>
                     </Dialog>
                   </div>
@@ -1818,7 +1812,64 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
         }}
       >
         <DialogContent>
-          <FunctionDialogBody />
+          <DialogHeader>
+            <DialogTitle>{isEditingFunction ? 'Edit Function' : 'Add New Function'}</DialogTitle>
+            <DialogDescription>
+              {isEditingFunction
+                ? 'Update this function so pods and people stay aligned.'
+                : 'Keep functions in sync across people and pods'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="function-name-2">Function Name</Label>
+              <Input
+                id="function-name-2"
+                value={newFunction.name}
+                onChange={(e) => updateFunctionField('name', e.target.value)}
+                placeholder="e.g. Product, Engineering"
+                autoComplete="off"
+              />
+              {functionErrors.name && (
+                <p className="mt-1 text-xs text-destructive">{functionErrors.name}</p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="function-description-2">Description (Optional)</Label>
+              <Textarea
+                id="function-description-2"
+                value={newFunction.description}
+                onChange={(e) => updateFunctionField('description', e.target.value)}
+                placeholder="How this function contributes to execution"
+              />
+            </div>
+            <div>
+              <Label htmlFor="function-color-2">Color</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  id="function-color-2"
+                  type="color"
+                  value={HEX_COLOR_PATTERN.test(newFunction.color) ? newFunction.color : '#3B82F6'}
+                  onChange={(e) => updateFunctionField('color', e.target.value)}
+                  className="h-10 w-12 rounded border border-input bg-background p-0"
+                  aria-label="Function color"
+                />
+                <Input
+                  value={newFunction.color}
+                  onChange={(e) => updateFunctionField('color', e.target.value)}
+                  placeholder="#3B82F6"
+                  autoComplete="off"
+                />
+              </div>
+              {functionErrors.color && (
+                <p className="mt-1 text-xs text-destructive">{functionErrors.color}</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={handleCloseFunctionDialog}>Cancel</Button>
+              <Button onClick={handleSaveFunction}>{isEditingFunction ? 'Save Changes' : 'Add Function'}</Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
