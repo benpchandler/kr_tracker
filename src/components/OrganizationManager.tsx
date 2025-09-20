@@ -36,14 +36,18 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
   const [isAddingFunction, setIsAddingFunction] = useState(false);
   const [isAddingPerson, setIsAddingPerson] = useState(false);
   const [showAllEntities, setShowAllEntities] = useState(false);
-  const [allEntitiesInitialTab, setAllEntitiesInitialTab] = useState<"functions" | "teams" | "pods" | "people">("functions");
+  const [directoryEntityType, setDirectoryEntityType] = useState<"functions" | "teams" | "pods" | "people">("functions");
   const [newTeam, setNewTeam] = useState({ name: '', description: '', color: '#3B82F6' });
   const [teamError, setTeamError] = useState<string | null>(null);
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [newPod, setNewPod] = useState({ name: '', teamId: '', description: '', members: [] as PodMember[] });
+  const [editingPodId, setEditingPodId] = useState<string | null>(null);
   const [newFunction, setNewFunction] = useState({ name: '', description: '', color: initialFunctionColor });
   const [functionErrors, setFunctionErrors] = useState<{ name?: string; color?: string; description?: string }>({});
+  const [editingFunctionId, setEditingFunctionId] = useState<string | null>(null);
   const [newPerson, setNewPerson] = useState({ name: '', email: '', functionId: initialFunctionId as FunctionType, managerId: '', teamId: '', podId: '' });
   const [currentMember, setCurrentMember] = useState({ name: '', role: initialFunctionId as FunctionType });
+  const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
 
   const COLOR_OPTIONS = [
     { value: '#3B82F6', label: 'Blue' },
@@ -101,70 +105,181 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
     }
   }, [isAddingTeam]);
 
-  const handleAddTeam = () => {
+  const resetTeamForm = () => {
+    setNewTeam({ name: '', description: '', color: '#3B82F6' });
+    setTeamError(null);
+    setEditingTeamId(null);
+  };
+
+  const openTeamDialog = (team?: Team) => {
+    if (team) {
+      setNewTeam({
+        name: team.name,
+        description: team.description ?? '',
+        color: team.color,
+      });
+      setEditingTeamId(team.id);
+      setTeamError(null);
+    } else {
+      resetTeamForm();
+    }
+    setIsAddingTeam(true);
+  };
+
+  const closeTeamDialog = () => {
+    resetTeamForm();
+    setIsAddingTeam(false);
+  };
+
+  const handleSaveTeam = () => {
     try {
-      debugLog('handleAddTeam called', { newTeam });
-      
       const trimmedName = newTeam.name.trim();
+      debugLog(editingTeamId ? 'handleSaveTeam (edit)' : 'handleSaveTeam (add)', { newTeam, editingTeamId });
+
       if (!trimmedName) {
         setTeamError('Team name is required');
         return;
       }
 
       const normalizedName = normalizeTeamName(trimmedName);
-      const hasDuplicateName = safeTeams.some(team => normalizeTeamName(team.name) === normalizedName);
+      const hasDuplicateName = safeTeams.some(team =>
+        normalizeTeamName(team.name) === normalizedName && team.id !== editingTeamId
+      );
 
       if (hasDuplicateName) {
         setTeamError('A team with this name already exists.');
         return;
       }
 
-      const team: Team = {
-        id: `team-${Date.now()}`,
-        name: trimmedName,
-        description: newTeam.description,
-        color: newTeam.color
-      };
-      
-      debugLog('Creating new team', team);
-      onTeamsChange([...teams, team]);
-      setNewTeam({ name: '', description: '', color: '#3B82F6' });
-      setTeamError(null);
+      if (editingTeamId) {
+        const updatedTeams = teams.map(team =>
+          team.id === editingTeamId
+            ? {
+                ...team,
+                name: trimmedName,
+                description: newTeam.description,
+                color: newTeam.color,
+              }
+            : team
+        );
+
+        onTeamsChange(updatedTeams);
+        debugLog('Team updated successfully', { teamId: editingTeamId });
+      } else {
+        const team: Team = {
+          id: `team-${Date.now()}`,
+          name: trimmedName,
+          description: newTeam.description,
+          color: newTeam.color,
+        };
+
+        debugLog('Creating new team', team);
+        onTeamsChange([...teams, team]);
+        debugLog('Team added successfully');
+      }
+
+      resetTeamForm();
       setIsAddingTeam(false);
-      debugLog('Team added successfully');
     } catch (error) {
-      errorLog('Failed to add team', error);
+      errorLog('Failed to save team', error);
     }
   };
 
-  const handleAddPod = () => {
+  const clonePodMembersForState = (members: Pod['members']) => {
+    if (!Array.isArray(members)) {
+      return [] as PodMember[];
+    }
+
+    return members.map(member =>
+      typeof member === 'string'
+        ? {
+            name: member,
+            role: (defaultFunctionId || safeFunctions[0]?.id || '') as FunctionType,
+          }
+        : { name: member.name, role: member.role }
+    );
+  };
+
+  const cloneStateMembersForPersist = (members: PodMember[]) =>
+    members.map(member => ({ name: member.name, role: member.role })) as PodMember[];
+
+  const resetPodForm = () => {
+    setNewPod({ name: '', teamId: '', description: '', members: [] });
+    setCurrentMember({ name: '', role: defaultFunctionId as FunctionType });
+    setEditingPodId(null);
+  };
+
+  const openPodDialog = (pod?: Pod) => {
+    if (pod) {
+      setNewPod({
+        name: pod.name,
+        teamId: pod.teamId,
+        description: pod.description ?? '',
+        members: clonePodMembersForState(pod.members),
+      });
+      setEditingPodId(pod.id);
+    } else {
+      resetPodForm();
+    }
+    setIsAddingPod(true);
+  };
+
+  const closePodDialog = () => {
+    resetPodForm();
+    setIsAddingPod(false);
+  };
+
+  const handleSavePod = () => {
     try {
-      debugLog('handleAddPod called', { newPod });
-      
-      if (newPod.name.trim() && newPod.teamId) {
-        const pod: Pod = {
-          id: `pod-${Date.now()}`,
-          name: newPod.name,
-          teamId: newPod.teamId,
-          description: newPod.description,
-          members: newPod.members
-        };
-        
-        debugLog('Creating new pod', pod);
-        onPodsChange([...pods, pod]);
-        setNewPod({ name: '', teamId: '', description: '', members: [] });
-        setCurrentMember({ name: '', role: defaultFunctionId as FunctionType });
-        setIsAddingPod(false);
-        debugLog('Pod added successfully');
+      debugLog(editingPodId ? 'handleSavePod (edit)' : 'handleSavePod (add)', { newPod, editingPodId });
+
+      if (!newPod.name.trim() || !newPod.teamId) {
+        return;
       }
+
+      const podBase: Pod = {
+        id: editingPodId ?? `pod-${Date.now()}`,
+        name: newPod.name.trim(),
+        teamId: newPod.teamId,
+        description: newPod.description,
+        members: cloneStateMembersForPersist(newPod.members),
+      };
+
+      if (editingPodId) {
+        const updatedPods = pods.map(pod => (pod.id === editingPodId ? podBase : pod));
+        onPodsChange(updatedPods);
+        debugLog('Pod updated successfully', { podId: editingPodId });
+      } else {
+        onPodsChange([...pods, podBase]);
+        debugLog('Pod added successfully', podBase);
+      }
+
+      resetPodForm();
+      setIsAddingPod(false);
     } catch (error) {
-      errorLog('Failed to add pod', error);
+      errorLog('Failed to save pod', error);
     }
   };
 
   const resetFunctionForm = () => {
     setNewFunction({ name: '', description: '', color: safeFunctions[0]?.color ?? '#3B82F6' });
     setFunctionErrors({});
+    setEditingFunctionId(null);
+  };
+
+  const openFunctionDialog = (func?: OrgFunction) => {
+    if (func) {
+      setNewFunction({
+        name: func.name,
+        description: func.description ?? '',
+        color: func.color,
+      });
+      setEditingFunctionId(func.id);
+      setFunctionErrors({});
+    } else {
+      resetFunctionForm();
+    }
+    setIsAddingFunction(true);
   };
 
   const updateFunctionField = (field: 'name' | 'description' | 'color', value: string) => {
@@ -174,9 +289,12 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
     }
   };
 
-  const handleAddFunction = () => {
+  const handleSaveFunction = () => {
     try {
-      debugLog('handleAddFunction called', { newFunction });
+      debugLog(editingFunctionId ? 'handleSaveFunction (edit)' : 'handleSaveFunction (add)', {
+        newFunction,
+        editingFunctionId,
+      });
 
       const trimmedName = newFunction.name.trim();
       const trimmedColor = newFunction.color.trim();
@@ -184,7 +302,11 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
 
       if (!trimmedName) {
         errors.name = 'Function name is required';
-      } else if (safeFunctions.some(fn => fn.name.toLowerCase() === trimmedName.toLowerCase())) {
+      } else if (
+        safeFunctions.some(
+          fn => fn.name.toLowerCase() === trimmedName.toLowerCase() && fn.id !== editingFunctionId
+        )
+      ) {
         errors.name = 'Function name already exists';
       }
 
@@ -199,33 +321,52 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
         return;
       }
 
-      let slugBase = trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-      if (!slugBase) {
-        slugBase = 'function';
+      if (editingFunctionId) {
+        const updatedFunctions = functions.map(fn =>
+          fn.id === editingFunctionId
+            ? {
+                ...fn,
+                name: trimmedName,
+                description: newFunction.description.trim()
+                  ? newFunction.description.trim()
+                  : undefined,
+                color: trimmedColor,
+              }
+            : fn
+        );
+
+        onFunctionsChange(updatedFunctions);
+        debugLog('Function updated successfully', { functionId: editingFunctionId });
+      } else {
+        let slugBase = trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        if (!slugBase) {
+          slugBase = 'function';
+        }
+
+        let generatedId = slugBase;
+        let attempt = 1;
+        while (safeFunctions.some(fn => fn.id === generatedId)) {
+          generatedId = `${slugBase}-${attempt++}`;
+        }
+
+        const newEntry: OrgFunction = {
+          id: generatedId,
+          name: trimmedName,
+          description: newFunction.description.trim() ? newFunction.description.trim() : undefined,
+          color: trimmedColor,
+          createdAt: new Date().toISOString(),
+        };
+
+        onFunctionsChange([...functions, newEntry]);
+        setNewPerson(prev => ({ ...prev, functionId: newEntry.id as FunctionType }));
+        setCurrentMember(prev => ({ ...prev, role: newEntry.id as FunctionType }));
+        debugLog('Function added successfully', newEntry);
       }
 
-      let generatedId = slugBase;
-      let attempt = 1;
-      while (safeFunctions.some(fn => fn.id === generatedId)) {
-        generatedId = `${slugBase}-${attempt++}`;
-      }
-
-      const newEntry: OrgFunction = {
-        id: generatedId,
-        name: trimmedName,
-        description: newFunction.description.trim() ? newFunction.description.trim() : undefined,
-        color: trimmedColor,
-        createdAt: new Date().toISOString(),
-      };
-
-      onFunctionsChange([...functions, newEntry]);
-      setNewPerson(prev => ({ ...prev, functionId: newEntry.id as FunctionType }));
-      setCurrentMember(prev => ({ ...prev, role: newEntry.id as FunctionType }));
       resetFunctionForm();
       setIsAddingFunction(false);
-      debugLog('Function added successfully', newEntry);
     } catch (error) {
-      errorLog('Failed to add function', error);
+      errorLog('Failed to save function', error);
     }
   };
 
@@ -235,96 +376,456 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
     setIsAddingFunction(false);
   };
 
-  const FunctionDialogBody = () => (
-    <>
-      <DialogHeader>
-        <DialogTitle>Add New Function</DialogTitle>
-        <DialogDescription>Keep functions in sync across people and pods</DialogDescription>
-      </DialogHeader>
-      <div className="space-y-4">
-        <div>
-          <Label htmlFor="function-name">Function Name</Label>
-          <Input
-            id="function-name"
-            value={newFunction.name}
-            onChange={(e) => updateFunctionField('name', e.target.value)}
-            placeholder="e.g. Product, Engineering"
-          />
-          {functionErrors.name && (
-            <p className="mt-1 text-xs text-destructive">{functionErrors.name}</p>
-          )}
-        </div>
-        <div>
-          <Label htmlFor="function-description">Description (Optional)</Label>
-          <Textarea
-            id="function-description"
-            value={newFunction.description}
-            onChange={(e) => updateFunctionField('description', e.target.value)}
-            placeholder="How this function contributes to execution"
-          />
-        </div>
-        <div>
-          <Label htmlFor="function-color">Color</Label>
-          <div className="flex items-center gap-3">
-            <input
-              id="function-color"
-              type="color"
-              value={HEX_COLOR_PATTERN.test(newFunction.color) ? newFunction.color : '#3B82F6'}
-              onChange={(e) => updateFunctionField('color', e.target.value)}
-              className="h-10 w-12 rounded border border-input bg-background p-0"
-              aria-label="Function color"
-            />
+  const FunctionDialogBody = () => {
+    const isEditing = Boolean(editingFunctionId);
+
+    return (
+      <>
+        <DialogHeader>
+          <DialogTitle>{isEditing ? 'Edit Function' : 'Add New Function'}</DialogTitle>
+          <DialogDescription>
+            {isEditing
+              ? 'Update this function so pods and people stay aligned.'
+              : 'Keep functions in sync across people and pods'}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="function-name">Function Name</Label>
             <Input
-              value={newFunction.color}
-              onChange={(e) => updateFunctionField('color', e.target.value)}
-              placeholder="#3B82F6"
+              id="function-name"
+              value={newFunction.name}
+              onChange={(e) => updateFunctionField('name', e.target.value)}
+              placeholder="e.g. Product, Engineering"
+            />
+            {functionErrors.name && (
+              <p className="mt-1 text-xs text-destructive">{functionErrors.name}</p>
+            )}
+          </div>
+          <div>
+            <Label htmlFor="function-description">Description (Optional)</Label>
+            <Textarea
+              id="function-description"
+              value={newFunction.description}
+              onChange={(e) => updateFunctionField('description', e.target.value)}
+              placeholder="How this function contributes to execution"
             />
           </div>
-          {functionErrors.color && (
-            <p className="mt-1 text-xs text-destructive">{functionErrors.color}</p>
-          )}
+          <div>
+            <Label htmlFor="function-color">Color</Label>
+            <div className="flex items-center gap-3">
+              <input
+                id="function-color"
+                type="color"
+                value={HEX_COLOR_PATTERN.test(newFunction.color) ? newFunction.color : '#3B82F6'}
+                onChange={(e) => updateFunctionField('color', e.target.value)}
+                className="h-10 w-12 rounded border border-input bg-background p-0"
+                aria-label="Function color"
+              />
+              <Input
+                value={newFunction.color}
+                onChange={(e) => updateFunctionField('color', e.target.value)}
+                placeholder="#3B82F6"
+              />
+            </div>
+            {functionErrors.color && (
+              <p className="mt-1 text-xs text-destructive">{functionErrors.color}</p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={handleCloseFunctionDialog}>Cancel</Button>
+            <Button onClick={handleSaveFunction}>{isEditing ? 'Save Changes' : 'Add Function'}</Button>
+          </div>
         </div>
-        {/* TODO: Add edit/delete controls for functions once requirements expand. */}
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={handleCloseFunctionDialog}>Cancel</Button>
-          <Button onClick={handleAddFunction}>Add Function</Button>
-        </div>
-      </div>
-    </>
-  );
+      </>
+    );
+  };
 
-  const handleAddPerson = () => {
+  const resetPersonForm = () => {
+    setNewPerson({
+      name: '',
+      email: '',
+      functionId: (defaultFunctionId || safeFunctions[0]?.id || '') as FunctionType,
+      managerId: '',
+      teamId: '',
+      podId: '',
+    });
+    setEditingPersonId(null);
+  };
+
+  const openPersonDialog = (person?: Person) => {
+    if (person) {
+      setNewPerson({
+        name: person.name,
+        email: person.email,
+        functionId: person.functionId,
+        managerId: person.managerId ?? '',
+        teamId: person.teamId ?? '',
+        podId: person.podId ?? '',
+      });
+      setEditingPersonId(person.id);
+    } else {
+      resetPersonForm();
+    }
+    setIsAddingPerson(true);
+  };
+
+  const handleSavePerson = () => {
     try {
-      debugLog('handleAddPerson called', { newPerson });
-      
-      if (newPerson.name.trim() && newPerson.email.trim() && newPerson.teamId && newPerson.functionId) {
-        const person: Person = {
-          id: `person-${Date.now()}`,
-          name: newPerson.name,
-          email: newPerson.email,
-          functionId: newPerson.functionId,
-          managerId: newPerson.managerId || undefined,
-          teamId: newPerson.teamId,
-          podId: newPerson.podId || undefined,
-          joinDate: new Date().toISOString().split('T')[0],
-          active: true
-        };
-        
-        debugLog('Creating new person', person);
-        onPeopleChange([...people, person]);
-        setNewPerson({ name: '', email: '', functionId: defaultFunctionId as FunctionType, managerId: '', teamId: '', podId: '' });
+      debugLog(editingPersonId ? 'handleSavePerson (edit)' : 'handleSavePerson (add)', {
+        newPerson,
+        editingPersonId,
+      });
+
+      const trimmedName = newPerson.name.trim();
+      const trimmedEmail = newPerson.email.trim();
+
+      if (trimmedName && trimmedEmail && newPerson.functionId) {
+        if (editingPersonId) {
+          const existingPerson = people.find(person => person.id === editingPersonId);
+          if (!existingPerson) {
+            errorLog('Attempted to edit person that no longer exists', { editingPersonId });
+            resetPersonForm();
+            setIsAddingPerson(false);
+            return;
+          }
+
+          const updatedPerson: Person = {
+            ...existingPerson,
+            name: trimmedName,
+            email: trimmedEmail,
+            functionId: newPerson.functionId,
+            managerId: newPerson.managerId || undefined,
+            teamId: newPerson.teamId || existingPerson.teamId,
+            podId: newPerson.podId || undefined,
+          };
+
+          onPeopleChange(people.map(person => (person.id === editingPersonId ? updatedPerson : person)));
+          debugLog('Person updated successfully', { personId: editingPersonId });
+        } else {
+          const person: Person = {
+            id: `person-${Date.now()}`,
+            name: trimmedName,
+            email: trimmedEmail,
+            functionId: newPerson.functionId,
+            managerId: newPerson.managerId || undefined,
+            teamId: newPerson.teamId || '',
+            podId: newPerson.podId || undefined,
+            joinDate: new Date().toISOString().split('T')[0],
+            active: true,
+          };
+
+          debugLog('Creating new person', person);
+          onPeopleChange([...people, person]);
+          debugLog('Person added successfully');
+        }
+
+        resetPersonForm();
         setIsAddingPerson(false);
-        debugLog('Person added successfully');
       } else {
         debugLog('Person validation failed', {
-          hasName: !!newPerson.name.trim(),
-          hasEmail: !!newPerson.email.trim(),
+          hasName: !!trimmedName,
+          hasEmail: !!trimmedEmail,
           hasTeam: !!newPerson.teamId,
-          hasFunction: !!newPerson.functionId
+          hasFunction: !!newPerson.functionId,
         });
       }
     } catch (error) {
-      errorLog('Failed to add person', error);
+      errorLog('Failed to save person', error);
+    }
+  };
+
+  const handleDeleteTeam = (teamId: string) => {
+    try {
+      const teamToDelete = safeTeams.find(team => team.id === teamId);
+      if (!teamToDelete) {
+        debugLog('Attempted to delete team that does not exist', { teamId });
+        return;
+      }
+
+      const affectedPods = safePods.filter(pod => pod.teamId === teamId);
+      const affectedPodIds = new Set(affectedPods.map(pod => pod.id));
+      const affectedPeople = safePeople.filter(person => person.teamId === teamId);
+      const removedPeopleIds = new Set(affectedPeople.map(person => person.id));
+
+      const confirmationParts = [`Delete team "${teamToDelete.name}"?`];
+      if (affectedPods.length > 0) {
+        confirmationParts.push(`${affectedPods.length} ${affectedPods.length === 1 ? 'pod' : 'pods'} will also be removed.`);
+      }
+      if (affectedPeople.length > 0) {
+        confirmationParts.push(`${affectedPeople.length} ${affectedPeople.length === 1 ? 'person' : 'people'} will be removed from the organization.`);
+      }
+
+      if (!confirm(confirmationParts.join('\n'))) {
+        debugLog('Team deletion cancelled by user');
+        return;
+      }
+
+      const updatedTeams = teams.filter(team => team.id !== teamId);
+      const updatedPods = pods.filter(pod => pod.teamId !== teamId);
+
+      const updatedPeople = people.reduce<Person[]>((acc, person) => {
+        if (person.teamId === teamId) {
+          return acc;
+        }
+
+        let updatedPerson = person;
+
+        if (person.podId && affectedPodIds.has(person.podId)) {
+          updatedPerson = { ...updatedPerson, podId: undefined };
+        }
+
+        if (person.managerId && removedPeopleIds.has(person.managerId)) {
+          updatedPerson = { ...updatedPerson, managerId: undefined };
+        }
+
+        acc.push(updatedPerson);
+        return acc;
+      }, []);
+
+      onTeamsChange(updatedTeams);
+
+      if (updatedPods.length !== pods.length) {
+        onPodsChange(updatedPods);
+      }
+
+      let peopleChanged = updatedPeople.length !== people.length;
+      if (!peopleChanged) {
+        peopleChanged = updatedPeople.some((person, index) => person !== people[index]);
+      }
+
+      if (peopleChanged) {
+        onPeopleChange(updatedPeople);
+      }
+
+      setNewPod(prev => {
+        if (prev.teamId !== teamId) {
+          return prev;
+        }
+
+        return { ...prev, teamId: '', members: [] };
+      });
+
+      setNewPerson(prev => {
+        const shouldResetTeam = prev.teamId === teamId;
+        const shouldResetPod = !!prev.podId && affectedPodIds.has(prev.podId);
+        const shouldResetManager = !!prev.managerId && removedPeopleIds.has(prev.managerId);
+
+        if (!shouldResetTeam && !shouldResetPod && !shouldResetManager) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          teamId: shouldResetTeam ? '' : prev.teamId,
+          podId: shouldResetPod ? '' : prev.podId,
+          managerId: shouldResetManager ? '' : prev.managerId,
+        };
+      });
+
+      debugLog('Team deleted successfully', {
+        teamId,
+        podsRemoved: affectedPods.length,
+        peopleRemoved: affectedPeople.length,
+      });
+    } catch (error) {
+      errorLog('Failed to delete team', error);
+    }
+  };
+
+  const handleDeletePod = (podId: string) => {
+    try {
+      const podToDelete = safePods.find(pod => pod.id === podId);
+      if (!podToDelete) {
+        debugLog('Attempted to delete pod that does not exist', { podId });
+        return;
+      }
+
+      const affectedPeople = safePeople.filter(person => person.podId === podId);
+      const confirmationParts = [`Delete pod "${podToDelete.name}"?`];
+      if (affectedPeople.length > 0) {
+        confirmationParts.push(`${affectedPeople.length} ${affectedPeople.length === 1 ? 'person will be' : 'people will be'} unassigned from this pod.`);
+      }
+
+      if (!confirm(confirmationParts.join('\n'))) {
+        debugLog('Pod deletion cancelled by user');
+        return;
+      }
+
+      const updatedPods = pods.filter(pod => pod.id !== podId);
+
+      let peopleChanged = false;
+      const updatedPeople = people.map(person => {
+        if (person.podId === podId) {
+          peopleChanged = true;
+          return { ...person, podId: undefined };
+        }
+        return person;
+      });
+
+      onPodsChange(updatedPods);
+
+      if (peopleChanged) {
+        onPeopleChange(updatedPeople);
+      }
+
+      setNewPerson(prev => {
+        if (prev.podId !== podId) {
+          return prev;
+        }
+
+        return { ...prev, podId: '' };
+      });
+
+      debugLog('Pod deleted successfully', {
+        podId,
+        peopleUnassigned: affectedPeople.length,
+      });
+    } catch (error) {
+      errorLog('Failed to delete pod', error);
+    }
+  };
+
+  const handleDeletePerson = (personId: string) => {
+    try {
+      const personToDelete = safePeople.find(person => person.id === personId);
+      if (!personToDelete) {
+        debugLog('Attempted to delete person that does not exist', { personId });
+        return;
+      }
+
+      const directReports = safePeople.filter(person => person.managerId === personId);
+      const confirmationParts = [`Remove "${personToDelete.name}" from the organization?`];
+      if (directReports.length > 0) {
+        confirmationParts.push(`${directReports.length} ${directReports.length === 1 ? 'person has' : 'people have'} this person as their manager. They will be unassigned.`);
+      }
+
+      if (!confirm(confirmationParts.join('\n'))) {
+        debugLog('Person deletion cancelled by user');
+        return;
+      }
+
+      const updatedPeople = people.reduce<Person[]>((acc, person) => {
+        if (person.id === personId) {
+          return acc;
+        }
+
+        if (person.managerId === personId) {
+          acc.push({ ...person, managerId: undefined });
+          return acc;
+        }
+
+        acc.push(person);
+        return acc;
+      }, []);
+
+      onPeopleChange(updatedPeople);
+
+      setNewPerson(prev => {
+        if (prev.managerId !== personId) {
+          return prev;
+        }
+
+        return { ...prev, managerId: '' };
+      });
+
+      debugLog('Person deleted successfully', {
+        personId,
+        directReportsReassigned: directReports.length,
+      });
+    } catch (error) {
+      errorLog('Failed to delete person', error);
+    }
+  };
+
+  const handleDeleteFunction = (functionId: string) => {
+    try {
+      const functionToDelete = safeFunctions.find(fn => fn.id === functionId);
+      if (!functionToDelete) {
+        debugLog('Attempted to delete function that does not exist', { functionId });
+        return;
+      }
+
+      const remainingFunctions = functions.filter(fn => fn.id !== functionId);
+      const fallbackFunction = remainingFunctions[0];
+      const affectedPeople = safePeople.filter(person => person.functionId === functionId);
+
+      const confirmationParts = [`Delete function "${functionToDelete.name}"?`];
+      if (affectedPeople.length > 0) {
+        if (fallbackFunction) {
+          confirmationParts.push(`${affectedPeople.length} ${affectedPeople.length === 1 ? 'person will be' : 'people will be'} reassigned to "${fallbackFunction.name}".`);
+        } else {
+          confirmationParts.push(`${affectedPeople.length} ${affectedPeople.length === 1 ? 'person will be' : 'people will be'} removed because no other functions exist.`);
+        }
+      }
+
+      if (!confirm(confirmationParts.join('\n'))) {
+        debugLog('Function deletion cancelled by user');
+        return;
+      }
+
+      let peopleChanged = false;
+      let updatedPeople: Person[] = people;
+
+      if (affectedPeople.length > 0 && fallbackFunction) {
+        updatedPeople = people.map(person => {
+          if (person.functionId === functionId) {
+            peopleChanged = true;
+            return { ...person, functionId: fallbackFunction.id as FunctionType };
+          }
+          return person;
+        });
+      } else if (affectedPeople.length > 0 && !fallbackFunction) {
+        const removedPersonIds = new Set(affectedPeople.map(person => person.id));
+        updatedPeople = people.reduce<Person[]>((acc, person) => {
+          if (person.functionId === functionId) {
+            peopleChanged = true;
+            return acc;
+          }
+
+          if (person.managerId && removedPersonIds.has(person.managerId)) {
+            peopleChanged = true;
+            acc.push({ ...person, managerId: undefined });
+            return acc;
+          }
+
+          acc.push(person);
+          return acc;
+        }, []);
+      }
+
+      onFunctionsChange(remainingFunctions);
+
+      if (peopleChanged) {
+        onPeopleChange(updatedPeople);
+      }
+
+      setNewPerson(prev => {
+        if (prev.functionId !== functionId) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          functionId: (fallbackFunction?.id ?? '') as FunctionType,
+        };
+      });
+
+      setCurrentMember(prev => {
+        if (prev.role !== functionId) {
+          return prev;
+        }
+
+        return { ...prev, role: (fallbackFunction?.id ?? '') as FunctionType };
+      });
+
+      debugLog('Function deleted successfully', {
+        functionId,
+        peopleAffected: affectedPeople.length,
+        fallbackAssigned: !!fallbackFunction,
+      });
+    } catch (error) {
+      errorLog('Failed to delete function', error);
     }
   };
 
@@ -402,7 +903,7 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
         isAddingPerson
       });
       
-      setIsAddingPerson(true);
+      openPersonDialog();
       debugLog('Dialog state set to open');
     } catch (error) {
       errorLog('Failed to handle Add Person click', error);
@@ -413,8 +914,8 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
   const handleClosePersonDialog = () => {
     try {
       debugLog('Closing person dialog');
+      resetPersonForm();
       setIsAddingPerson(false);
-      setNewPerson({ name: '', email: '', functionId: defaultFunctionId as FunctionType, managerId: '', teamId: '', podId: '' });
       debugLog('Person dialog closed and state reset');
     } catch (error) {
       errorLog('Failed to close person dialog', error);
@@ -444,15 +945,15 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
           </CollapsibleTrigger>
           {isCollapsed && (
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={(e) => { e.stopPropagation(); setIsAddingTeam(true); }}>
+              <Button size="sm" onClick={(e) => { e.stopPropagation(); openTeamDialog(); }}>
                 <Plus className="h-4 w-4 mr-1" />
                 Add Team
               </Button>
-              <Button size="sm" onClick={(e) => { e.stopPropagation(); setIsAddingPod(true); }}>
+              <Button size="sm" onClick={(e) => { e.stopPropagation(); openPodDialog(); }}>
                 <Plus className="h-4 w-4 mr-1" />
                 Add Pod
               </Button>
-              <Button size="sm" onClick={(e) => { e.stopPropagation(); resetFunctionForm(); setIsAddingFunction(true); }}>
+              <Button size="sm" onClick={(e) => { e.stopPropagation(); openFunctionDialog(); }}>
                 <Plus className="h-4 w-4 mr-1" />
                 Add Function
               </Button>
@@ -490,24 +991,37 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                       variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setAllEntitiesInitialTab("teams");
+                        setDirectoryEntityType("teams");
                         setShowAllEntities(true);
                       }}
                     >
                       <Eye className="h-4 w-4 mr-2" />
                       View All
                     </Button>
-                    <Dialog open={isAddingTeam} onOpenChange={setIsAddingTeam}>
+                    <Dialog open={isAddingTeam} onOpenChange={(open) => {
+                      if (!open) {
+                        closeTeamDialog();
+                      }
+                    }}>
                       <DialogTrigger asChild>
-                        <Button onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openTeamDialog();
+                          }}
+                        >
                           <Plus className="h-4 w-4 mr-2" />
                           Add
                         </Button>
                       </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Add New Team</DialogTitle>
-                        <DialogDescription>Create a new team in your organization</DialogDescription>
+                        <DialogTitle>{editingTeamId ? 'Edit Team' : 'Add New Team'}</DialogTitle>
+                        <DialogDescription>
+                          {editingTeamId
+                            ? 'Update team details to keep pods and people aligned.'
+                            : 'Create a new team in your organization'}
+                        </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
                         <div>
@@ -556,8 +1070,8 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                           </div>
                         </div>
                         <div className="flex justify-end gap-2">
-                          <Button variant="outline" onClick={() => setIsAddingTeam(false)}>Cancel</Button>
-                          <Button onClick={handleAddTeam}>Add Team</Button>
+                          <Button variant="outline" onClick={closeTeamDialog}>Cancel</Button>
+                          <Button onClick={handleSaveTeam}>{editingTeamId ? 'Save Changes' : 'Add Team'}</Button>
                         </div>
                       </div>
                     </DialogContent>
@@ -610,24 +1124,37 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                       variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setAllEntitiesInitialTab("pods");
+                        setDirectoryEntityType("pods");
                         setShowAllEntities(true);
                       }}
                     >
                       <Eye className="h-4 w-4 mr-2" />
                       View All
                     </Button>
-                    <Dialog open={isAddingPod} onOpenChange={setIsAddingPod}>
+                    <Dialog open={isAddingPod} onOpenChange={(open) => {
+                      if (!open) {
+                        closePodDialog();
+                      }
+                    }}>
                       <DialogTrigger asChild>
-                        <Button onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openPodDialog();
+                          }}
+                        >
                           <Plus className="h-4 w-4 mr-2" />
                           Add
                         </Button>
                       </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Add New Pod</DialogTitle>
-                        <DialogDescription>Create a new pod within a team</DialogDescription>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>{editingPodId ? 'Edit Pod' : 'Add New Pod'}</DialogTitle>
+                        <DialogDescription>
+                          {editingPodId
+                            ? 'Update pod membership and details for this team.'
+                            : 'Create a new pod within a team'}
+                        </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
                         <div>
@@ -755,8 +1282,8 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                           </div>
                         </div>
                         <div className="flex justify-end gap-2">
-                          <Button variant="outline" onClick={() => setIsAddingPod(false)}>Cancel</Button>
-                          <Button onClick={handleAddPod}>Add Pod</Button>
+                          <Button variant="outline" onClick={closePodDialog}>Cancel</Button>
+                          <Button onClick={handleSavePod}>{editingPodId ? 'Save Changes' : 'Add Pod'}</Button>
                         </div>
                       </div>
                     </DialogContent>
@@ -811,7 +1338,7 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                       variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setAllEntitiesInitialTab("functions");
+                        setDirectoryEntityType("functions");
                         setShowAllEntities(true);
                       }}
                     >
@@ -821,16 +1348,18 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                     <Dialog
                       open={isAddingFunction}
                       onOpenChange={(open) => {
-                        if (open) {
-                          resetFunctionForm();
-                          setIsAddingFunction(true);
-                        } else {
+                        if (!open) {
                           handleCloseFunctionDialog();
                         }
                       }}
                     >
                       <DialogTrigger asChild>
-                        <Button onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openFunctionDialog();
+                          }}
+                        >
                           <Plus className="h-4 w-4 mr-2" />
                           Add
                         </Button>
@@ -893,14 +1422,18 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                       variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setAllEntitiesInitialTab("people");
+                        setDirectoryEntityType("people");
                         setShowAllEntities(true);
                       }}
                     >
                       <Eye className="h-4 w-4 mr-2" />
                       View All
                     </Button>
-                    <Dialog open={isAddingPerson} onOpenChange={setIsAddingPerson}>
+                    <Dialog open={isAddingPerson} onOpenChange={(open) => {
+                      if (!open) {
+                        handleClosePersonDialog();
+                      }
+                    }}>
                       <DialogTrigger asChild>
                         <Button onClick={handleAddPersonClick}>
                           <Plus className="h-4 w-4 mr-2" />
@@ -909,8 +1442,12 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                       </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Add New Person</DialogTitle>
-                        <DialogDescription>Add a team member to your organization</DialogDescription>
+                        <DialogTitle>{editingPersonId ? 'Edit Person' : 'Add New Person'}</DialogTitle>
+                        <DialogDescription>
+                          {editingPersonId
+                            ? 'Update this person to keep reporting lines accurate.'
+                            : 'Add a team member to your organization'}
+                        </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
@@ -1014,7 +1551,7 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                         
                         <div className="flex justify-end gap-2">
                           <Button variant="outline" onClick={handleClosePersonDialog}>Cancel</Button>
-                          <Button onClick={handleAddPerson}>Add Person</Button>
+                          <Button onClick={handleSavePerson}>{editingPersonId ? 'Save Changes' : 'Add Person'}</Button>
                         </div>
                       </div>
                     </DialogContent>
@@ -1055,11 +1592,19 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
       </Collapsible>
 
       {/* Dialogs moved outside of Collapsible so they work when collapsed */}
-      <Dialog open={isAddingTeam} onOpenChange={setIsAddingTeam}>
+      <Dialog open={isAddingTeam} onOpenChange={(open) => {
+        if (!open) {
+          closeTeamDialog();
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Team</DialogTitle>
-            <DialogDescription>Create a new team in your organization</DialogDescription>
+            <DialogTitle>{editingTeamId ? 'Edit Team' : 'Add New Team'}</DialogTitle>
+            <DialogDescription>
+              {editingTeamId
+                ? 'Update team details to keep pods and people aligned.'
+                : 'Create a new team in your organization'}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -1108,19 +1653,27 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsAddingTeam(false)}>Cancel</Button>
-              <Button onClick={handleAddTeam}>Add Team</Button>
+              <Button variant="outline" onClick={closeTeamDialog}>Cancel</Button>
+              <Button onClick={handleSaveTeam}>{editingTeamId ? 'Save Changes' : 'Add Team'}</Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Add Pod Dialog */}
-      <Dialog open={isAddingPod} onOpenChange={setIsAddingPod}>
+      <Dialog open={isAddingPod} onOpenChange={(open) => {
+        if (!open) {
+          closePodDialog();
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Pod</DialogTitle>
-            <DialogDescription>Create a new pod within a team</DialogDescription>
+            <DialogTitle>{editingPodId ? 'Edit Pod' : 'Add New Pod'}</DialogTitle>
+            <DialogDescription>
+              {editingPodId
+                ? 'Update pod membership and details for this team.'
+                : 'Create a new pod within a team'}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -1248,8 +1801,8 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsAddingPod(false)}>Cancel</Button>
-              <Button onClick={handleAddPod}>Add Pod</Button>
+              <Button variant="outline" onClick={closePodDialog}>Cancel</Button>
+              <Button onClick={handleSavePod}>{editingPodId ? 'Save Changes' : 'Add Pod'}</Button>
             </div>
           </div>
         </DialogContent>
@@ -1259,10 +1812,7 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
       <Dialog
         open={isAddingFunction}
         onOpenChange={(open) => {
-          if (open) {
-            resetFunctionForm();
-            setIsAddingFunction(true);
-          } else {
+          if (!open) {
             handleCloseFunctionDialog();
           }
         }}
@@ -1273,11 +1823,19 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
       </Dialog>
 
       {/* Add Person Dialog */}
-      <Dialog open={isAddingPerson} onOpenChange={setIsAddingPerson}>
+      <Dialog open={isAddingPerson} onOpenChange={(open) => {
+        if (!open) {
+          handleClosePersonDialog();
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Person</DialogTitle>
-            <DialogDescription>Add a team member to your organization</DialogDescription>
+            <DialogTitle>{editingPersonId ? 'Edit Person' : 'Add New Person'}</DialogTitle>
+            <DialogDescription>
+              {editingPersonId
+                ? 'Update this person to keep reporting lines accurate.'
+                : 'Add a team member to your organization'}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -1381,7 +1939,7 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
 
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={handleClosePersonDialog}>Cancel</Button>
-              <Button onClick={handleAddPerson}>Add Person</Button>
+              <Button onClick={handleSavePerson}>{editingPersonId ? 'Save Changes' : 'Add Person'}</Button>
             </div>
           </div>
         </DialogContent>
@@ -1395,14 +1953,43 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
         pods={safePods}
         people={safePeople}
         functions={safeFunctions}
-        initialTab={allEntitiesInitialTab}
-        onAddTeam={() => setIsAddingTeam(true)}
-        onAddPod={() => setIsAddingPod(true)}
-        onAddPerson={() => setIsAddingPerson(true)}
-        onAddFunction={() => {
-          resetFunctionForm();
-          setIsAddingFunction(true);
+        entityType={directoryEntityType}
+        onAddTeam={() => {
+          setShowAllEntities(false);
+          openTeamDialog();
         }}
+        onAddPod={() => {
+          setShowAllEntities(false);
+          openPodDialog();
+        }}
+        onAddPerson={() => {
+          setShowAllEntities(false);
+          openPersonDialog();
+        }}
+        onAddFunction={() => {
+          setShowAllEntities(false);
+          openFunctionDialog();
+        }}
+        onEditTeam={(team) => {
+          setShowAllEntities(false);
+          openTeamDialog(team);
+        }}
+        onEditPod={(pod) => {
+          setShowAllEntities(false);
+          openPodDialog(pod);
+        }}
+        onEditPerson={(person) => {
+          setShowAllEntities(false);
+          openPersonDialog(person);
+        }}
+        onEditFunction={(func) => {
+          setShowAllEntities(false);
+          openFunctionDialog(func);
+        }}
+        onDeleteTeam={handleDeleteTeam}
+        onDeletePod={handleDeletePod}
+        onDeletePerson={handleDeletePerson}
+        onDeleteFunction={handleDeleteFunction}
       />
     </Card>
   );
