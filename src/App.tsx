@@ -12,7 +12,7 @@ import { TeamFilter } from "./components/TeamFilter";
 import { AdvancedFilter } from "./components/AdvancedFilter";
 import { FilterResultsSummary } from "./components/FilterResultsSummary";
 import { ModeSwitch, ModeDescription } from "./components/ModeSwitch";
-import { OrganizationManager } from "./components/OrganizationManager";
+import { OrganizationManager } from "./components/OrganizationManagerFixed";
 import { KRSpreadsheetView } from "./components/KRSpreadsheetView";
 import { ActualsGrid } from "./components/ActualsGrid";
 import { MetricsDisplay } from "./components/MetricsDisplay";
@@ -832,6 +832,7 @@ function AppContent() {
   // Loading state
   const [isLoading, setIsLoading] = useState(true);
   const shouldUseBackend = import.meta.env.VITE_USE_BACKEND === 'true';
+  const [backendHealth, setBackendHealth] = useState<'unknown' | 'ok' | 'down'>('unknown');
 
   const hasHydratedRef = useRef(false);
 
@@ -1115,6 +1116,20 @@ function AppContent() {
     };
 
     init();
+
+    // Background health check (non-blocking)
+    (async () => {
+      if (!shouldUseBackend) {
+        setBackendHealth('down');
+        return;
+      }
+      try {
+        const res = await fetch('/api/health', { method: 'GET' });
+        setBackendHealth(res.ok ? 'ok' : 'down');
+      } catch {
+        setBackendHealth('down');
+      }
+    })();
 
     return () => {
       isMounted = false;
@@ -1416,6 +1431,28 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Environment banner: show when running without backend */}
+      {!shouldUseBackend && (
+        <div className="w-full sticky top-0 z-50 text-center font-bold py-2" style={{ background: '#B00020', color: 'white' }} role="status" aria-live="polite">
+          Warning: Running with local/mock data — backend is disabled (VITE_USE_BACKEND=false)
+        </div>
+      )}
+
+      {/* Backend health indicator when backend is enabled */}
+      {shouldUseBackend && (
+        <div className="w-full sticky top-0 z-50 flex justify-center pointer-events-none">
+          <div
+            className="mt-2 px-3 py-1 rounded-full text-xs font-semibold shadow"
+            style={{
+              background: backendHealth === 'ok' ? '#0F9D58' : '#F4B400',
+              color: 'white',
+            }}
+            aria-live="polite"
+          >
+            Backend: {backendHealth === 'ok' ? 'Connected' : 'Checking...'}
+          </div>
+        </div>
+      )}
       <div className="border-b">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">

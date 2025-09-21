@@ -39,6 +39,13 @@ interface AutocompleteInputProps<T> {
   ariaLabel?: string;
   inputType?: string;
   onSubmit?: (value: string) => void;
+  emptyStateMessage?: string;
+  emptyStateAction?: {
+    label: string;
+    onAction: (value: string) => void;
+    icon?: ReactNode;
+  };
+  minimalMode?: boolean; // Enable minimal tab-complete style
 }
 
 export function AutocompleteInput<T>({
@@ -53,16 +60,21 @@ export function AutocompleteInput<T>({
   ariaLabel,
   inputType,
   onSubmit,
+  emptyStateMessage,
+  emptyStateAction,
+  minimalMode = false,
 }: AutocompleteInputProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const hideTimeout = useRef<number>();
 
+  const MAX_SUGGESTIONS = 5;
+
   const groupedSuggestions = useMemo(() => {
     const groups = new Map<string, AutocompleteSuggestion<T>[]>();
 
-    suggestions.slice(0, 5).forEach((suggestion) => {
+    suggestions.slice(0, MAX_SUGGESTIONS).forEach((suggestion) => {
       const key = suggestion.group ?? "__default";
       const bucket = groups.get(key) ?? [];
       bucket.push(suggestion);
@@ -72,14 +84,63 @@ export function AutocompleteInput<T>({
     return groups;
   }, [suggestions]);
 
+  // Close dropdown on outside click (capture phase) to avoid overlays blocking other controls
   useEffect(() => {
-    if (suggestions.length > 0) {
-      setIsOpen(true);
-      setHighlightedIndex(0);
+    const handlePointerDownCapture = (event: PointerEvent) => {
+      if (!isOpen) return;
+      const container = containerRef.current;
+      if (!container) return;
+      const target = event.target as Node | null;
+      if (target && !container.contains(target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDownCapture, true);
+    return () => document.removeEventListener("pointerdown", handlePointerDownCapture, true);
+  }, [isOpen]);
+
+  // Also close on window blur (e.g., switching tabs)
+  useEffect(() => {
+    const onWindowBlur = () => setIsOpen(false);
+    window.addEventListener("blur", onWindowBlur);
+    return () => window.removeEventListener("blur", onWindowBlur);
+  }, []);
+
+  useEffect(() => {
+    if (minimalMode) {
+      // In minimal mode, be more conservative about showing dropdown
+      const hasQuery = value.trim().length > 0;
+      const hasExactMatch = suggestions.some(s =>
+        s.value.toLowerCase() === value.toLowerCase() ||
+        s.label.toLowerCase() === value.toLowerCase()
+      );
+
+      // Only show if there's a query, no exact match, and either suggestions or an action
+      if (hasQuery && !hasExactMatch && (suggestions.length > 0 || emptyStateAction)) {
+        setIsOpen(true);
+        setHighlightedIndex(suggestions.length > 0 ? 0 : -1);
+      } else {
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+      }
     } else {
+      // Original behavior for non-minimal mode
+      if (suggestions.length > 0) {
+        setIsOpen(true);
+        setHighlightedIndex(0);
+        return;
+      }
+
+      const hasQuery = value.trim().length > 0;
+      if (emptyStateMessage && hasQuery) {
+        setIsOpen(true);
+      } else {
+        setIsOpen(false);
+      }
       setHighlightedIndex(-1);
     }
-  }, [suggestions]);
+  }, [emptyStateMessage, suggestions, value, minimalMode, emptyStateAction]);
 
   useEffect(() => () => {
     if (hideTimeout.current) {
@@ -97,13 +158,23 @@ export function AutocompleteInput<T>({
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    // In minimal mode, Tab accepts the first suggestion
+    if (minimalMode && event.key === "Tab" && suggestions.length > 0 && value.trim()) {
+      event.preventDefault();
+      const firstSuggestion = suggestions[0];
+      if (firstSuggestion) {
+        handleSelect(0, firstSuggestion);
+      }
+      return;
+    }
+
     if (!isOpen) {
       return;
     }
 
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
-      const flattened = suggestions.slice(0, 5);
+      const flattened = suggestions.slice(0, MAX_SUGGESTIONS);
       if (!flattened.length) {
         return;
       }
@@ -167,7 +238,7 @@ export function AutocompleteInput<T>({
       <li
         key={suggestion.id}
         className={cn(
-          "flex cursor-pointer select-none items-center justify-between gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+          "flex cursor-pointer select-none items-start justify-between gap-3 rounded-md px-3 py-2 text-sm transition-colors",
           isHighlighted ? "bg-muted text-foreground" : "hover:bg-muted"
         )}
         onMouseDown={(event) => {
@@ -176,19 +247,19 @@ export function AutocompleteInput<T>({
         }}
         onMouseEnter={() => setHighlightedIndex(index)}
       >
-        <div className="flex min-w-0 items-center gap-3">
-          {suggestion.icon && <span className="text-muted-foreground">{suggestion.icon}</span>}
-          <div className="min-w-0">
-            <p className="truncate font-medium">{suggestion.label}</p>
+        <div className="flex min-w-0 items-start gap-3">
+          {suggestion.icon && <span className="mt-0.5 text-muted-foreground">{suggestion.icon}</span>}
+          <div className="min-w-0 space-y-1">
+            <p className="truncate font-medium leading-5">{suggestion.label}</p>
             {suggestion.description && (
-              <p className="truncate text-xs text-muted-foreground">{suggestion.description}</p>
+              <p className="truncate text-xs text-muted-foreground leading-4">{suggestion.description}</p>
             )}
             {suggestion.meta && suggestion.meta.length > 0 && (
-              <div className="mt-1 flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1 text-xs text-muted-foreground">
                 {suggestion.meta.map((item, metaIndex) => (
-                  <Badge key={`${suggestion.id}-meta-${metaIndex}`} variant="outline" className="bg-muted/50 text-xs">
+                  <span key={`${suggestion.id}-meta-${metaIndex}`} className="truncate">
                     {item}
-                  </Badge>
+                  </span>
                 ))}
               </div>
             )}
@@ -217,9 +288,10 @@ export function AutocompleteInput<T>({
         }
       }}
       onBlur={() => {
+        const BLUR_DELAY_MS = 150;
         hideTimeout.current = window.setTimeout(() => {
           setIsOpen(false);
-        }, 150);
+        }, BLUR_DELAY_MS);
       }}
     >
       <Input
@@ -233,7 +305,7 @@ export function AutocompleteInput<T>({
           onChange(event.target.value);
         }}
         onFocus={() => {
-          if (suggestions.length > 0) {
+          if (!minimalMode && suggestions.length > 0) {
             setIsOpen(true);
           }
         }}
@@ -243,19 +315,19 @@ export function AutocompleteInput<T>({
       />
 
       {isOpen && suggestions.length > 0 && (
-        <div className="absolute z-20 mt-2 w-full rounded-md border bg-popover p-2 shadow-lg">
-          <ul className="space-y-1">
+        <div className="absolute z-20 mt-2 w-full rounded-md border bg-popover shadow-lg pointer-events-none">
+          <ul className="divide-y divide-border max-h-60 overflow-auto p-2 pointer-events-auto">
             {Array.from(groupedSuggestions.entries()).map(([group, items]) => {
               const displayGroup = group !== "__default";
 
               return (
-                <li key={group} className="space-y-1">
+                <li key={group}>
                   {displayGroup && (
-                    <p className="px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       {group}
                     </p>
                   )}
-                  <ul className="space-y-1">
+                  <ul className="divide-y divide-border">
                     {items.map((suggestion) => {
                       const index = suggestions.findIndex((item) => item.id === suggestion.id);
                       return renderSuggestion(suggestion, index);
@@ -265,6 +337,32 @@ export function AutocompleteInput<T>({
               );
             })}
           </ul>
+        </div>
+      )}
+
+      {isOpen && suggestions.length === 0 && emptyStateMessage && value.trim().length > 0 && (
+        <div className="absolute z-20 mt-2 w-full rounded-md border bg-popover shadow-lg">
+          <div className="px-3 py-2 text-sm text-muted-foreground">
+            {emptyStateMessage}
+          </div>
+          {emptyStateAction && (
+            <div className="border-t px-2 py-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start gap-2 text-primary hover:bg-muted"
+                onClick={(event) => {
+                  event.preventDefault();
+                  emptyStateAction.onAction(value.trim());
+                  setIsOpen(false);
+                }}
+              >
+                {emptyStateAction.icon && <span className="text-primary">{emptyStateAction.icon}</span>}
+                <span>{emptyStateAction.label}</span>
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
