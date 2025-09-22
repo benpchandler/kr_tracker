@@ -1,7 +1,17 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useReducer,
+  useEffect,
+  ReactNode,
+  useMemo,
+  useRef,
+  useCallback,
+} from 'react';
 import {
   Team, Pod, Person, OrgFunction, Quarter, KR, Initiative, AppMode, FilterOptions, Organization, Objective
 } from '../types';
+import { logger } from '../utils/logger';
 
 // Extended types for execution mode
 export interface PlanBaseline {
@@ -284,11 +294,180 @@ interface AppProviderProps {
 
 const LOCAL_STORAGE_KEY = 'kr-tracker-state-v4';
 
+const ACTION_HISTORY_LIMIT = 25;
+const NOISY_ACTIONS = new Set<AppAction['type']>(['SET_STATE']);
+
+type ActionSummary = {
+  type: AppAction['type'];
+  payload?: unknown;
+  updates?: unknown;
+  id?: string;
+  krId?: string;
+  weekISO?: string;
+};
+
+type DebugActionEntry = {
+  timestamp: string;
+  action: ActionSummary;
+  stateChanges: string[];
+};
+
+const shouldLogStoreActivity = (): boolean => {
+  if (import.meta.env.VITE_DEBUG_STORE === 'true') {
+    return true;
+  }
+
+  if (import.meta.env.VITE_DEBUG_STORE === 'false') {
+    return false;
+  }
+
+  const devFlag = typeof import.meta.env.DEV === 'boolean'
+    ? import.meta.env.DEV
+    : import.meta.env.DEV === 'true';
+
+  return devFlag;
+};
+
+const summarizeValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    if (value.length <= 5 && value.every((item) => ['string', 'number', 'boolean'].includes(typeof item))) {
+      return value;
+    }
+
+    return { type: 'array', length: value.length };
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    const entries = Object.entries(value);
+    const summary: Record<string, unknown> = {};
+
+    for (const [key, entryValue] of entries.slice(0, 6)) {
+      summary[key] = typeof entryValue === 'object' && entryValue !== null ? '[object]' : entryValue;
+    }
+
+    if (entries.length > 6) {
+      summary.__truncated__ = entries.length - 6;
+    }
+
+    return summary;
+  }
+
+  return value;
+};
+
+const summarizeAction = (action: AppAction): ActionSummary => {
+  const summary: ActionSummary = { type: action.type };
+
+  if ('payload' in action) {
+    summary.payload = summarizeValue(action.payload);
+  }
+
+  if ('updates' in action) {
+    summary.updates = summarizeValue(action.updates);
+  }
+
+  if ('id' in action) {
+    summary.id = action.id;
+  }
+
+  if ('krId' in action) {
+    summary.krId = action.krId;
+  }
+
+  if ('weekISO' in action) {
+    summary.weekISO = action.weekISO;
+  }
+
+  return summary;
+};
+
+const diffStateKeys = (previous: AppState, next: AppState): string[] => {
+  const keys = new Set<string>([
+    ...Object.keys(previous as Record<string, unknown>),
+    ...Object.keys(next as Record<string, unknown>),
+  ]);
+
+  const changed: string[] = [];
+
+  keys.forEach((key) => {
+    if ((previous as Record<string, unknown>)[key] !== (next as Record<string, unknown>)[key]) {
+      changed.push(key);
+    }
+  });
+
+  return changed;
+};
+
+const recordActionOnWindow = (entry: DebugActionEntry) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const target = window as typeof window & { __KR_TRACKER_ACTIONS__?: DebugActionEntry[] };
+  const buffer = target.__KR_TRACKER_ACTIONS__ ?? [];
+  buffer.push(entry);
+
+  if (buffer.length > ACTION_HISTORY_LIMIT) {
+    buffer.splice(0, buffer.length - ACTION_HISTORY_LIMIT);
+  }
+
+  target.__KR_TRACKER_ACTIONS__ = buffer;
+};
+
+const shouldSkipInstrumentation = (action: AppAction): boolean => {
+  return NOISY_ACTIONS.has(action.type);
+};
+
 export function AppProvider({ children, initialData }: AppProviderProps) {
-  const [state, dispatch] = useReducer(appReducer, {
+  const [state, baseDispatch] = useReducer(appReducer, {
     ...initialState,
     ...initialData,
   });
+
+  const instrumentationEnabled = useMemo(() => shouldLogStoreActivity(), []);
+  const previousStateRef = useRef(state);
+  const lastActionRef = useRef<AppAction | null>(null);
+
+  const tracedDispatch = useCallback((action: AppAction) => {
+    if (instrumentationEnabled) {
+      lastActionRef.current = action;
+    }
+
+    baseDispatch(action);
+  }, [baseDispatch, instrumentationEnabled]);
+
+  useEffect(() => {
+    if (!instrumentationEnabled) {
+      previousStateRef.current = state;
+      lastActionRef.current = null;
+      return;
+    }
+
+    const action = lastActionRef.current;
+
+    if (!action || shouldSkipInstrumentation(action)) {
+      previousStateRef.current = state;
+      lastActionRef.current = null;
+      return;
+    }
+
+    const summary = summarizeAction(action);
+    const stateChanges = diffStateKeys(previousStateRef.current, state);
+
+    logger.debug('App store dispatch', {
+      action: summary,
+      stateChanges,
+    });
+
+    recordActionOnWindow({
+      timestamp: new Date().toISOString(),
+      action: summary,
+      stateChanges,
+    });
+
+    previousStateRef.current = state;
+    lastActionRef.current = null;
+  }, [state, instrumentationEnabled]);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -297,10 +476,10 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
         const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
-          dispatch({ type: 'SET_STATE', payload: parsed });
+          baseDispatch({ type: 'SET_STATE', payload: parsed });
         }
       } catch (error) {
-        console.error('Failed to load persisted state:', error);
+        logger.error('Failed to load persisted state', { error });
       }
     };
 
@@ -312,12 +491,12 @@ export function AppProvider({ children, initialData }: AppProviderProps) {
     try {
       window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
     } catch (error) {
-      console.error('Failed to persist state:', error);
+      logger.error('Failed to persist state', { error });
     }
   }, [state]);
 
   return (
-    <AppContext.Provider value={{ state, dispatch }}>
+    <AppContext.Provider value={{ state, dispatch: instrumentationEnabled ? tracedDispatch : baseDispatch }}>
       {children}
     </AppContext.Provider>
   );

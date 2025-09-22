@@ -23,8 +23,18 @@ Usage
 - Click "Lock Plan" to freeze the plan as baseline
 
 Notes
-- Data persists to localStorage under key `kr-tracker-state-v1`
+- Data persists to localStorage under key `kr-tracker-state-v4`
 - Weeks are Monday-start ISO weeks. Internal keys use `YYYY-Www` (e.g., `2025-W09`).
 - Grid headers show both the ISO week and date range (e.g., `2025-W09` and `Mar 03–Mar 09`).
 - After lock, plan inputs are read-only (baseline view).
 - Next steps: Actuals entry grid + metrics (WoW deltas, rolling trends, pacing vs plan)
+
+Debugging & observability
+- A global error boundary now wraps the app root, reporting uncaught render errors and exposing a reset action. In development it
+  prints error details and stack traces while buffering structured entries in `window.__KR_TRACKER_LOGS__`.
+- Use the shared `logger` helper from `src/utils/logger.ts` for structured console + in-memory logging. In production it limits
+  output to warnings/errors while still capturing entries for future telemetry sinks.
+- App state dispatches are instrumented when `VITE_DEBUG_STORE=true` (or automatically in development). Recent actions and the
+  keys they touched are available on `window.__KR_TRACKER_ACTIONS__`.
+- Persistence sanitization emits diagnostics accessible through `window.__KR_TRACKER_HYDRATION__`; the hydration routine also
+  surfaces warning summaries in the console to highlight malformed saved data.
