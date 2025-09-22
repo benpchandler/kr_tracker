@@ -42,15 +42,22 @@ function useCarousel() {
   return context;
 }
 
-function Carousel({
-  orientation = "horizontal",
-  opts,
-  setApi,
-  plugins,
-  className,
-  children,
-  ...props
-}: React.ComponentProps<"div"> & CarouselProps) {
+const Carousel = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentProps<"div"> & CarouselProps
+>(
+  (
+    {
+      orientation = "horizontal",
+      opts,
+      setApi,
+      plugins,
+      className,
+      children,
+      ...props
+    },
+    ref,
+  ) => {
   const [carouselRef, api] = useEmblaCarousel(
     {
       ...opts,
@@ -119,6 +126,7 @@ function Carousel({
       }}
     >
       <div
+        ref={ref}
         onKeyDownCapture={handleKeyDown}
         className={cn("relative", className)}
         role="region"
@@ -130,14 +138,37 @@ function Carousel({
       </div>
     </CarouselContext.Provider>
   );
-}
+});
 
-function CarouselContent({ className, ...props }: React.ComponentProps<"div">) {
+Carousel.displayName = "Carousel";
+
+const CarouselContent = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentProps<"div">
+>(({ className, ...props }, ref) => {
   const { carouselRef, orientation } = useCarousel();
+
+  const composedRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      if (typeof carouselRef === "function") {
+        carouselRef(node);
+      } else if (carouselRef) {
+        (carouselRef as React.MutableRefObject<HTMLDivElement | null>).current =
+          node;
+      }
+
+      if (typeof ref === "function") {
+        ref(node);
+      } else if (ref) {
+        (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      }
+    },
+    [carouselRef, ref],
+  );
 
   return (
     <div
-      ref={carouselRef}
+      ref={composedRef}
       className="overflow-hidden"
       data-slot="carousel-content"
     >
@@ -151,13 +182,19 @@ function CarouselContent({ className, ...props }: React.ComponentProps<"div">) {
       />
     </div>
   );
-}
+});
 
-function CarouselItem({ className, ...props }: React.ComponentProps<"div">) {
+CarouselContent.displayName = "CarouselContent";
+
+const CarouselItem = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentProps<"div">
+>(({ className, ...props }, ref) => {
   const { orientation } = useCarousel();
 
   return (
     <div
+      ref={ref}
       role="group"
       aria-roledescription="slide"
       data-slot="carousel-item"
@@ -169,18 +206,19 @@ function CarouselItem({ className, ...props }: React.ComponentProps<"div">) {
       {...props}
     />
   );
-}
+});
 
-function CarouselPrevious({
-  className,
-  variant = "outline",
-  size = "icon",
-  ...props
-}: React.ComponentProps<typeof Button>) {
+CarouselItem.displayName = "CarouselItem";
+
+const CarouselPrevious = React.forwardRef<
+  React.ElementRef<typeof Button>,
+  React.ComponentProps<typeof Button>
+>(({ className, variant = "outline", size = "icon", ...props }, ref) => {
   const { orientation, scrollPrev, canScrollPrev } = useCarousel();
 
   return (
     <Button
+      ref={ref}
       data-slot="carousel-previous"
       variant={variant}
       size={size}
@@ -199,18 +237,19 @@ function CarouselPrevious({
       <span className="sr-only">Previous slide</span>
     </Button>
   );
-}
+});
 
-function CarouselNext({
-  className,
-  variant = "outline",
-  size = "icon",
-  ...props
-}: React.ComponentProps<typeof Button>) {
+CarouselPrevious.displayName = "CarouselPrevious";
+
+const CarouselNext = React.forwardRef<
+  React.ElementRef<typeof Button>,
+  React.ComponentProps<typeof Button>
+>(({ className, variant = "outline", size = "icon", ...props }, ref) => {
   const { orientation, scrollNext, canScrollNext } = useCarousel();
 
   return (
     <Button
+      ref={ref}
       data-slot="carousel-next"
       variant={variant}
       size={size}
@@ -229,7 +268,9 @@ function CarouselNext({
       <span className="sr-only">Next slide</span>
     </Button>
   );
-}
+});
+
+CarouselNext.displayName = "CarouselNext";
 
 export {
   type CarouselApi,

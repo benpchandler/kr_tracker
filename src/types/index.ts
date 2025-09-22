@@ -180,7 +180,7 @@ export interface Milestone {
 }
 
 // Application modes
-export type AppMode = 'plan' | 'execution';
+export type AppMode = 'plan' | 'execution' | 'analysis';
 
 // View types for different interfaces
 export type ViewType = 'cards' | 'table' | 'spreadsheet';

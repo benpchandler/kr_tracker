@@ -1835,6 +1835,19 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                         </div>
                       ))}
                     </div>
+                    {safeTeams.length > 3 && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="p-0 h-auto text-xs"
+                        onClick={() => {
+                          setDirectoryEntityType("teams");
+                          setShowAllEntities(true);
+                        }}
+                      >
+                        View all {safeTeams.length} teams →
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -2058,6 +2071,19 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                         </div>
                       ))}
                     </div>
+                    {safePods.length > 3 && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="p-0 h-auto text-xs"
+                        onClick={() => {
+                          setDirectoryEntityType("pods");
+                          setShowAllEntities(true);
+                        }}
+                      >
+                        View all {safePods.length} pods →
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -2199,6 +2225,19 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                         </div>
                       ))}
                     </div>
+                    {safeFunctions.length > 3 && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="p-0 h-auto text-xs"
+                        onClick={() => {
+                          setDirectoryEntityType("functions");
+                          setShowAllEntities(true);
+                        }}
+                      >
+                        View all {safeFunctions.length} functions →
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">
@@ -2408,8 +2447,8 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                       {safePeople.slice(-3).map((person) => (
                         <div key={person.id} className="text-xs p-2 bg-muted/50 rounded flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <div 
-                              className="w-3 h-3 rounded-full" 
+                            <div
+                              className="w-3 h-3 rounded-full"
                               style={{ backgroundColor: getRoleColor(person.functionId) }}
                             />
                             <span className="truncate">{person.name}</span>
@@ -2425,6 +2464,19 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
                         </div>
                       ))}
                     </div>
+                    {safePeople.length > 3 && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="p-0 h-auto text-xs"
+                        onClick={() => {
+                          setDirectoryEntityType("people");
+                          setShowAllEntities(true);
+                        }}
+                      >
+                        View all {safePeople.length} people →
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardContent>

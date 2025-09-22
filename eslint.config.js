@@ -39,7 +39,7 @@ export default [
     files: ['src/**/*.{ts,tsx}'],
     languageOptions: {
       parserOptions: {
-        project: true,
+        project: './tsconfig.eslint.json',
         tsconfigRootDir,
       },
     },
@@ -47,12 +47,26 @@ export default [
       sonarjs,
     },
     rules: {
-      // Temporarily loosen strict rules until legacy code is cleaned up.
-      'no-console': 'off',
+      // Enforce console usage policy: allow warn and error only.
+      'no-console': ['error', { allow: ['warn', 'error'] }],
+
+      // Allow transitional any but encourage reduction later.
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': 'off',
-      'no-magic-numbers': 'off',
-      'sonarjs/no-duplicate-string': 'off',
+
+      // Warn on unused vars, ignore underscore-prefixed.
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+
+      // Enforce no magic numbers with practical exceptions.
+      'no-magic-numbers': ['error', {
+        ignore: [0, 1, -1],
+        ignoreArrayIndexes: true,
+        enforceConst: true,
+        detectObjects: false,
+      }],
+
+      // Duplicate strings allowed up to threshold of 3.
+      'sonarjs/no-duplicate-string': ['error', { threshold: 3 }],
+
       'no-empty': ['error', { allowEmptyCatch: false }],
       'prefer-const': 'off',
       'no-restricted-properties': 'off',
@@ -74,6 +88,10 @@ export default [
     },
     rules: {
       'no-unexpected-multiline': 'off',
+      // Allow console in tests for debugging output
+      'no-console': 'off',
+      // Looser stance on magic numbers in tests
+      'no-magic-numbers': 'warn',
     },
   },
   {

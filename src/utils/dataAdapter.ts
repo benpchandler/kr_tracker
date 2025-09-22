@@ -25,6 +25,16 @@ interface BackendState {
     podId?: string;
     role: string;
     discipline?: string;
+    managerId?: string | null;
+    joinDate?: string | null;
+    active?: number | boolean | null;
+  }>;
+  functions: Array<{
+    id: string;
+    name: string;
+    description?: string | null;
+    color?: string | null;
+    createdAt?: string | null;
   }>;
   period: { startISO: string; endISO: string };
   planDraft: Record<string, Record<string, number>>;
@@ -52,7 +62,7 @@ export function adaptTeams(backendTeams: BackendState['teams'], organization: Ba
     id: team.id,
     organizationId,
     name: team.name,
-    description: `${team.name} team`,
+    description: team.description || `${team.name} team`,
     color: team.color || '#3B82F6'
   }));
 }
@@ -65,7 +75,7 @@ export function adaptPods(backendPods: BackendState['pods'], individuals: Backen
       id: pod.id,
       name: pod.name,
       teamId: pod.teamId,
-      description: pod.name,
+      description: pod.description || pod.name,
       members: podMembers.map(member => ({
         name: member.name,
         role: mapDisciplineToFunctionId(member.discipline || member.role)
@@ -80,12 +90,12 @@ export function adaptPeople(backendIndividuals: BackendState['individuals']): Pe
     id: ind.id,
     name: ind.name,
     email: ind.email || `${ind.id}@company.com`,
-    functionId: mapDisciplineToFunctionId(ind.discipline),
+    functionId: mapDisciplineToFunctionId(ind.discipline || ind.role),
     teamId: ind.teamId,
     podId: ind.podId,
-    managerId: undefined, // Backend doesn't have manager relationships yet
-    joinDate: '2024-01-01', // Default date
-    active: true
+    managerId: typeof ind.managerId === 'string' && ind.managerId.trim() ? ind.managerId.trim() : undefined,
+    joinDate: typeof ind.joinDate === 'string' && ind.joinDate.trim() ? ind.joinDate : new Date().toISOString().split('T')[0],
+    active: ind.active === undefined || ind.active === null ? true : !!ind.active
   }));
 }
 
@@ -103,8 +113,30 @@ function mapDisciplineToFunctionId(discipline?: string): OrgFunction['id'] {
 
 const cloneDefaultFunctions = (): OrgFunction[] => defaultFunctions.map(fn => ({ ...fn }));
 
-export function adaptFunctions(): OrgFunction[] {
-  return cloneDefaultFunctions();
+export function adaptFunctions(backendFunctions: BackendState['functions']): OrgFunction[] {
+  if (!Array.isArray(backendFunctions) || backendFunctions.length === 0) {
+    return cloneDefaultFunctions();
+  }
+
+  return backendFunctions
+    .filter(fn => fn && typeof fn === 'object' && typeof fn.id === 'string' && fn.id.trim())
+    .map((fn, index) => {
+      const id = fn.id.trim();
+      const name = typeof fn.name === 'string' && fn.name.trim() ? fn.name.trim() : id;
+      const color = typeof fn.color === 'string' && fn.color.trim() ? fn.color : '#3B82F6';
+      const description = typeof fn.description === 'string' && fn.description.trim() ? fn.description : undefined;
+      const createdAt = typeof fn.createdAt === 'string' && fn.createdAt.trim()
+        ? fn.createdAt
+        : new Date(Date.now() + index).toISOString();
+
+      return {
+        id,
+        name,
+        description,
+        color,
+        createdAt,
+      } satisfies OrgFunction;
+    });
 }
 
 export function adaptOrganizations(organization: BackendState['organization']): Organization[] {
@@ -340,7 +372,7 @@ export function adaptBackendToFrontend(backendState: BackendState) {
   const organizations = adaptOrganizations(backendState.organization);
   const teams = adaptTeams(backendState.teams, backendState.organization);
   const pods = adaptPods(backendState.pods, backendState.individuals);
-  const functions = adaptFunctions();
+  const functions = adaptFunctions(backendState.functions);
   const people = adaptPeople(backendState.individuals);
   const quarters = adaptQuarters(backendState.period);
   const krs = adaptKRs(

@@ -1,6 +1,8 @@
 import { KR, AggregationType, HealthThresholds } from '../types';
 import { PlanBaseline, ActualData, KrWeekMetrics } from '../state/store';
 
+export type Aggregation = AggregationType;
+
 // Default health thresholds
 export const DEFAULT_HEALTH_THRESHOLDS: HealthThresholds = {
   green: 99,  // >= 99% of plan
@@ -44,6 +46,76 @@ export function computeMetrics({
   });
 
   return metrics;
+}
+
+export interface MetricsSummary {
+  byKr: Record<string, KrWeekMetrics>;
+  healthCounts: Record<'green' | 'yellow' | 'red', number>;
+  averagePaceToDatePct: number;
+  averageForecastEOP: number;
+}
+
+export function summarizeMetrics(
+  metrics: KrWeekMetrics[],
+  weeks: string[]
+): MetricsSummary {
+  const weekOrder = new Map<string, number>();
+  weeks.forEach((week, index) => weekOrder.set(week, index));
+
+  const latestByKr: Record<string, KrWeekMetrics> = {};
+
+  metrics.forEach(metric => {
+    const existing = latestByKr[metric.krId];
+    if (!existing) {
+      latestByKr[metric.krId] = metric;
+      return;
+    }
+
+    const currentIndex = weekOrder.get(metric.weekISO) ?? -Infinity;
+    const existingIndex = weekOrder.get(existing.weekISO) ?? -Infinity;
+
+    if (currentIndex > existingIndex) {
+      latestByKr[metric.krId] = metric;
+    } else if (currentIndex === existingIndex) {
+      const currentActual = Number.isFinite(metric.actual) ? metric.actual : 0;
+      const existingActual = Number.isFinite(existing.actual) ? existing.actual : 0;
+      if (currentActual >= existingActual) {
+        latestByKr[metric.krId] = metric;
+      }
+    }
+  });
+
+  const healthCounts: Record<'green' | 'yellow' | 'red', number> = {
+    green: 0,
+    yellow: 0,
+    red: 0
+  };
+
+  let paceSum = 0;
+  let paceCount = 0;
+  let forecastSum = 0;
+  let forecastCount = 0;
+
+  Object.values(latestByKr).forEach(metric => {
+    healthCounts[metric.health] += 1;
+
+    if (Number.isFinite(metric.paceToDatePct)) {
+      paceSum += metric.paceToDatePct;
+      paceCount += 1;
+    }
+
+    if (Number.isFinite(metric.forecastEOP)) {
+      forecastSum += metric.forecastEOP;
+      forecastCount += 1;
+    }
+  });
+
+  return {
+    byKr: latestByKr,
+    healthCounts,
+    averagePaceToDatePct: paceCount > 0 ? paceSum / paceCount : 0,
+    averageForecastEOP: forecastCount > 0 ? forecastSum / forecastCount : 0
+  };
 }
 
 // Compute metrics for a single KR and week
@@ -124,7 +196,7 @@ function computeKrWeekMetrics(
 }
 
 // Calculate week-over-week change
-function calculateWoWChange(
+export function calculateWoWChange(
   krId: string,
   currentWeek: string,
   weekIndex: number,
@@ -148,7 +220,7 @@ function calculateWoWChange(
 }
 
 // Calculate 3-week rolling average
-function calculateRolling3(
+export function calculateRolling3(
   krId: string,
   weekIndex: number,
   weeks: string[],
@@ -168,7 +240,7 @@ function calculateRolling3(
 }
 
 // Calculate pace to date percentage based on aggregation type
-function calculatePaceToDate(
+export function calculatePaceToDate(
   kr: KR,
   weekIndex: number,
   weeks: string[],
@@ -231,7 +303,7 @@ function calculatePaceToDate(
 }
 
 // Calculate end-of-period forecast based on aggregation type
-function calculateForecast(
+export function calculateForecast(
   kr: KR,
   weekIndex: number,
   weeks: string[],
@@ -272,47 +344,13 @@ function calculateForecast(
 }
 
 // Determine health status based on pace percentage
-function determineHealth(
+export function determineHealth(
   paceToDatePct: number,
   thresholds: HealthThresholds
 ): 'green' | 'yellow' | 'red' {
   if (paceToDatePct >= thresholds.green) return 'green';
   if (paceToDatePct >= thresholds.yellow) return 'yellow';
   return 'red';
-}
-
-// Helper function to get weeks in ISO format
-export function generateWeeks(startISO: string, endISO: string): string[] {
-  const weeks: string[] = [];
-  const start = new Date(startISO);
-  const end = new Date(endISO);
-
-  // Adjust start to Monday of that week
-  const dayOfWeek = start.getDay();
-  const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  start.setDate(start.getDate() + daysToMonday);
-
-  const current = new Date(start);
-
-  while (current <= end) {
-    const year = current.getFullYear();
-    const weekNum = getISOWeekNumber(current);
-    weeks.push(`${year}-W${weekNum.toString().padStart(2, '0')}`);
-
-    // Move to next Monday
-    current.setDate(current.getDate() + 7);
-  }
-
-  return weeks;
-}
-
-// Get ISO week number for a date
-function getISOWeekNumber(date: Date): number {
-  const tempDate = new Date(date.getTime());
-  tempDate.setHours(0, 0, 0, 0);
-  tempDate.setDate(tempDate.getDate() + 3 - ((tempDate.getDay() + 6) % 7));
-  const week1 = new Date(tempDate.getFullYear(), 0, 4);
-  return 1 + Math.round(((tempDate.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
 }
 
 // Calculate metrics for display without needing all weeks
@@ -339,3 +377,5 @@ export function calculateQuickMetrics(
     health
   };
 }
+
+export { generateWeeks } from '../utils/weeks';

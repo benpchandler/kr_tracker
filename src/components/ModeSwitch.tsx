@@ -31,6 +31,15 @@ export function ModeSwitch({ currentMode, onModeChange }: ModeSwitchProps) {
             <Play className="h-4 w-4" />
             Execution Mode
           </Button>
+          <Button
+            variant={currentMode === 'analysis' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onModeChange('analysis')}
+            className="flex items-center gap-2"
+          >
+            <BarChart3 className="h-4 w-4" />
+            Analysis Mode
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -52,6 +61,11 @@ export function ModeDescription({ mode }: ModeDescriptionProps) {
       title: "Execution Mode", 
       description: "Track progress, update actuals, add comments about performance, and adjust forecasts throughout the quarter.",
       features: ["Update progress", "Track vs plan", "Add comments", "Adjust forecasts", "View auto-updates"]
+    },
+    analysis: {
+      title: "Analysis Mode",
+      description: "Analyze performance patterns, forecast scenarios, and gain strategic insights from your KR data and initiative portfolio.",
+      features: ["Monte Carlo forecasting", "Risk analysis", "Team performance insights", "Initiative impact analysis", "Trend visualization"]
     }
   };
 
@@ -62,8 +76,10 @@ export function ModeDescription({ mode }: ModeDescriptionProps) {
       <div className="flex items-center gap-2">
         {mode === 'plan' ? (
           <Settings className="h-5 w-5 text-muted-foreground" />
-        ) : (
+        ) : mode === 'execution' ? (
           <Play className="h-5 w-5 text-muted-foreground" />
+        ) : (
+          <BarChart3 className="h-5 w-5 text-muted-foreground" />
         )}
         <h2>{info.title}</h2>
       </div>

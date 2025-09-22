@@ -5,6 +5,14 @@ const path = require('path');
 
 const db = new Database(path.join(__dirname, 'kr.sqlite'));
 
+const defaultFunctions = [
+  { id: 'Product', name: 'Product', description: 'Product management and strategy', color: '#EF4444', createdAt: '2024-01-01T00:00:00.000Z' },
+  { id: 'Engineering', name: 'Engineering', description: 'Software engineering and platform development', color: '#3B82F6', createdAt: '2024-01-01T00:00:01.000Z' },
+  { id: 'Design', name: 'Design', description: 'Product design and research', color: '#F59E0B', createdAt: '2024-01-01T00:00:02.000Z' },
+  { id: 'Analytics', name: 'Analytics', description: 'Insights and decision science', color: '#8B5CF6', createdAt: '2024-01-01T00:00:03.000Z' },
+  { id: 'S&O', name: 'Strategy & Operations', description: 'Strategy and operations excellence', color: '#10B981', createdAt: '2024-01-01T00:00:04.000Z' },
+];
+
 function init() {
   db.exec(`
     PRAGMA journal_mode = WAL;
@@ -19,12 +27,14 @@ function init() {
     CREATE TABLE IF NOT EXISTS teams (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      color TEXT
+      color TEXT,
+      description TEXT
     );
     CREATE TABLE IF NOT EXISTS pods (
       id TEXT PRIMARY KEY,
       teamId TEXT NOT NULL,
       name TEXT NOT NULL,
+      description TEXT,
       FOREIGN KEY(teamId) REFERENCES teams(id)
     );
     CREATE TABLE IF NOT EXISTS individuals (
@@ -102,6 +112,13 @@ function init() {
       lastModifiedBy TEXT,
       PRIMARY KEY(initiativeId, weekKey)
     );
+    CREATE TABLE IF NOT EXISTS functions (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      color TEXT,
+      createdAt TEXT NOT NULL
+    );
   `);
 
   dedupeTeams();
@@ -118,6 +135,11 @@ function init() {
   try { db.exec(`ALTER TABLE actual_values ADD COLUMN lastModifiedBy TEXT`); } catch {}
   try { db.exec(`ALTER TABLE initiatives ADD COLUMN status TEXT`); } catch {}
   try { db.exec(`CREATE TABLE initiative_weekly (initiativeId TEXT NOT NULL, weekKey TEXT NOT NULL, impact REAL, confidence REAL, lastModifiedAt TEXT, lastModifiedBy TEXT, PRIMARY KEY(initiativeId, weekKey))`); } catch {}
+  try { db.exec(`ALTER TABLE individuals ADD COLUMN managerId TEXT`); } catch {}
+  try { db.exec(`ALTER TABLE individuals ADD COLUMN joinDate TEXT`); } catch {}
+  try { db.exec(`ALTER TABLE individuals ADD COLUMN active INTEGER DEFAULT 1`); } catch {}
+  try { db.exec(`ALTER TABLE teams ADD COLUMN description TEXT`); } catch {}
+  try { db.exec(`ALTER TABLE pods ADD COLUMN description TEXT`); } catch {}
 }
 
 function getSetting(key, dflt) {
@@ -183,18 +205,18 @@ function seedIfEmpty() {
   // Minimal seed; mirror current app defaults
   db.prepare('INSERT INTO organizations(id,name) VALUES(?,?)').run('org-merchant','Merchant');
   const teams = [
-    {id:'team-live-order-experience', name:'Live Order Experience', color:'#2E86AB'},
-    {id:'team-go-to-market', name:'Go-To-Market', color:'#8E44AD'},
-    {id:'team-support', name:'Support', color:'#27AE60'},
+    {id:'team-live-order-experience', name:'Live Order Experience', color:'#2E86AB', description:'Live Order Experience team'},
+    {id:'team-go-to-market', name:'Go-To-Market', color:'#8E44AD', description:'Go-To-Market team'},
+    {id:'team-support', name:'Support', color:'#27AE60', description:'Support team'},
   ];
   const pods = [
-    {id:'pod-dasher-handoff', teamId:'team-live-order-experience', name:'Dasher Handoff Pod'},
-    {id:'pod-cancellations', teamId:'team-live-order-experience', name:'Cancellations Pod'},
-    {id:'pod-workforce-management', teamId:'team-support', name:'Workforce Management Pod'},
-    {id:'pod-support-reduction', teamId:'team-support', name:'Support Reduction Pod'},
-    {id:'pod-menu', teamId:'team-go-to-market', name:'Menu Pod'},
-    {id:'pod-profitability', teamId:'team-go-to-market', name:'Profitability Pod'},
-    {id:'pod-new-bets', teamId:'team-go-to-market', name:'New Bets Pod'},
+    {id:'pod-dasher-handoff', teamId:'team-live-order-experience', name:'Dasher Handoff Pod', description:'Dasher Handoff Pod'},
+    {id:'pod-cancellations', teamId:'team-live-order-experience', name:'Cancellations Pod', description:'Cancellations Pod'},
+    {id:'pod-workforce-management', teamId:'team-support', name:'Workforce Management Pod', description:'Workforce Management Pod'},
+    {id:'pod-support-reduction', teamId:'team-support', name:'Support Reduction Pod', description:'Support Reduction Pod'},
+    {id:'pod-menu', teamId:'team-go-to-market', name:'Menu Pod', description:'Menu Pod'},
+    {id:'pod-profitability', teamId:'team-go-to-market', name:'Profitability Pod', description:'Profitability Pod'},
+    {id:'pod-new-bets', teamId:'team-go-to-market', name:'New Bets Pod', description:'New Bets Pod'},
   ];
   const inds = [
     {id:'ind-ashley-tran', name:'Ashley Tran', email:'ashley.tran@example.com', teamId:'team-live-order-experience', podId:null, role:'team_lead', discipline:'product'},
@@ -233,10 +255,10 @@ function seedIfEmpty() {
     {id:'i-loe-handoff-placeholder', krId:'kr-handoff-failure-rate', name:'Driver-side SDK uplift (placeholder)', impact:-0.4, confidence:0.5, isPlaceholder:1, status:'on_track'},
   ];
 
-  const insTeam = db.prepare('INSERT INTO teams(id,name,color) VALUES(?,?,?)');
-  teams.forEach(t=>insTeam.run(t.id,t.name,t.color));
-  const insPod = db.prepare('INSERT INTO pods(id,teamId,name) VALUES(?,?,?)');
-  pods.forEach(p=>insPod.run(p.id,p.teamId,p.name));
+  const insTeam = db.prepare('INSERT INTO teams(id,name,color,description) VALUES(?,?,?,?)');
+  teams.forEach(t=>insTeam.run(t.id,t.name,t.color,t.description||null));
+  const insPod = db.prepare('INSERT INTO pods(id,teamId,name,description) VALUES(?,?,?,?)');
+  pods.forEach(p=>insPod.run(p.id,p.teamId,p.name,p.description||null));
   const insInd = db.prepare('INSERT INTO individuals(id,name,email,teamId,podId,role,discipline) VALUES(?,?,?,?,?,?,?)');
   inds.forEach(i=>insInd.run(i.id,i.name,i.email,i.teamId,i.podId,i.role,i.discipline));
   const insObj = db.prepare('INSERT INTO objectives(id,name) VALUES(?,?)');
@@ -251,14 +273,100 @@ function seedIfEmpty() {
   setSetting('period',{startISO:'2025-09-01', endISO:'2025-11-30'});
   setSetting('phase','execution');
   setSetting('reportingDateISO','2025-09-13');
+
+  const existingFunctions = db.prepare('SELECT COUNT(*) as c FROM functions').get().c;
+  if (existingFunctions === 0) {
+    const insFn = db.prepare('INSERT INTO functions(id,name,description,color,createdAt) VALUES(?,?,?,?,?)');
+    defaultFunctions.forEach(fn => insFn.run(fn.id, fn.name, fn.description || null, fn.color || null, fn.createdAt || new Date().toISOString()));
+  }
+}
+
+function mapFunctionIdToDiscipline(functionId) {
+  if (!functionId || typeof functionId !== 'string') return null;
+  const normalized = functionId.trim().toLowerCase();
+  const mappings = {
+    product: 'product',
+    engineering: 'engineering',
+    analytics: 'analytics',
+    design: 'design',
+    's&o': 'operations',
+    operations: 'operations',
+    strategy: 'strategy',
+  };
+  return mappings[normalized] || normalized;
+}
+
+function mapDisciplineToFunctionId(discipline) {
+  if (!discipline || typeof discipline !== 'string') return 'Product';
+  const normalized = discipline.trim().toLowerCase();
+  const mappings = {
+    product: 'Product',
+    engineering: 'Engineering',
+    analytics: 'Analytics',
+    design: 'Design',
+    operations: 'S&O',
+    strategy: 'S&O',
+    's&o': 'S&O',
+  };
+  return mappings[normalized] || (discipline.trim() || 'S&O');
+}
+
+function mapIndividualRowToPerson(row) {
+  if (!row) return null;
+  const joinDate = (row.joinDate && typeof row.joinDate === 'string')
+    ? row.joinDate
+    : new Date().toISOString().split('T')[0];
+
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email || `${row.id}@company.com`,
+    functionId: mapDisciplineToFunctionId(row.discipline || row.role),
+    managerId: row.managerId || undefined,
+    teamId: row.teamId,
+    podId: row.podId || undefined,
+    joinDate,
+    active: row.active === undefined ? true : !!row.active,
+  };
+}
+
+function mapTeamRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    color: row.color || '#3B82F6',
+    description: row.description || null,
+  };
+}
+
+function mapPodRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    teamId: row.teamId,
+    name: row.name,
+    description: row.description || null,
+  };
+}
+
+function mapFunctionRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description || null,
+    color: row.color || '#3B82F6',
+    createdAt: row.createdAt || new Date().toISOString(),
+  };
 }
 
 function mapRows(stmt) { return stmt.all(); }
 
 function getState() {
   const org = db.prepare('SELECT * FROM organizations LIMIT 1').get();
-  const teams = mapRows(db.prepare('SELECT * FROM teams'));
-  const pods = mapRows(db.prepare('SELECT * FROM pods'));
+  const teams = mapRows(db.prepare('SELECT * FROM teams')).map(mapTeamRow).filter(Boolean);
+  const pods = mapRows(db.prepare('SELECT * FROM pods')).map(mapPodRow).filter(Boolean);
   const individuals = mapRows(db.prepare('SELECT * FROM individuals'));
   const objectives = mapRows(db.prepare('SELECT * FROM objectives'));
   const ot = mapRows(db.prepare('SELECT * FROM objective_teams'));
@@ -273,6 +381,7 @@ function getState() {
   const phase = getSetting('phase','planning');
   const reportingDateISO = getSetting('reportingDateISO','');
   const theme = getSetting('theme','light');
+  const functions = mapRows(db.prepare('SELECT * FROM functions')).map(mapFunctionRow).filter(Boolean);
 
   const planDraft = {};
   planRows.forEach(r=>{ (planDraft[r.krId] ||= {})[r.weekKey] = r.value; });
@@ -313,6 +422,7 @@ function getState() {
     phase,
     reportingDateISO,
     theme,
+    functions,
   };
 }
 
@@ -328,6 +438,10 @@ function server() {
     res.json(getState());
   });
 
+  app.get('/api/health', (_req,res)=>{
+    res.json({ ok: true, mode: 'server', time: new Date().toISOString() });
+  });
+
   app.post('/api/period', (req,res)=>{
     const { startISO, endISO } = req.body || {};
     setSetting('period',{startISO, endISO});
@@ -335,15 +449,289 @@ function server() {
   });
 
   app.post('/api/team', (req,res)=>{
-    const { id, name, color } = req.body;
-    db.prepare('INSERT INTO teams(id,name,color) VALUES(?,?,?)').run(id,name,color||null);
-    res.json({ ok:true });
+    try {
+      const body = req.body || {};
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      if (!name) {
+        return res.status(400).json({ ok:false, error:'Team name is required' });
+      }
+
+      const teamId = typeof body.id === 'string' && body.id.trim() ? body.id.trim() : `team-${Date.now()}`;
+      const color = typeof body.color === 'string' && body.color.trim() ? body.color.trim() : '#3B82F6';
+      const description = typeof body.description === 'string' && body.description.trim() ? body.description.trim() : null;
+
+      db.prepare('INSERT INTO teams(id,name,color,description) VALUES(?,?,?,?)')
+        .run(teamId, name, color, description);
+
+      const row = db.prepare('SELECT id,name,color,description FROM teams WHERE id=?').get(teamId);
+      res.json({ ok:true, team: mapTeamRow(row) });
+    } catch (error) {
+      console.error('Failed to create team', error);
+      res.status(500).json({ ok:false, error: error && error.message ? error.message : 'Failed to create team' });
+    }
+  });
+
+  app.put('/api/team/:id', (req,res)=>{
+    try {
+      const paramId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+      const body = req.body || {};
+      const targetId = paramId || (typeof body.id === 'string' ? body.id.trim() : '');
+      if (!targetId) {
+        return res.status(400).json({ ok:false, error:'Missing team id' });
+      }
+
+      const existing = db.prepare('SELECT id,name,color,description FROM teams WHERE id=?').get(targetId);
+      if (!existing) {
+        return res.status(404).json({ ok:false, error:'Team not found' });
+      }
+
+      const name = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : existing.name;
+      const color = typeof body.color === 'string' && body.color.trim() ? body.color.trim() : (existing.color || '#3B82F6');
+      const description = typeof body.description === 'string'
+        ? (body.description.trim() ? body.description.trim() : null)
+        : existing.description || null;
+
+      db.prepare('UPDATE teams SET name=?, color=?, description=? WHERE id=?').run(name, color, description, targetId);
+      const row = db.prepare('SELECT id,name,color,description FROM teams WHERE id=?').get(targetId);
+      res.json({ ok:true, team: mapTeamRow(row) });
+    } catch (error) {
+      console.error('Failed to update team', error);
+      res.status(500).json({ ok:false, error: error && error.message ? error.message : 'Failed to update team' });
+    }
   });
 
   app.post('/api/pod', (req,res)=>{
-    const { id, teamId, name } = req.body;
-    db.prepare('INSERT INTO pods(id,teamId,name) VALUES(?,?,?)').run(id,teamId,name);
-    res.json({ ok:true });
+    try {
+      const body = req.body || {};
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      const teamId = typeof body.teamId === 'string' ? body.teamId.trim() : '';
+      if (!name || !teamId) {
+        return res.status(400).json({ ok:false, error:'Pod name and teamId are required' });
+      }
+
+      const podId = typeof body.id === 'string' && body.id.trim() ? body.id.trim() : `pod-${Date.now()}`;
+      const description = typeof body.description === 'string' && body.description.trim() ? body.description.trim() : null;
+
+      db.prepare('INSERT INTO pods(id,teamId,name,description) VALUES(?,?,?,?)')
+        .run(podId, teamId, name, description);
+
+      const row = db.prepare('SELECT id,teamId,name,description FROM pods WHERE id=?').get(podId);
+      res.json({ ok:true, pod: mapPodRow(row) });
+    } catch (error) {
+      console.error('Failed to create pod', error);
+      res.status(500).json({ ok:false, error: error && error.message ? error.message : 'Failed to create pod' });
+    }
+  });
+
+  function updatePodById(id, body) {
+    const existing = db.prepare('SELECT id,teamId,name,description FROM pods WHERE id=?').get(id);
+    if (!existing) {
+      return { status: 404, payload: { ok:false, error:'Pod not found' } };
+    }
+
+    const name = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : existing.name;
+    const teamId = typeof body.teamId === 'string' && body.teamId.trim() ? body.teamId.trim() : existing.teamId;
+    const description = typeof body.description === 'string'
+      ? (body.description.trim() ? body.description.trim() : null)
+      : existing.description || null;
+
+    db.prepare('UPDATE pods SET teamId=?, name=?, description=? WHERE id=?').run(teamId, name, description, id);
+    const row = db.prepare('SELECT id,teamId,name,description FROM pods WHERE id=?').get(id);
+    return { status: 200, payload: { ok:true, pod: mapPodRow(row) } };
+  }
+
+  app.put('/api/pod/:id', (req,res)=>{
+    try {
+      const targetId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+      if (!targetId) {
+        return res.status(400).json({ ok:false, error:'Missing pod id' });
+      }
+      const result = updatePodById(targetId, req.body || {});
+      return res.status(result.status).json(result.payload);
+    } catch (error) {
+      console.error('Failed to update pod', error);
+      res.status(500).json({ ok:false, error: error && error.message ? error.message : 'Failed to update pod' });
+    }
+  });
+
+  app.put('/api/pod', (req,res)=>{
+    try {
+      const body = req.body || {};
+      const targetId = typeof body.id === 'string' ? body.id.trim() : '';
+      if (!targetId) {
+        return res.status(400).json({ ok:false, error:'Missing pod id' });
+      }
+      const result = updatePodById(targetId, body);
+      return res.status(result.status).json(result.payload);
+    } catch (error) {
+      console.error('Failed to update pod', error);
+      res.status(500).json({ ok:false, error: error && error.message ? error.message : 'Failed to update pod' });
+    }
+  });
+
+  app.delete('/api/pod/:id', (req,res)=>{
+    try {
+      db.prepare('DELETE FROM pods WHERE id=?').run(req.params.id);
+      res.json({ ok:true });
+    } catch (error) {
+      console.error('Failed to delete pod', error);
+      res.status(500).json({ ok:false, error: error && error.message ? error.message : 'Failed to delete pod' });
+    }
+  });
+
+  app.post('/api/function', (req,res)=>{
+    try {
+      const body = req.body || {};
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      if (!name) {
+        return res.status(400).json({ ok:false, error:'Function name is required' });
+      }
+
+      const functionId = typeof body.id === 'string' && body.id.trim() ? body.id.trim() : `function-${Date.now()}`;
+      const description = typeof body.description === 'string' && body.description.trim() ? body.description.trim() : null;
+      const color = typeof body.color === 'string' && body.color.trim() ? body.color.trim() : '#3B82F6';
+      const createdAt = typeof body.createdAt === 'string' && body.createdAt.trim() ? body.createdAt.trim() : new Date().toISOString();
+
+      db.prepare('INSERT INTO functions(id,name,description,color,createdAt) VALUES(?,?,?,?,?)')
+        .run(functionId, name, description, color, createdAt);
+
+      const row = db.prepare('SELECT id,name,description,color,createdAt FROM functions WHERE id=?').get(functionId);
+      res.json({ ok:true, function: mapFunctionRow(row) });
+    } catch (error) {
+      console.error('Failed to create function', error);
+      res.status(500).json({ ok:false, error: error && error.message ? error.message : 'Failed to create function' });
+    }
+  });
+
+  app.put('/api/function/:id', (req,res)=>{
+    try {
+      const paramId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+      const body = req.body || {};
+      const targetId = paramId || (typeof body.id === 'string' ? body.id.trim() : '');
+      if (!targetId) {
+        return res.status(400).json({ ok:false, error:'Missing function id' });
+      }
+
+      const existing = db.prepare('SELECT id,name,description,color,createdAt FROM functions WHERE id=?').get(targetId);
+      if (!existing) {
+        return res.status(404).json({ ok:false, error:'Function not found' });
+      }
+
+      const name = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : existing.name;
+      const description = typeof body.description === 'string'
+        ? (body.description.trim() ? body.description.trim() : null)
+        : existing.description || null;
+      const color = typeof body.color === 'string' && body.color.trim() ? body.color.trim() : (existing.color || '#3B82F6');
+      const createdAt = typeof body.createdAt === 'string' && body.createdAt.trim()
+        ? body.createdAt.trim()
+        : existing.createdAt || new Date().toISOString();
+
+      db.prepare('UPDATE functions SET name=?, description=?, color=?, createdAt=? WHERE id=?')
+        .run(name, description, color, createdAt, targetId);
+
+      const row = db.prepare('SELECT id,name,description,color,createdAt FROM functions WHERE id=?').get(targetId);
+      res.json({ ok:true, function: mapFunctionRow(row) });
+    } catch (error) {
+      console.error('Failed to update function', error);
+      res.status(500).json({ ok:false, error: error && error.message ? error.message : 'Failed to update function' });
+    }
+  });
+
+  app.post('/api/person', (req,res)=>{
+    const body = req.body || {};
+    const { id, name, email, functionId, managerId, teamId, podId, joinDate, active } = body;
+
+    try {
+      const trimmedName = typeof name === 'string' ? name.trim() : '';
+      const trimmedEmail = typeof email === 'string' ? email.trim() : '';
+      if (!trimmedName || !trimmedEmail || !functionId) {
+        return res.status(400).json({ ok:false, error:'Missing required person fields' });
+      }
+
+      const personId = (typeof id === 'string' && id.trim()) ? id.trim() : `person-${Date.now()}`;
+      const normalizedJoinDate = (typeof joinDate === 'string' && joinDate.trim())
+        ? joinDate.trim()
+        : new Date().toISOString().split('T')[0];
+      const normalizedTeamId = typeof teamId === 'string' ? teamId.trim() : '';
+      const normalizedPodId = typeof podId === 'string' && podId.trim() ? podId.trim() : null;
+      const normalizedManagerId = typeof managerId === 'string' && managerId.trim() ? managerId.trim() : null;
+      const discipline = mapFunctionIdToDiscipline(functionId);
+
+      db.prepare('INSERT INTO individuals(id,name,email,teamId,podId,role,discipline,managerId,joinDate,active) VALUES(?,?,?,?,?,?,?,?,?,?)')
+        .run(
+          personId,
+          trimmedName,
+          trimmedEmail,
+          normalizedTeamId,
+          normalizedPodId,
+          'member',
+          discipline,
+          normalizedManagerId,
+          normalizedJoinDate,
+          active === false ? 0 : 1
+        );
+
+      const row = db.prepare('SELECT id,name,email,teamId,podId,role,discipline,managerId,joinDate,active FROM individuals WHERE id=?').get(personId);
+      res.json({ ok:true, person: mapIndividualRowToPerson(row) });
+    } catch (error) {
+      console.error('Failed to create person', error);
+      res.status(500).json({ ok:false, error: error && error.message ? error.message : 'Failed to create person' });
+    }
+  });
+
+  app.put('/api/person/:id', (req,res)=>{
+    try {
+      const body = req.body || {};
+      const paramId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+      const bodyId = typeof body.id === 'string' ? body.id.trim() : '';
+      const targetId = paramId || bodyId;
+      if (!targetId) {
+        return res.status(400).json({ ok:false, error:'Missing person id' });
+      }
+
+      const existing = db.prepare('SELECT id,name,email,teamId,podId,role,discipline,managerId,joinDate,active FROM individuals WHERE id=?').get(targetId);
+      if (!existing) {
+        return res.status(404).json({ ok:false, error:'Person not found' });
+      }
+
+      const name = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : existing.name;
+      const email = typeof body.email === 'string' && body.email.trim() ? body.email.trim() : existing.email;
+      const teamId = typeof body.teamId === 'string' ? body.teamId.trim() : existing.teamId;
+      const podId = typeof body.podId === 'string' && body.podId.trim() ? body.podId.trim() : existing.podId;
+      const managerId = typeof body.managerId === 'string' && body.managerId.trim() ? body.managerId.trim() : existing.managerId;
+      const joinDate = typeof body.joinDate === 'string' && body.joinDate.trim()
+        ? body.joinDate.trim()
+        : (existing.joinDate || new Date().toISOString().split('T')[0]);
+      const discipline = body.functionId ? mapFunctionIdToDiscipline(body.functionId) : existing.discipline;
+      const role = existing.role || 'member';
+      const activeValue = body.active === undefined || body.active === null
+        ? existing.active
+        : (body.active ? 1 : 0);
+
+      db.prepare('UPDATE individuals SET name=?, email=?, teamId=?, podId=?, role=?, discipline=?, managerId=?, joinDate=?, active=? WHERE id=?')
+        .run(name, email, teamId, podId, role, discipline, managerId, joinDate, activeValue, targetId);
+
+      const row = db.prepare('SELECT id,name,email,teamId,podId,role,discipline,managerId,joinDate,active FROM individuals WHERE id=?').get(targetId);
+      res.json({ ok:true, person: mapIndividualRowToPerson(row) });
+    } catch (error) {
+      console.error('Failed to update person', error);
+      res.status(500).json({ ok:false, error: error && error.message ? error.message : 'Failed to update person' });
+    }
+  });
+
+  app.delete('/api/person/:id', (req,res)=>{
+    try {
+      const targetId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+      if (!targetId) {
+        return res.status(400).json({ ok:false, error:'Missing person id' });
+      }
+
+      const result = db.prepare('DELETE FROM individuals WHERE id=?').run(targetId);
+      res.json({ ok:true, removed: result.changes });
+    } catch (error) {
+      console.error('Failed to delete person', error);
+      res.status(500).json({ ok:false, error: error && error.message ? error.message : 'Failed to delete person' });
+    }
   });
 
   app.put('/api/pod', (req,res)=>{
