@@ -111,7 +111,10 @@ export function OrganizationManager({
 
   // Debug logging functions
   const debugLog = (message: string, data?: any) => {
-    console.log(`[OrganizationManager] ${message}`, data);
+    // Debug logging disabled in production
+    if (import.meta.env.DEV) {
+      console.warn(`[OrganizationManager] ${message}`, data);
+    }
   };
 
   const errorLog = (message: string, error?: any) => {

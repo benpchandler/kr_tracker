@@ -593,7 +593,7 @@ function AppContent() {
     const fetchData = async () => {
       if (!shouldUseBackend) {
         if (isMounted) {
-          console.info('Backend disabled via VITE_USE_BACKEND; hydrating with mock data.');
+          console.warn('Backend disabled via VITE_USE_BACKEND; hydrating with mock data.');
           hydrateWithMockData();
           setIsLoading(false);
         }
@@ -637,12 +637,12 @@ function AppContent() {
           setInitiatives(normalized.initiatives);
           setMode(adaptedData.mode);
         } else if (isMounted) {
-          console.info(`Backend responded with ${response.status}; using mock data.`);
+          console.warn(`Backend responded with ${response.status}; using mock data.`);
           hydrateWithMockData();
         }
       } catch (error) {
         if (!isMounted) return;
-        console.info('Backend fetch failed; using mock data instead.', error);
+        console.warn('Backend fetch failed; using mock data instead.', error);
         hydrateWithMockData();
       } finally {
         if (isMounted) {
@@ -1229,7 +1229,7 @@ function AppContent() {
                           </div>
                           <Button onClick={() => {
                             // TODO: Implement Add Objective dialog
-                            console.log('Add Objective clicked');
+                            // Add Objective clicked
                           }} size="sm">
                             <Plus className="h-4 w-4 mr-2" />
                             Add Objective
@@ -1704,7 +1704,7 @@ function AppContent() {
         onAdd={
           viewAllModalType === 'objectives'
             ? () => {
-                console.log('Add Objective from modal');
+                // Add Objective from modal
                 setViewAllModalOpen(false);
               }
             : viewAllModalType === 'krs'
