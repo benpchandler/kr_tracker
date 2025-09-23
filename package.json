@@ -16,7 +16,11 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "lint": "eslint src server tests --max-warnings=0",
-    "checks": "npm run lint && node scripts/check-literals.mjs && npm run test:unit"
+    "checks": "npm run lint && node scripts/check-literals.mjs && npm run test:unit",
+    "data:export": "node scripts/export-seeds.cjs",
+    "data:import": "node scripts/import-seeds.cjs",
+    "data:check": "node scripts/export-seeds.cjs && git add -A server/seeds/json",
+    "prepare": "husky"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
@@ -92,6 +96,7 @@
     "eslint": "^9.16.0",
     "eslint-plugin-sonarjs": "^2.0.4",
     "fast-check": "^4.3.0",
+    "husky": "^9.1.7",
     "jest-axe": "^7.0.1",
     "jsdom": "^25.0.1",
     "postcss": "^8.5.6",

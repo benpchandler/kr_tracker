@@ -19,3 +19,12 @@ coverage/
 # Mac OS
 .DS_Store
 
+# SQLite database files (now synced via JSON seeds)
+server/kr.sqlite
+server/kr.sqlite-shm
+server/kr.sqlite-wal
+server/kr.sqlite-journal
+
+# Temporary JSON seed files
+server/seeds/json/*.json.tmp
+

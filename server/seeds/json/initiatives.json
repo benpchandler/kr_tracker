@@ -1,0 +1,47 @@
+[
+  {
+    "id": "i-1757799154101",
+    "confidence": 0.95,
+    "impact": 0,
+    "isPlaceholder": 0,
+    "krId": "kr-customer-cancellations",
+    "name": "New Initiative",
+    "status": null
+  },
+  {
+    "id": "i-1758044221458",
+    "confidence": 0.95,
+    "impact": 0,
+    "isPlaceholder": 0,
+    "krId": "kr-contacts-per-order",
+    "name": "Automate Refunds",
+    "status": "on_track"
+  },
+  {
+    "id": "i-loe-handoff-placeholder",
+    "confidence": 0.5,
+    "impact": -0.4,
+    "isPlaceholder": 1,
+    "krId": "kr-handoff-failure-rate",
+    "name": "Driver-side SDK uplift (placeholder)",
+    "status": null
+  },
+  {
+    "id": "i-loe-handoff-retries",
+    "confidence": 0.8,
+    "impact": 0.6,
+    "isPlaceholder": 0,
+    "krId": "kr-handoff-failure-rate",
+    "name": "Optimize retries & backoff",
+    "status": null
+  },
+  {
+    "id": "i-loe-handoff-timeouts",
+    "confidence": 0.7,
+    "impact": 0.5,
+    "isPlaceholder": 0,
+    "krId": "kr-handoff-failure-rate",
+    "name": "Reduce handoff timeouts",
+    "status": null
+  }
+]

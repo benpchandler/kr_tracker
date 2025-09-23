@@ -2,6 +2,8 @@ const express = require('express');
 const Database = require('better-sqlite3');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
+const { importJsonToSqlite, initAutoExportOnChange, exportSqliteToJson, seedsExist } = require('./dataSync.cjs');
 
 const db = new Database(path.join(__dirname, 'kr.sqlite'));
 
@@ -428,7 +430,27 @@ function getState() {
 
 function server() {
   init();
-  seedIfEmpty();
+  
+  // Data synchronization setup
+  const seedsDir = path.join(__dirname, 'seeds', 'json');
+  
+  try {
+    if (seedsExist(seedsDir)) {
+      console.log('JSON seeds found, importing into SQLite...');
+      importJsonToSqlite(db, { seedsDir, logger: console });
+    } else {
+      console.log('No JSON seeds found, running initial seed and exporting...');
+      seedIfEmpty();
+      fs.mkdirSync(seedsDir, { recursive: true });
+      exportSqliteToJson(db, { seedsDir, logger: console });
+    }
+  } catch (e) {
+    console.error('Seed import failed; continuing with existing DB.', e);
+    seedIfEmpty(); // Fallback to original seeding
+  }
+  
+  // Enable auto-export on changes
+  initAutoExportOnChange(db, { seedsDir, debounceMs: 1500, logger: console });
 
   const app = express();
   app.use(cors());

@@ -1,0 +1,1 @@
+node scripts/export-seeds.cjs && git add -A server/seeds/json

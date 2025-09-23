@@ -1,0 +1,14 @@
+[
+  {
+    "objectiveId": "obj-gtm",
+    "teamId": "team-go-to-market"
+  },
+  {
+    "objectiveId": "obj-loe",
+    "teamId": "team-live-order-experience"
+  },
+  {
+    "objectiveId": "obj-support",
+    "teamId": "team-support"
+  }
+]
