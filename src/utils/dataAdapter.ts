@@ -62,7 +62,7 @@ export function adaptTeams(backendTeams: BackendState['teams'], organization: Ba
     id: team.id,
     organizationId,
     name: team.name,
-    description: team.description || `${team.name} team`,
+    description: `${team.name} team`,
     color: team.color || '#3B82F6'
   }));
 }
@@ -75,7 +75,7 @@ export function adaptPods(backendPods: BackendState['pods'], individuals: Backen
       id: pod.id,
       name: pod.name,
       teamId: pod.teamId,
-      description: pod.description || pod.name,
+      description: pod.name,
       members: podMembers.map(member => ({
         name: member.name,
         role: mapDisciplineToFunctionId(member.discipline || member.role)

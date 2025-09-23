@@ -21,11 +21,10 @@ function TooltipProvider({
 const Tooltip = React.forwardRef<
   React.ElementRef<typeof TooltipPrimitive.Root>,
   React.ComponentProps<typeof TooltipPrimitive.Root>
->((props, ref) => {
+>((props, _ref) => {
   return (
     <TooltipProvider>
       <TooltipPrimitive.Root
-        ref={ref}
         data-slot="tooltip"
         {...props}
       />

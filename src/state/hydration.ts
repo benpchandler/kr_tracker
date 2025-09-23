@@ -140,46 +140,49 @@ const sanitizeFunctions = (value: any, diagnostics: DiagnosticsCollector): OrgFu
     return [];
   }
 
-  return value
-    .map((fn, index) => {
-      if (!fn || typeof fn !== "object") {
-        recordDiscard(diagnostics, "functions", "Function entry discarded because it was not an object", { index });
-        return null;
-      }
+  const validEntries: OrgFunction[] = [];
+  
+  for (let index = 0; index < value.length; index++) {
+    const fn = value[index];
+    if (!fn || typeof fn !== "object") {
+      recordDiscard(diagnostics, "functions", "Function entry discarded because it was not an object", { index });
+      continue;
+    }
 
-      const candidate = fn as Record<string, unknown>;
+    const candidate = fn as Record<string, unknown>;
 
-      const rawId = typeof candidate.id === "string" ? candidate.id.trim() : "";
-      const id = rawId || `function-${index}`;
-      if (!rawId) {
-        recordDefault(diagnostics, "functions", "Generated fallback id for function entry", { index, fallback: id });
-      }
+    const rawId = typeof candidate.id === "string" ? candidate.id.trim() : "";
+    const id = rawId || `function-${index}`;
+    if (!rawId) {
+      recordDefault(diagnostics, "functions", "Generated fallback id for function entry", { index, fallback: id });
+    }
 
-      const rawName = typeof candidate.name === "string" ? candidate.name.trim() : "";
-      const name = rawName || id;
-      if (!rawName) {
-        recordDefault(diagnostics, "functions", "Function name defaulted to id", { id });
-      }
+    const rawName = typeof candidate.name === "string" ? candidate.name.trim() : "";
+    const name = rawName || id;
+    if (!rawName) {
+      recordDefault(diagnostics, "functions", "Function name defaulted to id", { id });
+    }
 
-      const description = typeof candidate.description === "string" && candidate.description.trim()
-        ? candidate.description.trim()
-        : undefined;
+    const description = typeof candidate.description === "string" && candidate.description.trim()
+      ? candidate.description.trim()
+      : undefined;
 
-      const rawColor = typeof candidate.color === "string" ? candidate.color.trim() : "";
-      const color = rawColor || "#6B7280";
-      if (!rawColor) {
-        recordDefault(diagnostics, "functions", "Function color defaulted", { id, fallback: color });
-      }
+    const rawColor = typeof candidate.color === "string" ? candidate.color.trim() : "";
+    const color = rawColor || "#6B7280";
+    if (!rawColor) {
+      recordDefault(diagnostics, "functions", "Function color defaulted", { id, fallback: color });
+    }
 
-      const rawCreatedAt = typeof candidate.createdAt === "string" ? candidate.createdAt.trim() : "";
-      const createdAt = rawCreatedAt || new Date().toISOString();
-      if (!rawCreatedAt) {
-        recordDefault(diagnostics, "functions", "Function createdAt defaulted to now", { id });
-      }
+    const rawCreatedAt = typeof candidate.createdAt === "string" ? candidate.createdAt.trim() : "";
+    const createdAt = rawCreatedAt || new Date().toISOString();
+    if (!rawCreatedAt) {
+      recordDefault(diagnostics, "functions", "Function createdAt defaulted to now", { id });
+    }
 
-      return { id, name, description, color, createdAt } satisfies OrgFunction;
-    })
-    .filter((fn): fn is OrgFunction => fn !== null);
+    validEntries.push({ id, name, description, color, createdAt });
+  }
+  
+  return validEntries;
 };
 
 const sanitizeOrganizations = (value: any, diagnostics: DiagnosticsCollector): Organization[] => {
@@ -192,35 +195,38 @@ const sanitizeOrganizations = (value: any, diagnostics: DiagnosticsCollector): O
     return [];
   }
 
-  return value
-    .map((org, index) => {
-      if (!org || typeof org !== "object") {
-        recordDiscard(diagnostics, "organizations", "Organization entry discarded because it was not an object", { index });
-        return null;
-      }
+  const validEntries: Organization[] = [];
+  
+  for (let index = 0; index < value.length; index++) {
+    const org = value[index];
+    if (!org || typeof org !== "object") {
+      recordDiscard(diagnostics, "organizations", "Organization entry discarded because it was not an object", { index });
+      continue;
+    }
 
-      const candidate = org as Record<string, unknown>;
-      const rawId = typeof candidate.id === "string" ? candidate.id.trim() : "";
-      const id = rawId || `org-${index}`;
-      if (!rawId) {
-        recordDefault(diagnostics, "organizations", "Generated fallback id for organization", { index, fallback: id });
-      }
+    const candidate = org as Record<string, unknown>;
+    const rawId = typeof candidate.id === "string" ? candidate.id.trim() : "";
+    const id = rawId || `org-${index}`;
+    if (!rawId) {
+      recordDefault(diagnostics, "organizations", "Generated fallback id for organization", { index, fallback: id });
+    }
 
-      const rawName = typeof candidate.name === "string" ? candidate.name.trim() : "";
-      if (!rawName) {
-        recordDiscard(diagnostics, "organizations", "Organization discarded because it was missing a name", { id });
-        return null;
-      }
+    const rawName = typeof candidate.name === "string" ? candidate.name.trim() : "";
+    if (!rawName) {
+      recordDiscard(diagnostics, "organizations", "Organization discarded because it was missing a name", { id });
+      continue;
+    }
 
-      return {
-        id,
-        name: rawName,
-        description: typeof candidate.description === "string" ? candidate.description.trim() : undefined,
-        industry: typeof candidate.industry === "string" ? candidate.industry.trim() : undefined,
-        headquarters: typeof candidate.headquarters === "string" ? candidate.headquarters.trim() : undefined,
-      } satisfies Organization;
-    })
-    .filter((org): org is Organization => org !== null);
+    validEntries.push({
+      id,
+      name: rawName,
+      description: typeof candidate.description === "string" ? candidate.description.trim() : undefined,
+      industry: typeof candidate.industry === "string" ? candidate.industry.trim() : undefined,
+      headquarters: typeof candidate.headquarters === "string" ? candidate.headquarters.trim() : undefined,
+    });
+  }
+  
+  return validEntries;
 };
 
 const sanitizeObjectives = (
@@ -237,77 +243,80 @@ const sanitizeObjectives = (
     return [];
   }
 
-  return value
-    .map((obj, index) => {
-      if (!obj || typeof obj !== "object") {
-        recordDiscard(diagnostics, "objectives", "Objective discarded because it was not an object", { index });
-        return null;
-      }
+  const validEntries: Objective[] = [];
+  
+  for (let index = 0; index < value.length; index++) {
+    const obj = value[index];
+    if (!obj || typeof obj !== "object") {
+      recordDiscard(diagnostics, "objectives", "Objective discarded because it was not an object", { index });
+      continue;
+    }
 
-      const candidate = obj as Record<string, unknown>;
-      const rawId = typeof candidate.id === "string" ? candidate.id.trim() : "";
-      const id = rawId || `obj-${index}`;
-      if (!rawId) {
-        recordDefault(diagnostics, "objectives", "Generated fallback id for objective", { index, fallback: id });
-      }
+    const candidate = obj as Record<string, unknown>;
+    const rawId = typeof candidate.id === "string" ? candidate.id.trim() : "";
+    const id = rawId || `obj-${index}`;
+    if (!rawId) {
+      recordDefault(diagnostics, "objectives", "Generated fallback id for objective", { index, fallback: id });
+    }
 
-      const rawTitle = typeof candidate.title === "string" && candidate.title.trim()
-        ? candidate.title.trim()
-        : typeof candidate.name === "string" && candidate.name.trim()
-          ? candidate.name.trim()
-          : "";
-      if (!rawTitle) {
-        recordDiscard(diagnostics, "objectives", "Objective discarded because it was missing a title", { id });
-        return null;
-      }
+    const rawTitle = typeof candidate.title === "string" && candidate.title.trim()
+      ? candidate.title.trim()
+      : typeof candidate.name === "string" && candidate.name.trim()
+        ? candidate.name.trim()
+        : "";
+    if (!rawTitle) {
+      recordDiscard(diagnostics, "objectives", "Objective discarded because it was missing a title", { id });
+      continue;
+    }
 
-      const organizationIdCandidate = typeof candidate.organizationId === "string" && candidate.organizationId.trim()
-        ? candidate.organizationId.trim()
-        : fallbackOrgId;
+    const organizationIdCandidate = typeof candidate.organizationId === "string" && candidate.organizationId.trim()
+      ? candidate.organizationId.trim()
+      : fallbackOrgId;
 
-      if (!organizationIdCandidate) {
-        recordDiscard(diagnostics, "objectives", "Objective discarded because organizationId was missing", { id });
-        return null;
-      }
+    if (!organizationIdCandidate) {
+      recordDiscard(diagnostics, "objectives", "Objective discarded because organizationId was missing", { id });
+      continue;
+    }
 
-      const krIds: string[] = [];
-      if (Array.isArray(candidate.krIds)) {
-        for (const item of candidate.krIds) {
-          if (typeof item === "string") {
-            const trimmed = item.trim();
-            if (trimmed) {
-              krIds.push(trimmed);
-            }
-          } else {
-            recordDiscard(diagnostics, "objectives", "Objective krIds entry discarded because it was not a string", { id });
+    const krIds: string[] = [];
+    if (Array.isArray(candidate.krIds)) {
+      for (const item of candidate.krIds) {
+        if (typeof item === "string") {
+          const trimmed = item.trim();
+          if (trimmed) {
+            krIds.push(trimmed);
           }
+        } else {
+          recordDiscard(diagnostics, "objectives", "Objective krIds entry discarded because it was not a string", { id });
         }
       }
+    }
 
-      const status =
-        candidate.status === "draft" ||
-        candidate.status === "active" ||
-        candidate.status === "paused" ||
-        candidate.status === "completed"
-          ? candidate.status
-          : undefined;
-      if (!status && candidate.status !== undefined) {
-        recordDefault(diagnostics, "objectives", "Objective status defaulted because value was invalid", { id, provided: candidate.status });
-      }
+    const status =
+      candidate.status === "draft" ||
+      candidate.status === "active" ||
+      candidate.status === "paused" ||
+      candidate.status === "completed"
+        ? candidate.status
+        : undefined;
+    if (!status && candidate.status !== undefined) {
+      recordDefault(diagnostics, "objectives", "Objective status defaulted because value was invalid", { id, provided: candidate.status });
+    }
 
-      return {
-        id,
-        organizationId: organizationIdCandidate,
-        title: rawTitle,
-        description: typeof candidate.description === "string" ? candidate.description.trim() : undefined,
-        owner: typeof candidate.owner === "string" ? candidate.owner.trim() : undefined,
-        teamId: typeof candidate.teamId === "string" ? candidate.teamId.trim() : undefined,
-        podId: typeof candidate.podId === "string" ? candidate.podId.trim() : undefined,
-        status,
-        krIds,
-      } satisfies Objective;
-    })
-    .filter((objective): objective is Objective => objective !== null);
+    validEntries.push({
+      id,
+      organizationId: organizationIdCandidate,
+      title: rawTitle,
+      description: typeof candidate.description === "string" ? candidate.description.trim() : undefined,
+      owner: typeof candidate.owner === "string" ? candidate.owner.trim() : undefined,
+      teamId: typeof candidate.teamId === "string" ? candidate.teamId.trim() : undefined,
+      podId: typeof candidate.podId === "string" ? candidate.podId.trim() : undefined,
+      status,
+      krIds,
+    });
+  }
+  
+  return validEntries;
 };
 
 const sanitizePeople = (
@@ -327,73 +336,76 @@ const sanitizePeople = (
   const fallbackFunctionId = functionsList[0]?.id || "Product";
   const validFunctionIds = new Set(functionsList.map((fn) => fn.id));
 
-  return value
-    .map((person, index) => {
-      if (!person || typeof person !== "object") {
-        recordDiscard(diagnostics, "people", "Person discarded because it was not an object", { index });
-        return null;
-      }
+  const validEntries: Person[] = [];
+  
+  for (let index = 0; index < value.length; index++) {
+    const person = value[index];
+    if (!person || typeof person !== "object") {
+      recordDiscard(diagnostics, "people", "Person discarded because it was not an object", { index });
+      continue;
+    }
 
-      const candidate = person as Record<string, unknown>;
-      const rawId = typeof candidate.id === "string" ? candidate.id.trim() : "";
-      const id = rawId || `person-${index}`;
-      if (!rawId) {
-        recordDefault(diagnostics, "people", "Generated fallback id for person", { index, fallback: id });
-      }
+    const candidate = person as Record<string, unknown>;
+    const rawId = typeof candidate.id === "string" ? candidate.id.trim() : "";
+    const id = rawId || `person-${index}`;
+    if (!rawId) {
+      recordDefault(diagnostics, "people", "Generated fallback id for person", { index, fallback: id });
+    }
 
-      const rawName = typeof candidate.name === "string" ? candidate.name.trim() : "";
-      if (!rawName) {
-        recordDiscard(diagnostics, "people", "Person discarded because it was missing a name", { id });
-        return null;
-      }
+    const rawName = typeof candidate.name === "string" ? candidate.name.trim() : "";
+    if (!rawName) {
+      recordDiscard(diagnostics, "people", "Person discarded because it was missing a name", { id });
+      continue;
+    }
 
-      const rawEmail = typeof candidate.email === "string" ? candidate.email.trim() : "";
-      const email = rawEmail || `${id}@company.com`;
-      if (!rawEmail) {
-        recordDefault(diagnostics, "people", "Person email defaulted", { id, fallback: email });
-      }
+    const rawEmail = typeof candidate.email === "string" ? candidate.email.trim() : "";
+    const email = rawEmail || `${id}@company.com`;
+    if (!rawEmail) {
+      recordDefault(diagnostics, "people", "Person email defaulted", { id, fallback: email });
+    }
 
-      const rawFunctionId = typeof candidate.functionId === "string" ? candidate.functionId.trim() : "";
-      const legacyFunctionId = typeof candidate.function === "string" ? candidate.function.trim() : "";
-      let functionId = rawFunctionId || legacyFunctionId;
-      if (!functionId) {
-        functionId = fallbackFunctionId;
-        recordDefault(diagnostics, "people", "Person functionId defaulted to fallback", { id, fallback: functionId, reason: "missing" });
-      } else if (validFunctionIds.size > 0 && !validFunctionIds.has(functionId)) {
-        recordDefault(diagnostics, "people", "Person functionId defaulted to fallback", {
-          id,
-          fallback: fallbackFunctionId,
-          provided: functionId,
-          reason: "invalid",
-        });
-        functionId = fallbackFunctionId;
-      }
-
-      const joinDate = typeof candidate.joinDate === "string" && candidate.joinDate.trim()
-        ? candidate.joinDate.trim()
-        : new Date().toISOString().split("T")[0];
-      if (joinDate !== candidate.joinDate) {
-        recordDefault(diagnostics, "people", "Person joinDate defaulted to today", { id });
-      }
-
-      const active = typeof candidate.active === "boolean" ? candidate.active : true;
-      if (active !== candidate.active) {
-        recordDefault(diagnostics, "people", "Person active flag defaulted to true", { id });
-      }
-
-      return {
+    const rawFunctionId = typeof candidate.functionId === "string" ? candidate.functionId.trim() : "";
+    const legacyFunctionId = typeof candidate.function === "string" ? candidate.function.trim() : "";
+    let functionId = rawFunctionId || legacyFunctionId;
+    if (!functionId) {
+      functionId = fallbackFunctionId;
+      recordDefault(diagnostics, "people", "Person functionId defaulted to fallback", { id, fallback: functionId, reason: "missing" });
+    } else if (validFunctionIds.size > 0 && !validFunctionIds.has(functionId)) {
+      recordDefault(diagnostics, "people", "Person functionId defaulted to fallback", {
         id,
-        name: rawName,
-        email,
-        functionId,
-        managerId: typeof candidate.managerId === "string" ? candidate.managerId.trim() : undefined,
-        teamId: typeof candidate.teamId === "string" ? candidate.teamId.trim() : "",
-        podId: typeof candidate.podId === "string" ? candidate.podId.trim() : undefined,
-        joinDate,
-        active,
-      } satisfies Person;
-    })
-    .filter((person): person is Person => person !== null);
+        fallback: fallbackFunctionId,
+        provided: functionId,
+        reason: "invalid",
+      });
+      functionId = fallbackFunctionId;
+    }
+
+    const joinDate = typeof candidate.joinDate === "string" && candidate.joinDate.trim()
+      ? candidate.joinDate.trim()
+      : new Date().toISOString().split("T")[0];
+    if (joinDate !== candidate.joinDate) {
+      recordDefault(diagnostics, "people", "Person joinDate defaulted to today", { id });
+    }
+
+    const active = typeof candidate.active === "boolean" ? candidate.active : true;
+    if (active !== candidate.active) {
+      recordDefault(diagnostics, "people", "Person active flag defaulted to true", { id });
+    }
+
+    validEntries.push({
+      id,
+      name: rawName,
+      email,
+      functionId,
+      managerId: typeof candidate.managerId === "string" ? candidate.managerId.trim() : undefined,
+      teamId: typeof candidate.teamId === "string" ? candidate.teamId.trim() : "",
+      podId: typeof candidate.podId === "string" ? candidate.podId.trim() : undefined,
+      joinDate,
+      active,
+    });
+  }
+  
+  return validEntries;
 };
 
 const sanitizeInitiatives = (value: any, diagnostics: DiagnosticsCollector): Initiative[] => {

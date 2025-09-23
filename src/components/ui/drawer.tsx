@@ -8,11 +8,11 @@ import { cn } from "./utils";
 const Drawer = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Root>,
   React.ComponentProps<typeof DrawerPrimitive.Root>
->((props, ref) => {
-  return <DrawerPrimitive.Root ref={ref} data-slot="drawer" {...props} />;
+>((props, _ref) => {
+  return <DrawerPrimitive.Root data-slot="drawer" {...props} />;
 });
 
-Drawer.displayName = DrawerPrimitive.Root.displayName;
+Drawer.displayName = "Drawer";
 
 const DrawerTrigger = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Trigger>,

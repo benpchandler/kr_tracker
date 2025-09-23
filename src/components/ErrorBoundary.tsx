@@ -52,12 +52,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           message: error.message,
           stack: error.stack,
         },
-        componentStack: info.componentStack,
+        componentStack: info.componentStack ?? undefined,
         timestamp: new Date().toISOString(),
       };
     }
 
-    this.setState({ info: info.componentStack });
+    this.setState({ info: info.componentStack ?? undefined });
   }
 
   private handleReset = () => {

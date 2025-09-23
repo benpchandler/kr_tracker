@@ -22,7 +22,7 @@ import { AnalysisPanel } from "./components/analysis/AnalysisPanel";
 import { ViewAllModal } from "./components/ViewAllModal";
 import { Target, Lightbulb, TrendingUp, Users, Building2, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { AppMode, Team, Pod, Quarter, KR, Initiative, KRComment, WeeklyActual, ViewType, FilterOptions, Person, OrgFunction, Organization, Objective } from "./types";
-import { applyDeletionPlan, computeDeletionPlan, type DeletePlan, type DeleteType, type DeletionContext, type DeletionState } from "./services/deletionService";
+import { applyDeletionPlan, computeDeletionPlan, teamBelongsToOrganization, type DeletePlan, type DeleteType, type DeletionContext, type DeletionState } from "./services/deletionService";
 import { mockTeams, mockPods, mockQuarters, mockKRs, mockInitiatives, mockPeople, mockFunctions, mockOrganizations, mockObjectives } from "./data/mockData";
 import { adaptBackendToFrontend } from "./utils/dataAdapter";
 import { enforceUniqueTeamData } from "./utils/teamNormalization";

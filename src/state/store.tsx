@@ -366,7 +366,7 @@ const summarizeAction = (action: AppAction): ActionSummary => {
     summary.updates = summarizeValue(action.updates);
   }
 
-  if ('id' in action) {
+  if ('id' in action && typeof action.id === 'string') {
     summary.id = action.id;
   }
 
@@ -383,14 +383,14 @@ const summarizeAction = (action: AppAction): ActionSummary => {
 
 const diffStateKeys = (previous: AppState, next: AppState): string[] => {
   const keys = new Set<string>([
-    ...Object.keys(previous as Record<string, unknown>),
-    ...Object.keys(next as Record<string, unknown>),
+    ...Object.keys(previous as unknown as Record<string, unknown>),
+    ...Object.keys(next as unknown as Record<string, unknown>),
   ]);
 
   const changed: string[] = [];
 
   keys.forEach((key) => {
-    if ((previous as Record<string, unknown>)[key] !== (next as Record<string, unknown>)[key]) {
+    if ((previous as unknown as Record<string, unknown>)[key] !== (next as unknown as Record<string, unknown>)[key]) {
       changed.push(key);
     }
   });

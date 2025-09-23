@@ -9,8 +9,8 @@ import { cn } from "./utils";
 const Sheet = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Root>,
   React.ComponentProps<typeof SheetPrimitive.Root>
->((props, ref) => {
-  return <SheetPrimitive.Root ref={ref} data-slot="sheet" {...props} />;
+>((props, _ref) => {
+  return <SheetPrimitive.Root data-slot="sheet" {...props} />;
 });
 
 Sheet.displayName = SheetPrimitive.Root.displayName;

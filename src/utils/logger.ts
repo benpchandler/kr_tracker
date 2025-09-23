@@ -108,7 +108,10 @@ const emitToConsole = (level: LogLevel, message: string, entry: LogEntry) => {
   }
 
   try {
-    console[consoleMethod](...parts);
+    const method = console[consoleMethod] as (...args: unknown[]) => void;
+    if (typeof method === 'function') {
+      method.apply(console, parts);
+    }
   } catch {
     console.error('[kr-tracker] Failed to emit log entry');
   }
