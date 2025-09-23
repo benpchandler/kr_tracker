@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import type { KeyboardEvent } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
@@ -12,7 +13,7 @@ import { TeamFilter } from "./components/TeamFilter";
 import { AdvancedFilter } from "./components/AdvancedFilter";
 import { FilterResultsSummary } from "./components/FilterResultsSummary";
 import { ModeSwitch, ModeDescription } from "./components/ModeSwitch";
-import { OrganizationManager } from "./components/OrganizationManagerFixed";
+import { OrganizationManager, type OrganizationManagerFocus } from "./components/OrganizationManagerFixed";
 import { KRSpreadsheetView } from "./components/KRSpreadsheetView";
 import { ActualsGrid } from "./components/ActualsGrid";
 import { MetricsDisplay } from "./components/MetricsDisplay";
@@ -355,6 +356,7 @@ function AppContent() {
   const [isObjectivesCollapsed, setIsObjectivesCollapsed] = useState(true);
   const [showAddKRDialog, setShowAddKRDialog] = useState(false);
   const [showAddInitiativeDialog, setShowAddInitiativeDialog] = useState(false);
+  const [organizationManagerFocus, setOrganizationManagerFocus] = useState<OrganizationManagerFocus | null>(null);
 
   // KRs and Initiatives with enhanced data - Initialize empty, will be populated from backend
   const [objectives, setObjectives] = useState<Objective[]>([]);
@@ -397,6 +399,38 @@ function AppContent() {
     setViewAllModalType(type);
     setViewAllModalOpen(true);
   }, []);
+
+  const createCardKeydownHandler = useCallback(
+    (action: () => void) => (event: KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        action();
+      }
+    },
+    [],
+  );
+
+  const handleOrganizationCardClick = useCallback((entity: 'teams' | 'people') => {
+    setOrganizationManagerFocus({ entityType: entity, showDirectory: true });
+  }, []);
+
+  const handlePlannedKRsCardClick = useCallback(() => {
+    setIsObjectivesCollapsed(false);
+    setCurrentTab('krs');
+    setShowAddKRDialog(true);
+  }, []);
+
+  const handleInitiativesCardClick = useCallback(() => {
+    setIsObjectivesCollapsed(false);
+    setCurrentTab('initiatives');
+    setShowAddInitiativeDialog(true);
+  }, []);
+
+  const handleOrganizationFocusHandled = useCallback(() => {
+    setOrganizationManagerFocus(null);
+  }, []);
+
+  const interactiveCardClasses = "cursor-pointer transition-colors transition-transform hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.98]";
 
   const handleRequestDelete = useCallback((type: DeleteType, targetId: string) => {
     const planDeletion = () => {
@@ -997,7 +1031,14 @@ function AppContent() {
           <div className="space-y-8">
             {/* Organization Setup Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card>
+              <Card
+                role="button"
+                tabIndex={0}
+                aria-label="Open Teams directory in Organization Manager"
+                onClick={() => handleOrganizationCardClick('teams')}
+                onKeyDown={createCardKeydownHandler(() => handleOrganizationCardClick('teams'))}
+                className={interactiveCardClasses}
+              >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm">Teams</CardTitle>
                   <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -1010,7 +1051,14 @@ function AppContent() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card
+                role="button"
+                tabIndex={0}
+                aria-label="Open People directory in Organization Manager"
+                onClick={() => handleOrganizationCardClick('people')}
+                onKeyDown={createCardKeydownHandler(() => handleOrganizationCardClick('people'))}
+                className={interactiveCardClasses}
+              >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm">People</CardTitle>
                   <Users className="h-4 w-4 text-muted-foreground" />
@@ -1023,7 +1071,14 @@ function AppContent() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card
+                role="button"
+                tabIndex={0}
+                aria-label="Create or review planned key results"
+                onClick={handlePlannedKRsCardClick}
+                onKeyDown={createCardKeydownHandler(handlePlannedKRsCardClick)}
+                className={interactiveCardClasses}
+              >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm">Planned KRs</CardTitle>
                   <Target className="h-4 w-4 text-muted-foreground" />
@@ -1036,7 +1091,14 @@ function AppContent() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card
+                role="button"
+                tabIndex={0}
+                aria-label="Create or review initiatives"
+                onClick={handleInitiativesCardClick}
+                onKeyDown={createCardKeydownHandler(handleInitiativesCardClick)}
+                className={interactiveCardClasses}
+              >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm">Initiatives</CardTitle>
                   <Lightbulb className="h-4 w-4 text-muted-foreground" />
@@ -1105,6 +1167,8 @@ function AppContent() {
               onRequestDeletePod={(podId) => handleRequestDelete('pod', podId)}
               onRequestDeletePerson={(personId) => handleRequestDelete('person', personId)}
               onRequestDeleteFunction={(functionId) => handleRequestDelete('function', functionId)}
+              externalFocus={organizationManagerFocus}
+              onExternalFocusHandled={handleOrganizationFocusHandled}
             />
 
             {/* Collapsible Objectives & Key Results Section */}
