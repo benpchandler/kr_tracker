@@ -181,8 +181,9 @@ function Sidebar({
   }
 
   if (isMobile) {
+    const { ref, ...sheetProps } = props as any;
     return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
+      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...sheetProps}>
         <SheetContent
           data-sidebar="sidebar"
           data-slot="sidebar"

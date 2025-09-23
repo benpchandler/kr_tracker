@@ -10,10 +10,9 @@ import { buttonVariants } from "./button";
 const Calendar = React.forwardRef<
   React.ElementRef<typeof DayPicker>,
   React.ComponentProps<typeof DayPicker>
->(({ className, classNames, showOutsideDays = true, ...props }, ref) => {
+>(({ className, classNames, showOutsideDays = true, ...props }, _ref) => {
   return (
     <DayPicker
-      ref={ref}
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
       classNames={{

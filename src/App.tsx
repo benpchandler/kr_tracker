@@ -25,7 +25,8 @@ import { AppMode, Team, Pod, Quarter, KR, Initiative, KRComment, WeeklyActual, V
 import { applyDeletionPlan, computeDeletionPlan, type DeletePlan, type DeleteType, type DeletionContext, type DeletionState } from "./services/deletionService";
 import { mockTeams, mockPods, mockQuarters, mockKRs, mockInitiatives, mockPeople, mockFunctions, mockOrganizations, mockObjectives } from "./data/mockData";
 import { adaptBackendToFrontend } from "./utils/dataAdapter";
-import { enforceUniqueTeamData } from "./utils/teamNormalization";
+import { enforceUniqueTeamData } from './utils/teamNormalization';
+import { teamBelongsToOrganization } from './services/deletionService';
 import { AppProvider, useAppState, useFilteredKRs, useFilteredInitiatives, useBaseline } from "./state/store";
 import { computeMetrics, generateWeeks } from "./metrics/engine";
 

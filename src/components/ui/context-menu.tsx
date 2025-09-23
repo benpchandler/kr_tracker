@@ -9,8 +9,8 @@ import { cn } from "./utils";
 const ContextMenu = React.forwardRef<
   React.ElementRef<typeof ContextMenuPrimitive.Root>,
   React.ComponentProps<typeof ContextMenuPrimitive.Root>
->((props, ref) => (
-  <ContextMenuPrimitive.Root ref={ref} data-slot="context-menu" {...props} />
+>((props, _ref) => (
+  <ContextMenuPrimitive.Root data-slot="context-menu" {...props} />
 ));
 ContextMenu.displayName = ContextMenuPrimitive.Root.displayName;
 
@@ -48,8 +48,8 @@ ContextMenuPortal.displayName = "ContextMenuPortal";
 const ContextMenuSub = React.forwardRef<
   React.ElementRef<typeof ContextMenuPrimitive.Sub>,
   React.ComponentProps<typeof ContextMenuPrimitive.Sub>
->((props, ref) => (
-  <ContextMenuPrimitive.Sub ref={ref} data-slot="context-menu-sub" {...props} />
+>((props, _ref) => (
+  <ContextMenuPrimitive.Sub data-slot="context-menu-sub" {...props} />
 ));
 ContextMenuSub.displayName = ContextMenuPrimitive.Sub.displayName;
 

@@ -8,8 +8,8 @@ import { cn } from "./utils";
 const Popover = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Root>,
   React.ComponentProps<typeof PopoverPrimitive.Root>
->((props, ref) => {
-  return <PopoverPrimitive.Root ref={ref} data-slot="popover" {...props} />;
+>((props, _ref) => {
+  return <PopoverPrimitive.Root data-slot="popover" {...props} />;
 });
 
 Popover.displayName = PopoverPrimitive.Root.displayName;
