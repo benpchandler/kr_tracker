@@ -181,8 +181,10 @@ function Sidebar({
   }
 
   if (isMobile) {
+    // Extract ref from props since Sheet doesn't accept it
+    const { ref, ...sheetProps } = props as any;
     return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
+      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...sheetProps}>
         <SheetContent
           data-sidebar="sidebar"
           data-slot="sidebar"
