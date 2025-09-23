@@ -1,4 +1,5 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -68,6 +69,12 @@ export function AutocompleteInput<T>({
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const hideTimeout = useRef<number>();
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number }>({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
 
   const MAX_SUGGESTIONS = 5;
 
@@ -91,7 +98,7 @@ export function AutocompleteInput<T>({
       const container = containerRef.current;
       if (!container) return;
       const target = event.target as Node | null;
-      if (target && !container.contains(target)) {
+      if (target && !container.contains(target) && !(dropdownRef.current && dropdownRef.current.contains(target))) {
         setIsOpen(false);
       }
     };
@@ -99,6 +106,48 @@ export function AutocompleteInput<T>({
     document.addEventListener("pointerdown", handlePointerDownCapture, true);
     return () => document.removeEventListener("pointerdown", handlePointerDownCapture, true);
   }, [isOpen]);
+
+  const updateDropdownPosition = useCallback(() => {
+    const container = containerRef.current;
+    if (!container || typeof window === "undefined") {
+      return;
+    }
+
+    const rect = container.getBoundingClientRect();
+    const GAP_PX = 8; // Equivalent to Tailwind's mt-2 spacing
+
+    setDropdownPosition({
+      top: rect.bottom + GAP_PX,
+      left: rect.left,
+      width: rect.width,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isOpen || typeof window === "undefined") {
+      return;
+    }
+
+    updateDropdownPosition();
+
+    const handleWindowChange = () => updateDropdownPosition();
+    window.addEventListener("resize", handleWindowChange);
+    window.addEventListener("scroll", handleWindowChange, true);
+
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined" && containerRef.current) {
+      observer = new ResizeObserver(() => updateDropdownPosition());
+      observer.observe(containerRef.current);
+    }
+
+    return () => {
+      window.removeEventListener("resize", handleWindowChange);
+      window.removeEventListener("scroll", handleWindowChange, true);
+      if (observer) {
+        observer.disconnect();
+      }
+    };
+  }, [isOpen, updateDropdownPosition, suggestions.length, value]);
 
   // Also close on window blur (e.g., switching tabs)
   useEffect(() => {
@@ -314,57 +363,69 @@ export function AutocompleteInput<T>({
         spellCheck={false}
       />
 
-      {isOpen && suggestions.length > 0 && (
-        <div className="absolute z-20 mt-2 w-full rounded-md border bg-popover shadow-lg pointer-events-none">
-          <ul className="divide-y divide-border max-h-60 overflow-auto p-2 pointer-events-auto">
-            {Array.from(groupedSuggestions.entries()).map(([group, items]) => {
-              const displayGroup = group !== "__default";
+      {isOpen && (suggestions.length > 0 || (emptyStateMessage && value.trim().length > 0)) && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className="z-[60] pointer-events-auto rounded-md border bg-popover shadow-lg"
+            style={{
+              position: "fixed",
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              width: dropdownPosition.width,
+              visibility: dropdownPosition.width > 0 ? "visible" : "hidden",
+            }}
+          >
+            {suggestions.length > 0 ? (
+              <ul className="divide-y divide-border max-h-60 overflow-auto p-2">
+                {Array.from(groupedSuggestions.entries()).map(([group, items]) => {
+                  const displayGroup = group !== "__default";
 
-              return (
-                <li key={group}>
-                  {displayGroup && (
-                    <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {group}
-                    </p>
-                  )}
-                  <ul className="divide-y divide-border">
-                    {items.map((suggestion) => {
-                      const index = suggestions.findIndex((item) => item.id === suggestion.id);
-                      return renderSuggestion(suggestion, index);
-                    })}
-                  </ul>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-
-      {isOpen && suggestions.length === 0 && emptyStateMessage && value.trim().length > 0 && (
-        <div className="absolute z-20 mt-2 w-full rounded-md border bg-popover shadow-lg">
-          <div className="px-3 py-2 text-sm text-muted-foreground">
-            {emptyStateMessage}
-          </div>
-          {emptyStateAction && (
-            <div className="border-t px-2 py-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start gap-2 text-primary hover:bg-muted"
-                onClick={(event) => {
-                  event.preventDefault();
-                  emptyStateAction.onAction(value.trim());
-                  setIsOpen(false);
-                }}
-              >
-                {emptyStateAction.icon && <span className="text-primary">{emptyStateAction.icon}</span>}
-                <span>{emptyStateAction.label}</span>
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+                  return (
+                    <li key={group}>
+                      {displayGroup && (
+                        <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {group}
+                        </p>
+                      )}
+                      <ul className="divide-y divide-border">
+                        {items.map((suggestion) => {
+                          const index = suggestions.findIndex((item) => item.id === suggestion.id);
+                          return renderSuggestion(suggestion, index);
+                        })}
+                      </ul>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <>
+                <div className="px-3 py-2 text-sm text-muted-foreground">
+                  {emptyStateMessage}
+                </div>
+                {emptyStateAction && (
+                  <div className="border-t px-2 py-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start gap-2 text-primary hover:bg-muted"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        emptyStateAction.onAction(value.trim());
+                        setIsOpen(false);
+                      }}
+                    >
+                      {emptyStateAction.icon && <span className="text-primary">{emptyStateAction.icon}</span>}
+                      <span>{emptyStateAction.label}</span>
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>,
+          document.body
+        )}
 
       {tone && validationState?.message && (
         <div className={cn("mt-2 flex items-center gap-2 text-sm", toneStyles[tone])}>
