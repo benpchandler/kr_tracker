@@ -135,8 +135,8 @@ export function AllEntitiesView({
     <div className="flex justify-between items-center mb-3">
       <h3 className="text-sm font-medium">{listHeading}</h3>
       {handleAdd && (
-        <Button onClick={() => handleAdd()} size="sm" className="h-7 text-xs">
-          <Plus className="h-3 w-3 mr-1" />
+        <Button onClick={() => handleAdd()} className="h-9 px-4 text-sm font-medium">
+          <Plus className="h-4 w-4 mr-2" />
           {addButtonLabel}
         </Button>
       )}
@@ -439,7 +439,7 @@ export function AllEntitiesView({
                 placeholder={searchPlaceholder}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-8"
+                className="pl-10 h-8"
               />
             </div>
           </div>
