@@ -291,7 +291,7 @@ function AppContent() {
     const fetchData = async () => {
       if (!shouldUseBackend) {
         if (isMounted) {
-          console.info('Backend disabled via VITE_USE_BACKEND; hydrating with mock data.');
+          console.warn('Backend disabled via VITE_USE_BACKEND; hydrating with mock data.');
           hydrateWithMockData();
           setIsLoading(false);
         }
@@ -335,12 +335,12 @@ function AppContent() {
           setInitiatives(normalized.initiatives);
           setMode(adaptedData.mode);
         } else if (isMounted) {
-          console.info(`Backend responded with ${response.status}; using mock data.`);
+          console.warn(`Backend responded with ${response.status}; using mock data.`);
           hydrateWithMockData();
         }
       } catch (error) {
         if (!isMounted) return;
-        console.info('Backend fetch failed; using mock data instead.', error);
+        console.warn('Backend fetch failed; using mock data instead.', error);
         hydrateWithMockData();
       } finally {
         if (isMounted) {
