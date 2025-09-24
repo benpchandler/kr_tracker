@@ -16,6 +16,11 @@ import { AutocompleteInput, type AutocompleteSuggestion, type AutocompleteValida
 
 const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
+export type OrganizationManagerFocus = {
+  entityType: "functions" | "teams" | "pods" | "people";
+  showDirectory?: boolean;
+};
+
 interface OrganizationManagerProps {
   teams: Team[];
   pods: Pod[];
@@ -29,9 +34,26 @@ interface OrganizationManagerProps {
   onRequestDeletePod?: (podId: string) => void;
   onRequestDeletePerson?: (personId: string) => void;
   onRequestDeleteFunction?: (functionId: string) => void;
+  externalFocus?: OrganizationManagerFocus | null;
+  onExternalFocusHandled?: () => void;
 }
 
-export function OrganizationManager({ teams, pods, people, functions, onTeamsChange, onPodsChange, onPeopleChange, onFunctionsChange, onRequestDeleteTeam, onRequestDeletePod, onRequestDeletePerson, onRequestDeleteFunction }: OrganizationManagerProps) {
+export function OrganizationManager({
+  teams,
+  pods,
+  people,
+  functions,
+  onTeamsChange,
+  onPodsChange,
+  onPeopleChange,
+  onFunctionsChange,
+  onRequestDeleteTeam,
+  onRequestDeletePod,
+  onRequestDeletePerson,
+  onRequestDeleteFunction,
+  externalFocus,
+  onExternalFocusHandled,
+}: OrganizationManagerProps) {
   const initialFunctionId = functions[0]?.id ?? '';
   const initialFunctionColor = functions[0]?.color ?? '#3B82F6';
 
@@ -1657,6 +1679,21 @@ export function OrganizationManager({ teams, pods, people, functions, onTeamsCha
       errorLog('Failed to close person dialog', error);
     }
   };
+
+  useEffect(() => {
+    if (!externalFocus) {
+      return;
+    }
+
+    setIsCollapsed(false);
+    setDirectoryEntityType(externalFocus.entityType);
+
+    if (externalFocus.showDirectory) {
+      setShowAllEntities(true);
+    }
+
+    onExternalFocusHandled?.();
+  }, [externalFocus, onExternalFocusHandled]);
 
   return (
     <Card>
