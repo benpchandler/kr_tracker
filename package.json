@@ -94,7 +94,7 @@
     "concurrently": "^9.2.1",
     "deep-freeze-strict": "^1.1.1",
     "eslint": "^9.16.0",
-    "eslint-plugin-sonarjs": "^2.0.4",
+    "eslint-plugin-sonarjs": "^3.0.5",
     "fast-check": "^4.3.0",
     "husky": "^9.1.7",
     "jest-axe": "^7.0.1",

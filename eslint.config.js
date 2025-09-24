@@ -77,6 +77,12 @@ export default [
 
       // CODE QUALITY: Important but not blocking
       'sonarjs/no-duplicate-string': ['warn', { threshold: 4 }],
+      'sonarjs/no-identical-expressions': 'warn',
+      'sonarjs/no-all-duplicated-branches': 'warn',
+      'sonarjs/no-useless-catch': 'warn',
+      'sonarjs/cognitive-complexity': ['warn', 15],
+      'sonarjs/prefer-immediate-return': 'warn',
+      'sonarjs/no-small-switch': 'warn',
       'no-empty': ['error', { allowEmptyCatch: true }],
       'prefer-const': 'warn',
 
