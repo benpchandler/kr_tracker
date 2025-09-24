@@ -17,7 +17,7 @@ import { AutocompleteInput, type AutocompleteSuggestion, type AutocompleteValida
 const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 const DEFAULT_EMAIL_DOMAIN = "doordash.com";
 
-const generateEmailFromFullName = (fullName: string, domain: string = DEFAULT_EMAIL_DOMAIN): string => {
+const buildEmailLocalPart = (fullName: string): string => {
   const trimmed = fullName.trim();
 
   if (!trimmed) {
@@ -33,9 +33,65 @@ const generateEmailFromFullName = (fullName: string, domain: string = DEFAULT_EM
   const firstName = normalizeString(parts[0]) || "user";
   const lastName = parts.length > 1 ? normalizeString(parts[parts.length - 1]) : "";
   const segments = lastName ? [firstName, lastName] : [firstName];
-  const username = segments.filter(Boolean).join(".");
+  return segments.filter(Boolean).join(".");
+};
 
-  return username ? `${username}@${domain}` : "";
+type GenerateUniqueEmailOptions = {
+  domain?: string;
+  excludePersonId?: string | null;
+  reservedEmails?: string[];
+};
+
+const generateUniqueEmailFromFullName = (
+  fullName: string,
+  existingPeople: Array<Pick<Person, "id" | "email">>,
+  options: GenerateUniqueEmailOptions = {}
+): string => {
+  const domain = options.domain ?? DEFAULT_EMAIL_DOMAIN;
+  const baseLocalPart = buildEmailLocalPart(fullName);
+
+  if (!baseLocalPart) {
+    return "";
+  }
+
+  const excludePersonId = options.excludePersonId ?? undefined;
+  const takenEmails = new Set<string>();
+
+  existingPeople.forEach(person => {
+    if (excludePersonId && person.id === excludePersonId) {
+      return;
+    }
+
+    const normalized = normalizeEmail(person.email);
+    if (normalized) {
+      takenEmails.add(normalized);
+    }
+  });
+
+  options.reservedEmails?.forEach(email => {
+    if (email) {
+      const normalized = normalizeEmail(email);
+      if (normalized) {
+        takenEmails.add(normalized);
+      }
+    }
+  });
+
+  let attempt = 0;
+  while (attempt < 1000) {
+    const suffix = attempt === 0 ? "" : `${attempt + 1}`;
+    const localPart = `${baseLocalPart}${suffix}`;
+    const candidate = `${localPart}@${domain}`;
+    const normalizedCandidate = normalizeEmail(candidate);
+
+    if (!takenEmails.has(normalizedCandidate)) {
+      return candidate;
+    }
+
+    attempt += 1;
+  }
+
+  return `${baseLocalPart}-${Date.now()}@${domain}`;
 };
 
 export type OrganizationManagerFocus = {
@@ -493,6 +549,17 @@ export function OrganizationManager({
     ? people.filter(p => p && p.id && p.name && p.active && p.functionId)
     : []), [people]);
 
+  const getAutoEmailForName = useCallback(
+    (
+      fullName: string,
+      options?: { excludePersonId?: string | null; reservedEmails?: string[] }
+    ) => generateUniqueEmailFromFullName(fullName, safePeople, {
+        excludePersonId: options?.excludePersonId ?? undefined,
+        reservedEmails: options?.reservedEmails,
+      }),
+    [safePeople]
+  );
+
   const defaultFunctionId = safeFunctions[0]?.id ?? '';
   const getFunctionById = (id: string) => safeFunctions.find(fn => fn.id === id);
   const getFunctionColor = (id: string) => getFunctionById(id)?.color ?? '#6B7280';
@@ -883,7 +950,8 @@ export function OrganizationManager({
       teamId: person.teamId ?? '',
       podId: person.podId ?? '',
     });
-    setIsEmailAutoManaged(normalizeEmail(person.email) === generateEmailFromFullName(person.name));
+    const expectedEmail = getAutoEmailForName(person.name, { excludePersonId: person.id });
+    setIsEmailAutoManaged(normalizeEmail(person.email) === normalizeEmail(expectedEmail));
     setEditingPersonId(person.id);
     setPersonNameValidation({
       isDuplicate: false,
@@ -893,14 +961,14 @@ export function OrganizationManager({
     });
     setPersonEmailValidation({ isDuplicate: false, similarEntities: [] });
     setManagerSearch(manager?.name ?? '');
-  }, [safePeople]);
+  }, [getAutoEmailForName, safePeople]);
 
   useEffect(() => {
     if (!isEmailAutoManaged) {
       return;
     }
 
-    const generatedEmail = generateEmailFromFullName(newPerson.name);
+    const generatedEmail = getAutoEmailForName(newPerson.name, { excludePersonId: editingPersonId });
 
     setNewPerson(prev => {
       if (prev.email === generatedEmail) {
@@ -909,15 +977,19 @@ export function OrganizationManager({
 
       return { ...prev, email: generatedEmail };
     });
-  }, [isEmailAutoManaged, newPerson.name]);
+  }, [editingPersonId, getAutoEmailForName, isEmailAutoManaged, newPerson.name]);
 
   useEffect(() => {
-    const generatedEmail = generateEmailFromFullName(newPerson.name);
+    if (isEmailAutoManaged) {
+      return;
+    }
 
-    if (!isEmailAutoManaged && generatedEmail && normalizeEmail(newPerson.email) === generatedEmail) {
+    const generatedEmail = getAutoEmailForName(newPerson.name, { excludePersonId: editingPersonId });
+
+    if (generatedEmail && normalizeEmail(newPerson.email) === normalizeEmail(generatedEmail)) {
       setIsEmailAutoManaged(true);
     }
-  }, [isEmailAutoManaged, newPerson.email, newPerson.name]);
+  }, [editingPersonId, getAutoEmailForName, isEmailAutoManaged, newPerson.email, newPerson.name]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1428,13 +1500,14 @@ export function OrganizationManager({
       return;
     }
 
-    const expectedEmail = generateEmailFromFullName(newPerson.name);
+    const expectedEmail = getAutoEmailForName(newPerson.name, { excludePersonId: editingPersonId });
 
     if (!expectedEmail) {
+      setIsEmailAutoManaged(false);
       return;
     }
 
-    setIsEmailAutoManaged(normalizeEmail(value) === expectedEmail);
+    setIsEmailAutoManaged(normalizeEmail(value) === normalizeEmail(expectedEmail));
   };
 
   const handleManagerSuggestionSelect = (suggestion: AutocompleteSuggestion<Person>) => {
@@ -1592,8 +1665,10 @@ export function OrganizationManager({
         return;
       }
 
-      // Generate email from name (firstname.lastname@doordash.com)
-      const generatedEmail = generateEmailFromFullName(trimmedName);
+      // Generate email from name (firstname.lastname@doordash.com) ensuring uniqueness
+      const generatedEmail = getAutoEmailForName(trimmedName, {
+        reservedEmails: newPerson.email ? [newPerson.email] : undefined,
+      });
 
       // Create minimal manager person
       const generatedId = `person-${Date.now()}`;
