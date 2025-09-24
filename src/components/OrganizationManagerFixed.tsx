@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Team, Pod, PodMember, Person, FunctionType, OrgFunction } from "../types";
-import { checkDuplicate, findSimilarFunctions, findSimilarPeople, findSimilarPods, findSimilarTeams, normalizeEmail } from "../utils/entityValidation";
+import { checkDuplicate, findSimilarFunctions, findSimilarPeople, findSimilarPods, findSimilarTeams, normalizeEmail, normalizeString } from "../utils/entityValidation";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -15,6 +15,28 @@ import { AllEntitiesView } from "./AllEntitiesView";
 import { AutocompleteInput, type AutocompleteSuggestion, type AutocompleteValidationState } from "./AutocompleteInput";
 
 const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+const DEFAULT_EMAIL_DOMAIN = "doordash.com";
+
+const generateEmailFromFullName = (fullName: string, domain: string = DEFAULT_EMAIL_DOMAIN): string => {
+  const trimmed = fullName.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+
+  if (parts.length === 0) {
+    return "";
+  }
+
+  const firstName = normalizeString(parts[0]) || "user";
+  const lastName = parts.length > 1 ? normalizeString(parts[parts.length - 1]) : "";
+  const segments = lastName ? [firstName, lastName] : [firstName];
+  const username = segments.filter(Boolean).join(".");
+
+  return username ? `${username}@${domain}` : "";
+};
 
 export type OrganizationManagerFocus = {
   entityType: "functions" | "teams" | "pods" | "people";
@@ -73,6 +95,7 @@ export function OrganizationManager({
   const [functionErrors, setFunctionErrors] = useState<{ name?: string; color?: string; description?: string }>({});
   const [editingFunctionId, setEditingFunctionId] = useState<string | null>(null);
   const [newPerson, setNewPerson] = useState({ name: '', email: '', functionId: initialFunctionId as FunctionType, managerId: '', teamId: '', podId: '' });
+  const [isEmailAutoManaged, setIsEmailAutoManaged] = useState(true);
   const [currentMember, setCurrentMember] = useState({ name: '', role: initialFunctionId as FunctionType });
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
   const [teamValidation, setTeamValidation] = useState<AutocompleteValidationState<Team>>({
@@ -860,6 +883,7 @@ export function OrganizationManager({
       teamId: person.teamId ?? '',
       podId: person.podId ?? '',
     });
+    setIsEmailAutoManaged(normalizeEmail(person.email) === generateEmailFromFullName(person.name));
     setEditingPersonId(person.id);
     setPersonNameValidation({
       isDuplicate: false,
@@ -870,6 +894,30 @@ export function OrganizationManager({
     setPersonEmailValidation({ isDuplicate: false, similarEntities: [] });
     setManagerSearch(manager?.name ?? '');
   }, [safePeople]);
+
+  useEffect(() => {
+    if (!isEmailAutoManaged) {
+      return;
+    }
+
+    const generatedEmail = generateEmailFromFullName(newPerson.name);
+
+    setNewPerson(prev => {
+      if (prev.email === generatedEmail) {
+        return prev;
+      }
+
+      return { ...prev, email: generatedEmail };
+    });
+  }, [isEmailAutoManaged, newPerson.name]);
+
+  useEffect(() => {
+    const generatedEmail = generateEmailFromFullName(newPerson.name);
+
+    if (!isEmailAutoManaged && generatedEmail && normalizeEmail(newPerson.email) === generatedEmail) {
+      setIsEmailAutoManaged(true);
+    }
+  }, [isEmailAutoManaged, newPerson.email, newPerson.name]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1347,6 +1395,7 @@ export function OrganizationManager({
       teamId: '',
       podId: '',
     });
+    setIsEmailAutoManaged(true);
     setEditingPersonId(null);
     setPersonNameValidation({ isDuplicate: false, similarEntities: [] });
     setPersonEmailValidation({ isDuplicate: false, similarEntities: [] });
@@ -1369,6 +1418,23 @@ export function OrganizationManager({
     } else {
       setNewPerson(prev => ({ ...prev, name: suggestion.value }));
     }
+  };
+
+  const handlePersonEmailChange = (value: string) => {
+    setNewPerson(prev => ({ ...prev, email: value }));
+
+    if (!value.trim()) {
+      setIsEmailAutoManaged(true);
+      return;
+    }
+
+    const expectedEmail = generateEmailFromFullName(newPerson.name);
+
+    if (!expectedEmail) {
+      return;
+    }
+
+    setIsEmailAutoManaged(normalizeEmail(value) === expectedEmail);
   };
 
   const handleManagerSuggestionSelect = (suggestion: AutocompleteSuggestion<Person>) => {
@@ -1526,12 +1592,8 @@ export function OrganizationManager({
         return;
       }
 
-      // Generate email from name (firstname.lastname@company.com)
-      const nameParts = trimmedName.toLowerCase().split(/\s+/);
-      const firstName = nameParts[0] || 'user';
-      const lastName = nameParts[nameParts.length - 1] || '';
-      const emailBase = lastName ? `${firstName}.${lastName}` : firstName;
-      const generatedEmail = `${emailBase}@company.com`;
+      // Generate email from name (firstname.lastname@doordash.com)
+      const generatedEmail = generateEmailFromFullName(trimmedName);
 
       // Create minimal manager person
       const generatedId = `person-${Date.now()}`;
@@ -2358,8 +2420,8 @@ export function OrganizationManager({
                             inputId="person-email"
                             inputType="email"
                             value={newPerson.email}
-                            onChange={(value) => setNewPerson(prev => ({ ...prev, email: value }))}
-                            placeholder="email@company.com"
+                            onChange={handlePersonEmailChange}
+                            placeholder={`first.last@${DEFAULT_EMAIL_DOMAIN}`}
                             suggestions={[]}
                             validationState={personEmailValidation}
                           />
@@ -2865,8 +2927,8 @@ export function OrganizationManager({
                   inputId="person-email"
                   inputType="email"
                   value={newPerson.email}
-                  onChange={(value) => setNewPerson(prev => ({ ...prev, email: value }))}
-                  placeholder="email@company.com"
+                  onChange={handlePersonEmailChange}
+                  placeholder={`first.last@${DEFAULT_EMAIL_DOMAIN}`}
                   suggestions={[]}
                   validationState={personEmailValidation}
                 />
