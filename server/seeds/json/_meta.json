@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "exportedAt": "2025-09-24T02:14:09.257Z",
+  "exportedAt": "2025-09-24T03:07:25.322Z",
   "tables": [
     "organizations",
     "functions",
@@ -23,7 +23,7 @@
     "functions": 0,
     "teams": 5,
     "pods": 7,
-    "individuals": 16,
+    "individuals": 18,
     "objectives": 6,
     "krs": 10,
     "objective_teams": 3,

@@ -180,6 +180,30 @@
     "teamId": ""
   },
   {
+    "id": "person-1758683214338",
+    "active": 1,
+    "discipline": "operations",
+    "email": "ruth.isenstadt@doordash.com",
+    "joinDate": "2025-09-24",
+    "managerId": null,
+    "name": "Ruth Isenstadt",
+    "podId": null,
+    "role": "member",
+    "teamId": ""
+  },
+  {
+    "id": "person-1758683217453",
+    "active": 1,
+    "discipline": "operations",
+    "email": "ben.chandler@doordash.com",
+    "joinDate": "2025-09-24",
+    "managerId": "person-1758683214338",
+    "name": "Ben Chandler",
+    "podId": null,
+    "role": "member",
+    "teamId": ""
+  },
+  {
     "id": "test-curl",
     "active": 1,
     "discipline": "product",
