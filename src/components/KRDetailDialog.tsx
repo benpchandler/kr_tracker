@@ -302,7 +302,7 @@ export function KRDetailDialog({ kr, isOpen, onClose, onUpdate, onAddWeeklyActua
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {kr.weeklyActuals
                   .sort((a, b) => new Date(b.weekOf).getTime() - new Date(a.weekOf).getTime())
-                  .map((weekly, index) => (
+                  .map((weekly, _index) => (
                     <Card key={weekly.id} className="p-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">

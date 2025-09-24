@@ -1,262 +1,10 @@
 [
   {
-    "krId": "kr-handoff-failure-rate",
+    "krId": "kr-contacts-per-order",
     "lastModifiedAt": null,
     "lastModifiedBy": null,
-    "value": 3.5,
-    "weekKey": "2025-W36"
-  },
-  {
-    "krId": "kr-handoff-failure-rate",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 3.4,
-    "weekKey": "2025-W37"
-  },
-  {
-    "krId": "kr-handoff-failure-rate",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 3.3,
-    "weekKey": "2025-W38"
-  },
-  {
-    "krId": "kr-handoff-failure-rate",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 3.2,
-    "weekKey": "2025-W39"
-  },
-  {
-    "krId": "kr-handoff-failure-rate",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 3.0,
-    "weekKey": "2025-W40"
-  },
-  {
-    "krId": "kr-handoff-failure-rate",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 2.8,
-    "weekKey": "2025-W41"
-  },
-  {
-    "krId": "kr-handoff-failure-rate",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 2.6,
-    "weekKey": "2025-W42"
-  },
-  {
-    "krId": "kr-handoff-failure-rate",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 2.4,
-    "weekKey": "2025-W43"
-  },
-  {
-    "krId": "kr-handoff-failure-rate",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 2.3,
-    "weekKey": "2025-W44"
-  },
-  {
-    "krId": "kr-handoff-failure-rate",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 2.2,
-    "weekKey": "2025-W45"
-  },
-  {
-    "krId": "kr-handoff-failure-rate",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 2.1,
-    "weekKey": "2025-W46"
-  },
-  {
-    "krId": "kr-handoff-failure-rate",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 2.0,
-    "weekKey": "2025-W47"
-  },
-  {
-    "krId": "kr-handoff-failure-rate",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 2.0,
+    "value": 0.045,
     "weekKey": "2025-W48"
-  },
-  {
-    "krId": "kr-customer-cancellations",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 320,
-    "weekKey": "2025-W36"
-  },
-  {
-    "krId": "kr-customer-cancellations",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 310,
-    "weekKey": "2025-W37"
-  },
-  {
-    "krId": "kr-customer-cancellations",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 300,
-    "weekKey": "2025-W38"
-  },
-  {
-    "krId": "kr-customer-cancellations",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 290,
-    "weekKey": "2025-W39"
-  },
-  {
-    "krId": "kr-customer-cancellations",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 280,
-    "weekKey": "2025-W40"
-  },
-  {
-    "krId": "kr-customer-cancellations",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 270,
-    "weekKey": "2025-W41"
-  },
-  {
-    "krId": "kr-customer-cancellations",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 260,
-    "weekKey": "2025-W42"
-  },
-  {
-    "krId": "kr-customer-cancellations",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 250,
-    "weekKey": "2025-W43"
-  },
-  {
-    "krId": "kr-customer-cancellations",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 240,
-    "weekKey": "2025-W44"
-  },
-  {
-    "krId": "kr-customer-cancellations",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 230,
-    "weekKey": "2025-W45"
-  },
-  {
-    "krId": "kr-customer-cancellations",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 220,
-    "weekKey": "2025-W46"
-  },
-  {
-    "krId": "kr-customer-cancellations",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 210,
-    "weekKey": "2025-W47"
-  },
-  {
-    "krId": "kr-customer-cancellations",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 200,
-    "weekKey": "2025-W48"
-  },
-  {
-    "krId": "kr-contacts-per-order",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 0.065,
-    "weekKey": "2025-W36"
-  },
-  {
-    "krId": "kr-contacts-per-order",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 0.063,
-    "weekKey": "2025-W37"
-  },
-  {
-    "krId": "kr-contacts-per-order",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 0.061,
-    "weekKey": "2025-W38"
-  },
-  {
-    "krId": "kr-contacts-per-order",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 0.059,
-    "weekKey": "2025-W39"
-  },
-  {
-    "krId": "kr-contacts-per-order",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 0.057,
-    "weekKey": "2025-W40"
-  },
-  {
-    "krId": "kr-contacts-per-order",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 0.055,
-    "weekKey": "2025-W41"
-  },
-  {
-    "krId": "kr-contacts-per-order",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 0.053,
-    "weekKey": "2025-W42"
-  },
-  {
-    "krId": "kr-contacts-per-order",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 0.051,
-    "weekKey": "2025-W43"
-  },
-  {
-    "krId": "kr-contacts-per-order",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 0.049,
-    "weekKey": "2025-W44"
-  },
-  {
-    "krId": "kr-contacts-per-order",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 0.048,
-    "weekKey": "2025-W45"
-  },
-  {
-    "krId": "kr-contacts-per-order",
-    "lastModifiedAt": null,
-    "lastModifiedBy": null,
-    "value": 0.047,
-    "weekKey": "2025-W46"
   },
   {
     "krId": "kr-contacts-per-order",
@@ -269,8 +17,260 @@
     "krId": "kr-contacts-per-order",
     "lastModifiedAt": null,
     "lastModifiedBy": null,
-    "value": 0.045,
+    "value": 0.047,
+    "weekKey": "2025-W46"
+  },
+  {
+    "krId": "kr-contacts-per-order",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 0.048,
+    "weekKey": "2025-W45"
+  },
+  {
+    "krId": "kr-contacts-per-order",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 0.049,
+    "weekKey": "2025-W44"
+  },
+  {
+    "krId": "kr-contacts-per-order",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 0.051,
+    "weekKey": "2025-W43"
+  },
+  {
+    "krId": "kr-contacts-per-order",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 0.053,
+    "weekKey": "2025-W42"
+  },
+  {
+    "krId": "kr-contacts-per-order",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 0.055,
+    "weekKey": "2025-W41"
+  },
+  {
+    "krId": "kr-contacts-per-order",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 0.057,
+    "weekKey": "2025-W40"
+  },
+  {
+    "krId": "kr-contacts-per-order",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 0.059,
+    "weekKey": "2025-W39"
+  },
+  {
+    "krId": "kr-contacts-per-order",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 0.061,
+    "weekKey": "2025-W38"
+  },
+  {
+    "krId": "kr-contacts-per-order",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 0.063,
+    "weekKey": "2025-W37"
+  },
+  {
+    "krId": "kr-contacts-per-order",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 0.065,
+    "weekKey": "2025-W36"
+  },
+  {
+    "krId": "kr-customer-cancellations",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 200,
     "weekKey": "2025-W48"
+  },
+  {
+    "krId": "kr-customer-cancellations",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 210,
+    "weekKey": "2025-W47"
+  },
+  {
+    "krId": "kr-customer-cancellations",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 220,
+    "weekKey": "2025-W46"
+  },
+  {
+    "krId": "kr-customer-cancellations",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 230,
+    "weekKey": "2025-W45"
+  },
+  {
+    "krId": "kr-customer-cancellations",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 240,
+    "weekKey": "2025-W44"
+  },
+  {
+    "krId": "kr-customer-cancellations",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 250,
+    "weekKey": "2025-W43"
+  },
+  {
+    "krId": "kr-customer-cancellations",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 260,
+    "weekKey": "2025-W42"
+  },
+  {
+    "krId": "kr-customer-cancellations",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 270,
+    "weekKey": "2025-W41"
+  },
+  {
+    "krId": "kr-customer-cancellations",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 280,
+    "weekKey": "2025-W40"
+  },
+  {
+    "krId": "kr-customer-cancellations",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 290,
+    "weekKey": "2025-W39"
+  },
+  {
+    "krId": "kr-customer-cancellations",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 300,
+    "weekKey": "2025-W38"
+  },
+  {
+    "krId": "kr-customer-cancellations",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 310,
+    "weekKey": "2025-W37"
+  },
+  {
+    "krId": "kr-customer-cancellations",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 320,
+    "weekKey": "2025-W36"
+  },
+  {
+    "krId": "kr-handoff-failure-rate",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 2,
+    "weekKey": "2025-W47"
+  },
+  {
+    "krId": "kr-handoff-failure-rate",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 2,
+    "weekKey": "2025-W48"
+  },
+  {
+    "krId": "kr-handoff-failure-rate",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 2.1,
+    "weekKey": "2025-W46"
+  },
+  {
+    "krId": "kr-handoff-failure-rate",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 2.2,
+    "weekKey": "2025-W45"
+  },
+  {
+    "krId": "kr-handoff-failure-rate",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 2.3,
+    "weekKey": "2025-W44"
+  },
+  {
+    "krId": "kr-handoff-failure-rate",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 2.4,
+    "weekKey": "2025-W43"
+  },
+  {
+    "krId": "kr-handoff-failure-rate",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 2.6,
+    "weekKey": "2025-W42"
+  },
+  {
+    "krId": "kr-handoff-failure-rate",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 2.8,
+    "weekKey": "2025-W41"
+  },
+  {
+    "krId": "kr-handoff-failure-rate",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 3,
+    "weekKey": "2025-W40"
+  },
+  {
+    "krId": "kr-handoff-failure-rate",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 3.2,
+    "weekKey": "2025-W39"
+  },
+  {
+    "krId": "kr-handoff-failure-rate",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 3.3,
+    "weekKey": "2025-W38"
+  },
+  {
+    "krId": "kr-handoff-failure-rate",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 3.4,
+    "weekKey": "2025-W37"
+  },
+  {
+    "krId": "kr-handoff-failure-rate",
+    "lastModifiedAt": null,
+    "lastModifiedBy": null,
+    "value": 3.5,
+    "weekKey": "2025-W36"
   },
   {
     "krId": "kr-menu-coverage",

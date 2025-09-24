@@ -355,11 +355,9 @@ const shouldLogStoreActivity = (): boolean => {
     return false;
   }
 
-  const devFlag = typeof import.meta.env.DEV === 'boolean'
+  return typeof import.meta.env.DEV === 'boolean'
     ? import.meta.env.DEV
     : import.meta.env.DEV === 'true';
-
-  return devFlag;
 };
 
 const summarizeValue = (value: unknown): unknown => {

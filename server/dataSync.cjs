@@ -212,7 +212,7 @@ function resetAutoincrementSequences(db) {
   try {
     const seqTables = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='sqlite_sequence'`).get();
     if (!seqTables) return;
-  } catch (_e) {
+  } catch (_e) { // eslint-disable-line @typescript-eslint/no-unused-vars
     return;
   }
   
@@ -220,7 +220,7 @@ function resetAutoincrementSequences(db) {
   for (const table of tables) {
     try {
       db.prepare(`UPDATE sqlite_sequence SET seq = (SELECT COALESCE(MAX(id), 0) FROM ${table}) WHERE name = ?`).run(table);
-    } catch (_e) {
+      } catch {
       // Table might not have AUTOINCREMENT; ignore
     }
   }

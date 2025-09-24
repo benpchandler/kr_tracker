@@ -85,12 +85,13 @@ export function CopyKRsDialog({ open, onClose, fromQuarter, toQuarter }: CopyKRs
       case 'increase-20':
         multiplier = 1.2;
         break;
-      case 'custom':
+      case 'custom': {
         const customPercent = parseFloat(customPercentage);
         if (!isNaN(customPercent)) {
           multiplier = 1 + (customPercent / 100);
         }
         break;
+      }
       default:
         multiplier = 1;
     }

@@ -1,5 +1,5 @@
 import { KR, Initiative, AggregationType } from '../types';
-import { PlanBaseline, ActualData, KrWeekMetrics } from '../state/store';
+import { PlanBaseline, ActualData } from '../state/store';
 
 export interface MonteCarloForecast {
   krId: string;

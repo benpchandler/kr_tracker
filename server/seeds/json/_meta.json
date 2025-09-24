@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "exportedAt": "2025-09-24T03:07:25.322Z",
+  "exportedAt": "2025-09-24T13:09:40.415Z",
   "tables": [
     "organizations",
     "functions",
@@ -29,8 +29,8 @@
     "objective_teams": 3,
     "baselines": 2,
     "baseline_plan_values": 26,
-    "plan_values": 13,
-    "actual_values": 4,
+    "plan_values": 65,
+    "actual_values": 28,
     "initiatives": 5,
     "initiative_weekly": 0,
     "app_settings": 3

@@ -25,7 +25,7 @@ export function computeMetrics({
   baseline,
   actuals,
   weeks,
-  currentWeekIndex,
+  currentWeekIndex: _currentWeekIndex,
   healthThresholds = DEFAULT_HEALTH_THRESHOLDS
 }: MetricsInput): KrWeekMetrics[] {
   const metrics: KrWeekMetrics[] = [];

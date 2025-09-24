@@ -79,9 +79,9 @@ afterEach(() => {
 })
 
 afterAll(() => {
-  (consoleSpies.error)?.mockRestore()
-  (consoleSpies.warn)?.mockRestore()
-  listeners.forEach(dispose => dispose())
+  (consoleSpies.error)?.mockRestore();
+  (consoleSpies.warn)?.mockRestore();
+  listeners.forEach(dispose => dispose());
   listeners.length = 0
 })
 

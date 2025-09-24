@@ -240,7 +240,7 @@ export function validateRow(
   scope: ImportScope
 ): ParseError[] {
   const errors: ParseError[] = [];
-  const requiredFields = REQUIRED_FIELDS[scope];
+  const _requiredFields = REQUIRED_FIELDS[scope];
 
   // Check required fields
   columns.forEach(column => {
@@ -355,12 +355,10 @@ export function generateCSVTemplate(scope: ImportScope): string {
   }
 
   // Generate CSV
-  const csvContent = [
+  return [
     headers.join(','),
     exampleRow.join(','),
   ].join('\n');
-
-  return csvContent;
 }
 
 export function downloadCSV(content: string, filename: string): void {
