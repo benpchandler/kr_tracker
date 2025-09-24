@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import type { KeyboardEvent } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, type KeyboardEvent } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
@@ -21,13 +20,15 @@ import { BaselineManager } from "./components/BaselineManager";
 import { DeleteConfirmationDialog } from "./components/DeleteConfirmationDialog";
 import { AnalysisPanel } from "./components/analysis/AnalysisPanel";
 import { ViewAllModal } from "./components/ViewAllModal";
-import { Target, Lightbulb, TrendingUp, Users, Building2, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { ImportWizard } from "./components/ImportWizard";
+import { CopyKRsDialog } from "./components/CopyKRsDialog";
+import { Target, Lightbulb, TrendingUp, Users, Building2, ChevronDown, ChevronRight, Plus, Trash2, Upload, Copy } from "lucide-react";
 import { AppMode, Team, Pod, Quarter, KR, Initiative, KRComment, WeeklyActual, ViewType, FilterOptions, Person, OrgFunction, Organization, Objective } from "./types";
 import { applyDeletionPlan, computeDeletionPlan, teamBelongsToOrganization, type DeletePlan, type DeleteType, type DeletionContext, type DeletionState } from "./services/deletionService";
 import { mockTeams, mockPods, mockQuarters, mockKRs, mockInitiatives, mockPeople, mockFunctions, mockOrganizations, mockObjectives } from "./data/mockData";
 import { adaptBackendToFrontend } from "./utils/dataAdapter";
 import { enforceUniqueTeamData } from "./utils/teamNormalization";
-import { AppProvider, useAppState, useFilteredKRs, useFilteredInitiatives, useBaseline } from "./state/store";
+import { AppProvider, useAppState } from "./state/store";
 import { computeMetrics, generateWeeks } from "./metrics/engine";
 import {
   cloneOrgFunctions,
@@ -88,6 +89,8 @@ function AppContent() {
   const [isObjectivesCollapsed, setIsObjectivesCollapsed] = useState(true);
   const [showAddKRDialog, setShowAddKRDialog] = useState(false);
   const [showAddInitiativeDialog, setShowAddInitiativeDialog] = useState(false);
+  const [showImportWizard, setShowImportWizard] = useState(false);
+  const [showCopyKRsDialog, setShowCopyKRsDialog] = useState(false);
   const [organizationManagerFocus, setOrganizationManagerFocus] = useState<OrganizationManagerFocus | null>(null);
 
   // KRs and Initiatives with enhanced data - Initialize empty, will be populated from backend
@@ -161,6 +164,31 @@ function AppContent() {
   const handleOrganizationFocusHandled = useCallback(() => {
     setOrganizationManagerFocus(null);
   }, []);
+
+  // Determine if rollover is available
+  const { canRollover, previousQuarter, currentQuarter } = useMemo(() => {
+    // Get quarters sorted by start date
+    const sortedQuarters = [...quarters].sort((a, b) =>
+      new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+    );
+
+    const currentQuarterObj = quarters.find(q => q.id === selectedQuarter);
+    if (!currentQuarterObj) {
+      return { canRollover: false, previousQuarter: null, currentQuarter: null };
+    }
+
+    const currentIndex = sortedQuarters.findIndex(q => q.id === selectedQuarter);
+    const previousQuarterObj = currentIndex > 0 ? sortedQuarters[currentIndex - 1] : null;
+
+    // Check if previous quarter has any KRs
+    const hasKRsInPrevious = previousQuarterObj && krs.some(kr => kr.quarterId === previousQuarterObj.id);
+
+    return {
+      canRollover: !!hasKRsInPrevious,
+      previousQuarter: previousQuarterObj,
+      currentQuarter: currentQuarterObj,
+    };
+  }, [quarters, selectedQuarter, krs]);
 
   const interactiveCardClasses = "cursor-pointer transition-colors transition-transform hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.98]";
 
@@ -336,7 +364,19 @@ function AppContent() {
         const response = await fetch('/api/state');
         if (response.ok) {
           const backendData = await response.json();
+          console.log('Backend data received:', {
+            krsCount: backendData.krs?.length,
+            planDraftKeys: Object.keys(backendData.planDraft || {}),
+            actualsKeys: Object.keys(backendData.actuals || {}),
+            hasPlanData: !!backendData.planDraft,
+            hasActualData: !!backendData.actuals
+          });
           const adaptedData = adaptBackendToFrontend(backendData);
+          console.log('Adapted data:', {
+            krsCount: adaptedData.krs?.length,
+            firstKR: adaptedData.krs?.[0],
+            hasAdditionalFields: Object.keys(adaptedData)
+          });
           const normalized = enforceUniqueTeamData({
             teams: adaptedData.teams,
             pods: adaptedData.pods,
@@ -368,6 +408,12 @@ function AppContent() {
           setKRs(normalized.krs);
           setInitiatives(normalized.initiatives);
           setMode(adaptedData.mode);
+          
+          // Set the actuals data from backend
+          if (adaptedData.actuals) {
+            console.log('Setting actuals data:', Object.keys(adaptedData.actuals));
+            dispatch({ type: 'BULK_UPDATE_ACTUALS', updates: adaptedData.actuals });
+          }
         } else if (isMounted) {
           console.warn(`Backend responded with ${response.status}; using mock data.`);
           hydrateWithMockData();
@@ -847,6 +893,18 @@ function AppContent() {
               </Card>
             </div>
 
+            {/* Bulk Import Section */}
+            <div className="flex justify-center mt-4">
+              <Button
+                onClick={() => setShowImportWizard(true)}
+                size="lg"
+                className="flex items-center gap-2"
+              >
+                <Upload className="h-5 w-5" />
+                Bulk Import
+              </Button>
+            </div>
+
             {organizationSummaries.length > 0 && (
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -936,6 +994,16 @@ function AppContent() {
                           <Plus className="h-4 w-4 mr-2" />
                           Add Initiative
                         </Button>
+                        <Button onClick={() => setShowImportWizard(true)} size="sm" variant="outline">
+                          <Upload className="h-4 w-4 mr-2" />
+                          Import
+                        </Button>
+                        {canRollover && previousQuarter && currentQuarter && (
+                          <Button onClick={() => setShowCopyKRsDialog(true)} size="sm" variant="outline">
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy from {previousQuarter.name}
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1353,11 +1421,17 @@ function AppContent() {
           </TabsContent>
 
           <TabsContent value="initiatives" className="space-y-6">
-            <div>
-              <h2>Initiatives</h2>
-              <p className="text-muted-foreground">
-                Manage strategic projects and initiatives
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2>Initiatives</h2>
+                <p className="text-muted-foreground">
+                  Manage strategic projects and initiatives
+                </p>
+              </div>
+              <Button onClick={() => setShowImportWizard(true)} variant="outline">
+                <Upload className="h-4 w-4 mr-2" />
+                Import Initiatives
+              </Button>
             </div>
 
             <div className="kr-cards-grid">
@@ -1468,6 +1542,20 @@ function AppContent() {
           cascadeItems={pendingDeletePlan.cascadeItems}
           additionalNotes={pendingDeletePlan.notes}
           onConfirm={handleConfirmDelete}
+        />
+      )}
+
+      <ImportWizard
+        open={showImportWizard}
+        onClose={() => setShowImportWizard(false)}
+      />
+
+      {canRollover && previousQuarter && currentQuarter && (
+        <CopyKRsDialog
+          open={showCopyKRsDialog}
+          onClose={() => setShowCopyKRsDialog(false)}
+          fromQuarter={previousQuarter}
+          toQuarter={currentQuarter}
         />
       )}
     </div>

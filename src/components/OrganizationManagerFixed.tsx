@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Team, Pod, PodMember, Person, FunctionType, OrgFunction } from "../types";
 import { checkDuplicate, findSimilarFunctions, findSimilarPeople, findSimilarPods, findSimilarTeams, normalizeEmail } from "../utils/entityValidation";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Label } from "./ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
-import { Plus, Users, Building2, Edit2, Trash2, X, ChevronDown, ChevronRight, User, Puzzle, Eye } from "lucide-react";
+import { Plus, Users, Building2, X, ChevronDown, ChevronRight, User, Puzzle, Eye } from "lucide-react";
 import { AllEntitiesView } from "./AllEntitiesView";
 import { AutocompleteInput, type AutocompleteSuggestion, type AutocompleteValidationState } from "./AutocompleteInput";
 
@@ -1629,12 +1629,12 @@ export function OrganizationManager({
     return team ? team.name : 'Unknown Team';
   };
 
-  const getPodName = (podId: string) => {
+  const _getPodName = (podId: string) => {
     const pod = safePods.find(p => p.id === podId);
     return pod ? pod.name : 'No Pod';
   };
 
-  const getPersonName = (personId: string) => {
+  const _getPersonName = (personId: string) => {
     const person = safePeople.find(p => p.id === personId);
     return person ? person.name : 'No Manager';
   };

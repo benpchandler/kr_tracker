@@ -13,6 +13,13 @@ import {
 } from '../types';
 import { logger } from '../utils/logger';
 
+// Analytics types
+declare global {
+  interface Window {
+    gtag?: (...args: any[]) => void;
+  }
+}
+
 // Extended types for execution mode
 export interface PlanBaseline {
   id: string;
@@ -110,6 +117,7 @@ type AppAction =
   | { type: 'SET_VIEW_TYPE'; payload: 'cards' | 'table' | 'spreadsheet' }
   | { type: 'SET_CURRENT_TAB'; payload: 'krs' | 'initiatives' }
   | { type: 'SET_OBJECTIVES_COLLAPSED'; payload: boolean }
+  | { type: 'ROLLOVER_KRS'; payload: { krs: KR[]; fromQuarter: string; toQuarter: string; adjustment?: string } }
   | { type: 'RESET_STATE' };
 
 const initialState: AppState = {
@@ -270,6 +278,32 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_OBJECTIVES_COLLAPSED':
       return { ...state, isObjectivesCollapsed: action.payload };
 
+    case 'ROLLOVER_KRS':
+      // Track rollover analytics if available
+      if (typeof window !== 'undefined' && window.gtag) {
+        window.gtag('event', 'kr_rollover', {
+          event_category: 'planning',
+          event_label: `${action.payload.fromQuarter}_to_${action.payload.toQuarter}`,
+          value: action.payload.krs.length,
+          custom_parameters: {
+            adjustment: action.payload.adjustment || 'keep',
+          },
+        });
+      }
+
+      // Log rollover event for debugging
+      logger.info('KRs rolled over', {
+        count: action.payload.krs.length,
+        fromQuarter: action.payload.fromQuarter,
+        toQuarter: action.payload.toQuarter,
+        adjustment: action.payload.adjustment,
+      });
+
+      return {
+        ...state,
+        krs: [...state.krs, ...action.payload.krs],
+      };
+
     case 'RESET_STATE':
       return initialState;
 
@@ -321,11 +355,9 @@ const shouldLogStoreActivity = (): boolean => {
     return false;
   }
 
-  const devFlag = typeof import.meta.env.DEV === 'boolean'
+  return typeof import.meta.env.DEV === 'boolean'
     ? import.meta.env.DEV
     : import.meta.env.DEV === 'true';
-
-  return devFlag;
 };
 
 const summarizeValue = (value: unknown): unknown => {

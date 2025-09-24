@@ -1,4 +1,4 @@
-import { KR, AggregationType } from '../types';
+import { KR } from '../types';
 import { KrWeekMetrics } from '../state/store';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
