@@ -1,6 +1,24 @@
 {
   "schema": 1,
-  "exportedAt": "2025-09-23T23:12:33.999Z",
+  "exportedAt": "2025-09-24T00:55:12.638Z",
+  "tables": [
+    "organizations",
+    "functions",
+    "teams",
+    "pods",
+    "individuals",
+    "objectives",
+    "krs",
+    "objective_teams",
+    "baselines",
+    "baseline_plan_values",
+    "plan_values",
+    "actual_values",
+    "initiatives",
+    "initiative_weekly",
+    "app_settings",
+    "test_table"
+  ],
   "rowCounts": {
     "organizations": 1,
     "functions": 0,
@@ -16,6 +34,7 @@
     "actual_values": 4,
     "initiatives": 5,
     "initiative_weekly": 0,
-    "app_settings": 3
+    "app_settings": 3,
+    "test_table": 1
   }
 }

@@ -1,9 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 
-const TABLES = [
+// Static table order for dependency management (parents before children)
+// This defines the order for import/export to respect foreign key constraints
+const STATIC_TABLE_ORDER = [
   'organizations',
-  'functions',
+  'functions', 
   'teams',
   'pods',
   'individuals',
@@ -19,8 +21,48 @@ const TABLES = [
   'app_settings'
 ];
 
-const IMPORT_ORDER = TABLES; // parents before children
-const DELETE_ORDER = [...TABLES].reverse();
+// Tables to exclude from sync (system tables, etc.)
+const EXCLUDED_TABLES = [
+  'sqlite_sequence',
+  'sqlite_master',
+  'sqlite_temp_master',
+  'sync_state' // Our own control table
+];
+
+function getAllUserTables(db) {
+  const rows = db.prepare(`
+    SELECT name FROM sqlite_master 
+    WHERE type='table' 
+    AND name NOT LIKE 'sqlite_%'
+    ORDER BY name
+  `).all();
+  
+  return rows
+    .map(r => r.name)
+    .filter(name => !EXCLUDED_TABLES.includes(name));
+}
+
+function getOrderedTables(db) {
+  const allTables = getAllUserTables(db);
+  const ordered = [];
+  const remaining = new Set(allTables);
+  
+  // First, add tables in our known dependency order
+  for (const table of STATIC_TABLE_ORDER) {
+    if (remaining.has(table)) {
+      ordered.push(table);
+      remaining.delete(table);
+    }
+  }
+  
+  // Then add any new tables we haven't seen before
+  // (These will be added at the end, which is safest)
+  for (const table of remaining) {
+    ordered.push(table);
+  }
+  
+  return ordered;
+}
 
 function ensureDir(p) {
   if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
@@ -71,10 +113,13 @@ function getOrderByClause(db, table) {
 function exportSqliteToJson(db, opts = {}) {
   const seedsDir = opts.seedsDir;
   ensureDir(seedsDir);
+  
+  const tables = getOrderedTables(db);
 
   const meta = {
     schema: 1,
     exportedAt: new Date().toISOString(),
+    tables: tables, // Track which tables were exported
     rowCounts: {}
   };
 
@@ -82,7 +127,7 @@ function exportSqliteToJson(db, opts = {}) {
 
   db.prepare('PRAGMA foreign_keys = ON').run();
 
-  for (const table of TABLES) {
+  for (const table of tables) {
     const orderBy = getOrderByClause(db, table);
     const rows = db.prepare(`SELECT * FROM ${table} ${orderBy}`).all();
     const ordered = rows.map(stableRow);
@@ -122,32 +167,42 @@ function isDirty(db) {
   return row && row.dirty === 1;
 }
 
-function dropSyncTriggers(db) {
-  for (const table of TABLES) {
-    for (const op of ['insert', 'update', 'delete']) {
-      const name = `tr_sync_${table}_${op}`;
-      db.prepare(`DROP TRIGGER IF EXISTS ${name}`).run();
-    }
+function dropAllSyncTriggers(db) {
+  // Get all existing sync triggers dynamically
+  const triggers = db.prepare(`
+    SELECT name FROM sqlite_master 
+    WHERE type='trigger' 
+    AND name LIKE 'tr_sync_%'
+  `).all();
+  
+  for (const trigger of triggers) {
+    db.prepare(`DROP TRIGGER IF EXISTS ${trigger.name}`).run();
   }
 }
 
 function createSyncTriggers(db) {
   createSyncStateIfMissing(db);
-  for (const table of TABLES) {
+  const tables = getAllUserTables(db);
+  
+  for (const table of tables) {
     const specs = [
       { op: 'INSERT', name: `tr_sync_${table}_insert` },
       { op: 'UPDATE', name: `tr_sync_${table}_update` },
       { op: 'DELETE', name: `tr_sync_${table}_delete` }
     ];
     for (const spec of specs) {
-      db.prepare(`
-        CREATE TRIGGER IF NOT EXISTS ${spec.name}
-        AFTER ${spec.op} ON ${table}
-        WHEN (SELECT suspended = 0 FROM sync_state WHERE id = 1)
-        BEGIN
-          UPDATE sync_state SET dirty = 1 WHERE id = 1;
-        END
-      `).run();
+      try {
+        db.prepare(`
+          CREATE TRIGGER IF NOT EXISTS ${spec.name}
+          AFTER ${spec.op} ON ${table}
+          WHEN (SELECT suspended = 0 FROM sync_state WHERE id = 1)
+          BEGIN
+            UPDATE sync_state SET dirty = 1 WHERE id = 1;
+          END
+        `).run();
+      } catch (error) {
+        console.warn(`Failed to create trigger ${spec.name} on table ${table}:`, error.message);
+      }
     }
   }
 }
@@ -160,7 +215,9 @@ function resetAutoincrementSequences(db) {
   } catch (e) {
     return;
   }
-  for (const table of TABLES) {
+  
+  const tables = getAllUserTables(db);
+  for (const table of tables) {
     try {
       db.prepare(`UPDATE sqlite_sequence SET seq = (SELECT COALESCE(MAX(id), 0) FROM ${table}) WHERE name = ?`).run(table);
     } catch (e) {
@@ -172,20 +229,27 @@ function resetAutoincrementSequences(db) {
 function importJsonToSqlite(db, opts = {}) {
   const seedsDir = opts.seedsDir;
   const logger = opts.logger || console;
+  
+  const orderedTables = getOrderedTables(db);
+  const deleteOrder = [...orderedTables].reverse();
 
   db.prepare('PRAGMA foreign_keys = OFF').run();
   createSyncStateIfMissing(db);
   setSyncSuspended(db, true);
-  dropSyncTriggers(db);
+  dropAllSyncTriggers(db);
 
   const trx = db.transaction(function() {
     // Clear children first
-    for (const table of DELETE_ORDER) {
-      db.prepare(`DELETE FROM ${table}`).run();
+    for (const table of deleteOrder) {
+      try {
+        db.prepare(`DELETE FROM ${table}`).run();
+      } catch (error) {
+        console.warn(`Failed to clear table ${table}:`, error.message);
+      }
     }
 
-    // Insert parents first
-    for (const table of IMPORT_ORDER) {
+    // Insert parents first  
+    for (const table of orderedTables) {
       const file = path.join(seedsDir, `${table}.json`);
       if (!fs.existsSync(file)) continue;
       const rows = readJson(file);
@@ -253,8 +317,32 @@ function initAutoExportOnChange(db, opts = {}) {
   logger.log('Auto-export on change is active.');
 }
 
+// Schema validation function - checks if database schema has changed
+function validateSchema(db, opts = {}) {
+  const logger = opts.logger || console;
+  const currentTables = getAllUserTables(db);
+  const orderedTables = getOrderedTables(db);
+  
+  // Check for new tables not in our known order
+  const unknownTables = currentTables.filter(table => !STATIC_TABLE_ORDER.includes(table));
+  if (unknownTables.length > 0) {
+    logger.warn(`⚠️  New tables detected: ${unknownTables.join(', ')}`);
+    logger.warn('   These will be synced but added at the end of dependency order.');
+    logger.warn('   Consider updating STATIC_TABLE_ORDER if they have dependencies.');
+  }
+  
+  return {
+    currentTables,
+    orderedTables, 
+    unknownTables,
+    hasNewTables: unknownTables.length > 0
+  };
+}
+
 module.exports = {
-  TABLES,
+  getAllUserTables,
+  getOrderedTables,
+  validateSchema,
   exportSqliteToJson,
   importJsonToSqlite,
   initAutoExportOnChange,
