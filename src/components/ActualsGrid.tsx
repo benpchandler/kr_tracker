@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { KR, WeekData } from '../types';
+import { KR, WeekData as _WeekData } from '../types';
 import { PlanBaseline, ActualData, useAppState } from '../state/store';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';

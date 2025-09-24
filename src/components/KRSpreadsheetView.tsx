@@ -52,7 +52,7 @@ export function KRSpreadsheetView({ krs, teams, onUpdateKR, onAddComment, onAddW
     const kr = krs.find(k => k.id === krId);
     if (!kr) return;
 
-    let updates: any = { [field]: value };
+    const updates: any = { [field]: value };
     
     // Auto-update status based on progress if progress is being changed
     if (field === 'progress') {

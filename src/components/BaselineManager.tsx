@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PlanBaseline, useAppState, ActualData } from '../state/store';
+import { PlanBaseline, useAppState, ActualData as _ActualData } from '../state/store';
 import { KR } from '../types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';

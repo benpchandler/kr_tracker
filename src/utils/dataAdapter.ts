@@ -406,6 +406,8 @@ export function adaptBackendToFrontend(backendState: BackendState) {
     objectives,
     krs,
     initiatives,
-    mode: backendState.phase === 'planning' ? 'plan' as const : 'execution' as const
+    mode: backendState.phase === 'planning' ? 'plan' as const : 'execution' as const,
+    planDraft: backendState.planDraft || {},
+    actuals: backendState.actuals || {}
   };
 }

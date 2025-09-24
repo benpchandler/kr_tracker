@@ -524,10 +524,10 @@ export const applyDeletionPlan = (
     selectedTeam,
   } = state;
 
-  let nextOrganizations = removeSet(organizations, removals.organizations);
-  let nextFunctions = removeSet(functions, removals.functions);
+  const nextOrganizations = removeSet(organizations, removals.organizations);
+  const nextFunctions = removeSet(functions, removals.functions);
 
-  let nextTeams = removeSet(teams, removals.teams);
+  const nextTeams = removeSet(teams, removals.teams);
 
   let nextPods = removeSet(pods, removals.pods);
   nextPods = applyUpdates(nextPods, updates.pods);

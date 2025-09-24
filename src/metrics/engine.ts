@@ -275,8 +275,8 @@ export function calculatePaceToDate(
 
     case 'average': {
       // Average of actuals vs average of plan
-      let planValues: number[] = [];
-      let actualValues: number[] = [];
+      const planValues: number[] = [];
+      const actualValues: number[] = [];
 
       weeksToDate.forEach(week => {
         const planVal = baseline.data[kr.id]?.[week];

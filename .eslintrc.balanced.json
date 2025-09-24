@@ -1,0 +1,57 @@
+{
+  "extends": ["eslint:recommended"],
+  "rules": {
+    // CRITICAL: Catch real bugs LLMs might introduce
+    "no-unused-vars": "error",
+    "no-undef": "error",
+    "no-unreachable": "error",
+    "no-await-in-loop": "error",
+    "no-promise-executor-return": "error",
+    "require-await": "error",
+
+    // IMPORTANT: Prevent common LLM mistakes
+    "no-duplicate-imports": "error",
+    "no-self-assign": "error",
+    "no-self-compare": "error",
+    "no-template-curly-in-string": "error",
+    "array-callback-return": "error",
+    "no-async-promise-executor": "error",
+
+    // RELAXED: Allow pragmatic patterns
+    "no-magic-numbers": ["warn", {
+      "ignore": [0, 1, -1, 2, 3, 100], // Common safe values
+      "ignoreArrayIndexes": true,
+      "ignoreDefaultValues": true,
+      "enforceConst": false
+    }],
+
+    // CONSOLE: Warn but don't error
+    "no-console": ["warn", {
+      "allow": ["warn", "error", "info"]
+    }],
+
+    // HELPFUL: Catch confusing code
+    "no-mixed-spaces-and-tabs": "error",
+    "no-unexpected-multiline": "error",
+    "no-confusing-arrow": "error",
+    "no-constant-binary-expression": "error",
+
+    // SECURITY: Prevent dangerous patterns
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "no-script-url": "error",
+
+    // TYPE SAFETY (for TypeScript)
+    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-non-null-assertion": "warn",
+    "@typescript-eslint/strict-boolean-expressions": "off", // Too strict
+
+    // TURNED OFF: Too opinionated for LLM work
+    "no-lonely-if": "off",
+    "no-negated-condition": "off",
+    "prefer-template": "off",
+    "no-underscore-dangle": "off",
+    "max-len": "off"
+  }
+}

@@ -1,1 +1,9 @@
+#!/bin/sh
+# Run ESLint (fail on errors only, not warnings)
+npx eslint src server tests --quiet || {
+  echo "❌ ESLint found errors. Run 'npm run lint' to see details."
+  exit 1
+}
+
+# Validate and export database seeds
 node scripts/validate-schema.cjs && node scripts/export-seeds.cjs && git add -A server/seeds/json

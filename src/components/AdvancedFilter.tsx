@@ -4,7 +4,7 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Filter, X } from "lucide-react";
-import { Team, Pod, KR, Initiative, FilterOptions, FilterType } from "../types";
+import { Team, Pod, KR, Initiative, FilterOptions, FilterType as _FilterType } from "../types";
 
 interface AdvancedFilterProps {
   teams: Team[];
@@ -96,7 +96,7 @@ export function AdvancedFilter({
   const hasActiveFilters = Object.keys(filters).length > 0;
   const activeFilterCount = Object.keys(filters).length;
 
-  const getTeamName = (teamId: string) => teams.find(t => t.id === teamId)?.name || 'Unknown';
+  const _getTeamName = (teamId: string) => teams.find(t => t.id === teamId)?.name || 'Unknown';
 
   return (
     <div className="space-y-4">
