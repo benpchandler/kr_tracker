@@ -1,0 +1,158 @@
+[
+  {
+    "baselineId": "bl-1757799397607",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3,
+    "weekKey": "2025-W48"
+  },
+  {
+    "baselineId": "bl-1757799397607",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.1,
+    "weekKey": "2025-W47"
+  },
+  {
+    "baselineId": "bl-1757799397607",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.2,
+    "weekKey": "2025-W39"
+  },
+  {
+    "baselineId": "bl-1757799397607",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.2,
+    "weekKey": "2025-W46"
+  },
+  {
+    "baselineId": "bl-1757799397607",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.3,
+    "weekKey": "2025-W38"
+  },
+  {
+    "baselineId": "bl-1757799397607",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.3,
+    "weekKey": "2025-W45"
+  },
+  {
+    "baselineId": "bl-1757799397607",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.4,
+    "weekKey": "2025-W37"
+  },
+  {
+    "baselineId": "bl-1757799397607",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.4,
+    "weekKey": "2025-W41"
+  },
+  {
+    "baselineId": "bl-1757799397607",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.4,
+    "weekKey": "2025-W44"
+  },
+  {
+    "baselineId": "bl-1757799397607",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.5,
+    "weekKey": "2025-W36"
+  },
+  {
+    "baselineId": "bl-1757799397607",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.5,
+    "weekKey": "2025-W40"
+  },
+  {
+    "baselineId": "bl-1757799397607",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.5,
+    "weekKey": "2025-W43"
+  },
+  {
+    "baselineId": "bl-1757799397607",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.6,
+    "weekKey": "2025-W42"
+  },
+  {
+    "baselineId": "bl-1757799397609",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3,
+    "weekKey": "2025-W48"
+  },
+  {
+    "baselineId": "bl-1757799397609",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.1,
+    "weekKey": "2025-W47"
+  },
+  {
+    "baselineId": "bl-1757799397609",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.2,
+    "weekKey": "2025-W39"
+  },
+  {
+    "baselineId": "bl-1757799397609",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.2,
+    "weekKey": "2025-W46"
+  },
+  {
+    "baselineId": "bl-1757799397609",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.3,
+    "weekKey": "2025-W38"
+  },
+  {
+    "baselineId": "bl-1757799397609",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.3,
+    "weekKey": "2025-W45"
+  },
+  {
+    "baselineId": "bl-1757799397609",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.4,
+    "weekKey": "2025-W37"
+  },
+  {
+    "baselineId": "bl-1757799397609",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.4,
+    "weekKey": "2025-W41"
+  },
+  {
+    "baselineId": "bl-1757799397609",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.4,
+    "weekKey": "2025-W44"
+  },
+  {
+    "baselineId": "bl-1757799397609",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.5,
+    "weekKey": "2025-W36"
+  },
+  {
+    "baselineId": "bl-1757799397609",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.5,
+    "weekKey": "2025-W40"
+  },
+  {
+    "baselineId": "bl-1757799397609",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.5,
+    "weekKey": "2025-W43"
+  },
+  {
+    "baselineId": "bl-1757799397609",
+    "krId": "kr-handoff-failure-rate",
+    "value": 3.6,
+    "weekKey": "2025-W42"
+  }
+]

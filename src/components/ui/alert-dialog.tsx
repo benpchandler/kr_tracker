@@ -9,10 +9,9 @@ import { buttonVariants } from "./button";
 const AlertDialog = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Root>
->((props, ref) => {
+>((props, _ref) => {
   return (
     <AlertDialogPrimitive.Root
-      ref={ref}
       data-slot="alert-dialog"
       {...props}
     />

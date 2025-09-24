@@ -23,287 +23,19 @@ import { AnalysisPanel } from "./components/analysis/AnalysisPanel";
 import { ViewAllModal } from "./components/ViewAllModal";
 import { Target, Lightbulb, TrendingUp, Users, Building2, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { AppMode, Team, Pod, Quarter, KR, Initiative, KRComment, WeeklyActual, ViewType, FilterOptions, Person, OrgFunction, Organization, Objective } from "./types";
-import { applyDeletionPlan, computeDeletionPlan, type DeletePlan, type DeleteType, type DeletionContext, type DeletionState } from "./services/deletionService";
+import { applyDeletionPlan, computeDeletionPlan, teamBelongsToOrganization, type DeletePlan, type DeleteType, type DeletionContext, type DeletionState } from "./services/deletionService";
 import { mockTeams, mockPods, mockQuarters, mockKRs, mockInitiatives, mockPeople, mockFunctions, mockOrganizations, mockObjectives } from "./data/mockData";
 import { adaptBackendToFrontend } from "./utils/dataAdapter";
 import { enforceUniqueTeamData } from "./utils/teamNormalization";
 import { AppProvider, useAppState, useFilteredKRs, useFilteredInitiatives, useBaseline } from "./state/store";
 import { computeMetrics, generateWeeks } from "./metrics/engine";
-
-const LOCAL_STORAGE_KEY = "kr-tracker-state-v3";
-
-type PersistedAppState = {
-  mode: AppMode;
-  organizations: Organization[];
-  teams: Team[];
-  pods: Pod[];
-  people: Person[];
-  functions: OrgFunction[];
-  quarters: Quarter[];
-  objectives: Objective[];
-  krs: KR[];
-  initiatives: Initiative[];
-  ui: {
-    selectedTeam: string;
-    selectedQuarter: string;
-    viewType: ViewType;
-    advancedFilters: FilterOptions;
-    currentTab: "krs" | "initiatives";
-    isObjectivesCollapsed: boolean;
-  };
-};
-
-const sanitizeMode = (value: any): AppMode => {
-  if (value === "execution") return "execution";
-  if (value === "analysis") return "analysis";
-  return "plan";
-};
-const sanitizeViewType = (value: any): ViewType => (value === "table" || value === "spreadsheet" ? value : "cards");
-const sanitizeTab = (value: any): "krs" | "initiatives" => (value === "initiatives" ? "initiatives" : "krs");
-const sanitizeFilters = (value: any): FilterOptions => (value && typeof value === "object" ? value : {});
-const sanitizeBoolean = (value: any, fallback: boolean) => (typeof value === "boolean" ? value : fallback);
-const cloneFunctions = (functions: OrgFunction[]): OrgFunction[] => functions.map(fn => ({ ...fn }));
-const sanitizeFunctions = (value: any): OrgFunction[] => {
-  if (!Array.isArray(value)) return [];
-
-  return value
-    .filter((fn) => fn && typeof fn === 'object')
-    .map((fn, index) => {
-      const id = typeof fn.id === 'string' && fn.id.trim() ? fn.id.trim() : `function-${index}`;
-      const name = typeof fn.name === 'string' && fn.name.trim() ? fn.name.trim() : id;
-      const description = typeof fn.description === 'string' && fn.description.trim() ? fn.description.trim() : undefined;
-      const color = typeof fn.color === 'string' && fn.color.trim() ? fn.color : '#6B7280';
-      const createdAt = typeof fn.createdAt === 'string' && fn.createdAt.trim() ? fn.createdAt : new Date().toISOString();
-
-      return { id, name, description, color, createdAt } satisfies OrgFunction;
-    });
-};
-
-const sanitizeOrganizations = (value: any): Organization[] => {
-  if (!Array.isArray(value)) return [];
-
-  return value
-    .filter((org) => org && typeof org === 'object')
-    .map((org: any, index): Organization | null => {
-      const id = typeof org.id === 'string' && org.id.trim() ? org.id.trim() : `org-${index}`;
-      const name = typeof org.name === 'string' && org.name.trim() ? org.name.trim() : '';
-      if (!name) {
-        return null;
-      }
-
-      return {
-        id,
-        name,
-        description: typeof org.description === 'string' ? org.description.trim() : undefined,
-        industry: typeof org.industry === 'string' ? org.industry.trim() : undefined,
-        headquarters: typeof org.headquarters === 'string' ? org.headquarters.trim() : undefined,
-      } satisfies Organization;
-    })
-    .filter((org): org is Organization => org !== null);
-};
-
-const sanitizeObjectives = (value: any, fallbackOrgId?: string): Objective[] => {
-  if (!Array.isArray(value)) return [];
-
-  return value
-    .filter((obj) => obj && typeof obj === 'object')
-    .map((obj: any, index): Objective | null => {
-      const id = typeof obj.id === 'string' && obj.id.trim() ? obj.id.trim() : `obj-${index}`;
-      // Handle both 'title' and 'name' fields for backwards compatibility
-      const title = (typeof obj.title === 'string' && obj.title.trim())
-        ? obj.title.trim()
-        : (typeof obj.name === 'string' && obj.name.trim())
-          ? obj.name.trim()
-          : '';
-      if (!title) {
-        return null;
-      }
-
-      const organizationIdCandidate = typeof obj.organizationId === 'string' && obj.organizationId.trim()
-        ? obj.organizationId.trim()
-        : fallbackOrgId;
-      if (!organizationIdCandidate) {
-        return null;
-      }
-
-      const krIds: string[] = [];
-      if (Array.isArray(obj.krIds)) {
-        for (const candidate of obj.krIds) {
-          if (typeof candidate === 'string') {
-            const trimmed = candidate.trim();
-            if (trimmed) {
-              krIds.push(trimmed);
-            }
-          }
-        }
-      }
-
-      return {
-        id,
-        organizationId: organizationIdCandidate,
-        title,
-        description: typeof obj.description === 'string' ? obj.description.trim() : undefined,
-        owner: typeof obj.owner === 'string' ? obj.owner.trim() : undefined,
-        teamId: typeof obj.teamId === 'string' ? obj.teamId.trim() : undefined,
-        podId: typeof obj.podId === 'string' ? obj.podId.trim() : undefined,
-        status: obj.status === 'draft' || obj.status === 'active' || obj.status === 'paused' || obj.status === 'completed'
-          ? obj.status
-          : undefined,
-        krIds,
-      } satisfies Objective;
-    })
-    .filter((obj): obj is Objective => obj !== null);
-};
-
-const sanitizePeople = (value: any, functionsList: OrgFunction[]): Person[] => {
-  if (!Array.isArray(value)) return [];
-
-  const fallbackFunctionId = functionsList[0]?.id || 'Product';
-  const validFunctionIds = new Set(functionsList.map((fn) => fn.id));
-
-  return value
-    .filter((person) => person && typeof person === 'object')
-    .map((person: any, index): Person | null => {
-      const rawId = typeof person.id === 'string' && person.id.trim() ? person.id.trim() : `person-${index}`;
-      const rawName = typeof person.name === 'string' && person.name.trim() ? person.name.trim() : '';
-      const rawEmail = typeof person.email === 'string' && person.email.trim() ? person.email.trim() : `${rawId}@company.com`;
-      const rawTeamId = typeof person.teamId === 'string' ? person.teamId.trim() : '';
-      const rawPodId = typeof person.podId === 'string' && person.podId.trim() ? person.podId.trim() : undefined;
-      const rawManagerId = typeof person.managerId === 'string' && person.managerId.trim() ? person.managerId.trim() : undefined;
-      const candidateFunctionId = typeof person.functionId === 'string' && person.functionId.trim()
-        ? person.functionId.trim()
-        : typeof person.function === 'string' && person.function.trim()
-          ? person.function.trim()
-          : fallbackFunctionId;
-      const functionId = validFunctionIds.size === 0 || validFunctionIds.has(candidateFunctionId)
-        ? candidateFunctionId
-        : fallbackFunctionId;
-
-      if (!rawId || !rawName || !rawEmail) {
-        return null;
-      }
-
-      return {
-        id: rawId,
-        name: rawName,
-        email: rawEmail,
-        functionId,
-        managerId: rawManagerId,
-        teamId: rawTeamId,
-        podId: rawPodId,
-        joinDate: typeof person.joinDate === 'string' && person.joinDate.trim() ? person.joinDate : new Date().toISOString().split('T')[0],
-        active: typeof person.active === 'boolean' ? person.active : true,
-      } satisfies Person;
-    })
-    .filter((person): person is Person => person !== null);
-};
-
-const loadPersistedState = (): PersistedAppState | null => {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-
-    // Ensure initiatives have all required fields, especially linkedKRIds
-    const sanitizedInitiatives = Array.isArray(parsed.initiatives)
-      ? parsed.initiatives.map((init: any) => ({
-          ...init,
-          linkedKRIds: Array.isArray(init.linkedKRIds) ? init.linkedKRIds : []
-        }))
-      : [];
-
-    const sanitizedFunctions = sanitizeFunctions(parsed.functions);
-    const functions = sanitizedFunctions.length > 0 ? sanitizedFunctions : cloneFunctions(mockFunctions);
-    const sanitizedPeople = sanitizePeople(parsed.people, functions);
-    const organizations = sanitizeOrganizations(parsed.organizations);
-    const fallbackOrgId = organizations[0]?.id ?? mockOrganizations[0]?.id;
-    const objectives = sanitizeObjectives(parsed.objectives, fallbackOrgId);
-
-    return {
-      mode: sanitizeMode(parsed.mode),
-      organizations,
-      teams: Array.isArray(parsed.teams) ? parsed.teams : [],
-      pods: Array.isArray(parsed.pods) ? parsed.pods : [],
-      people: sanitizedPeople,
-      functions,
-      quarters: Array.isArray(parsed.quarters) ? parsed.quarters : [],
-      objectives,
-      krs: Array.isArray(parsed.krs) ? parsed.krs : [],
-      initiatives: sanitizedInitiatives,
-      ui: {
-        selectedTeam: parsed.ui?.selectedTeam ?? "all",
-        selectedQuarter: parsed.ui?.selectedQuarter ?? "q4-2024",
-        viewType: sanitizeViewType(parsed.ui?.viewType),
-        advancedFilters: sanitizeFilters(parsed.ui?.advancedFilters),
-        currentTab: sanitizeTab(parsed.ui?.currentTab),
-        isObjectivesCollapsed: sanitizeBoolean(parsed.ui?.isObjectivesCollapsed, true),
-      },
-    };
-  } catch (error) {
-    console.error("Failed to load persisted state", error);
-    return null;
-  }
-};
-
-const persistState = (state: PersistedAppState) => {
-  if (typeof window === "undefined") return;
-
-  try {
-    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
-  } catch (error) {
-    console.error("Failed to persist state", error);
-  }
-};
-
-// Convert legacy data to new format for backward compatibility
-const convertLegacyKRs = (legacyKRs: any[]): KR[] => {
-  return legacyKRs.map(kr => {
-    // Determine status based on progress if available
-    let status: KR['status'] = 'not-started';
-    if (kr.progress !== undefined) {
-      const progress = kr.progress;
-      if (progress >= 90) status = 'completed';
-      else if (progress >= 70) status = 'on-track';
-      else if (progress >= 50) status = 'at-risk';
-      else if (progress > 0) status = 'off-track';
-      else status = 'not-started';
-    }
-
-    return {
-      ...kr,
-      teamId: mockTeams.find(t => t.name === kr.team)?.id || 'team-1',
-      podId: undefined,
-      quarterId: 'q4-2024',
-      unit: kr.target.includes('ms') ? 'ms' : kr.target.includes('/5') ? '/5' : 'users',
-      baseline: '0',
-      forecast: kr.current,
-      status: kr.status || status, // Use existing status or calculated status
-      weeklyActuals: [],
-      autoUpdateEnabled: false,
-      lastUpdated: new Date().toISOString(),
-      comments: [],
-      linkedInitiativeIds: [],
-      sqlQuery: ''
-    };
-  });
-};
-
-const convertLegacyInitiatives = (legacyInitiatives: any[]): Initiative[] => {
-  return legacyInitiatives.map(init => ({
-    ...init,
-    teamId: mockTeams.find(t => t.name === init.team)?.id || 'team-1',
-    podId: undefined,
-    progress: 50,
-    milestones: [],
-    linkedKRIds: [],
-    budget: undefined,
-    resources: []
-  }));
-};
+import {
+  cloneOrgFunctions,
+  loadPersistedState,
+  persistState,
+  reportHydrationDiagnostics,
+  type PersistedAppState,
+} from "./state/hydration";
 
 const normalizeObjectivesForState = (
   objectives: Objective[],
@@ -570,7 +302,7 @@ function AppContent() {
     setOrganizations(activeOrganizations);
     setTeams(normalized.teams);
     setPods(normalized.pods);
-    setFunctions(cloneFunctions(mockFunctions));
+    setFunctions(cloneOrgFunctions(mockFunctions));
     setPeople(normalized.people);
     setQuarters(mockQuarters);
 
@@ -621,7 +353,7 @@ function AppContent() {
           setPods(normalized.pods);
           setFunctions(adaptedData.functions && adaptedData.functions.length > 0
             ? adaptedData.functions
-            : cloneFunctions(mockFunctions));
+            : cloneOrgFunctions(mockFunctions));
           setPeople(normalized.people);
           setQuarters(adaptedData.quarters);
           const objectivesFromBackend = (adaptedData.objectives && adaptedData.objectives.length > 0 ? adaptedData.objectives : mockObjectives).map((objective) => ({ ...objective }));
@@ -654,9 +386,12 @@ function AppContent() {
     const init = async () => {
       const persisted = loadPersistedState();
       if (persisted) {
-        applyPersistedState(persisted);
+        applyPersistedState(persisted.state);
+        reportHydrationDiagnostics(persisted.diagnostics);
         setIsLoading(false);
         return;
+      } else {
+        reportHydrationDiagnostics({ warnings: [], counts: {} });
       }
 
       await fetchData();
@@ -1229,7 +964,6 @@ function AppContent() {
                           </div>
                           <Button onClick={() => {
                             // TODO: Implement Add Objective dialog
-                            // Add Objective clicked
                           }} size="sm">
                             <Plus className="h-4 w-4 mr-2" />
                             Add Objective
@@ -1704,7 +1438,7 @@ function AppContent() {
         onAdd={
           viewAllModalType === 'objectives'
             ? () => {
-                // Add Objective from modal
+                // TODO: Implement Add Objective from modal
                 setViewAllModalOpen(false);
               }
             : viewAllModalType === 'krs'

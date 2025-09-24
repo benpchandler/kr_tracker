@@ -1,0 +1,102 @@
+[
+  {
+    "id": "kr-2025Q3-mfo0bp77me0q28",
+    "aggregation": "average",
+    "driId": null,
+    "name": "Hit 95% quality score",
+    "objectiveId": "obj-mfo0bp77-3zfa8l",
+    "podId": null,
+    "teamId": "team-mfo0bp77-xmilyi",
+    "unit": "percent"
+  },
+  {
+    "id": "kr-2025Q3-mfo0bp77t0hxz4",
+    "aggregation": "cumulative",
+    "driId": null,
+    "name": "Activate 250 beta users",
+    "objectiveId": "obj-mfo0bp77-3zfa8l",
+    "podId": null,
+    "teamId": "team-mfo0bp77-xmilyi",
+    "unit": "count"
+  },
+  {
+    "id": "kr-2025Q3-mfo0fr1q2jl4d3",
+    "aggregation": "snapshot",
+    "driId": null,
+    "name": "Reduce Mx induced Cancellations",
+    "objectiveId": "obj-mfo0cl0t-spynlh",
+    "podId": null,
+    "teamId": "team-live-order-experience",
+    "unit": "percent"
+  },
+  {
+    "id": "kr-contacts-per-order",
+    "aggregation": "average",
+    "driId": "ind-ethan-zhang",
+    "name": "Reduce contacts per order: 0.065 → 0.045",
+    "objectiveId": "obj-support",
+    "podId": "pod-support-reduction",
+    "teamId": "team-support",
+    "unit": "count"
+  },
+  {
+    "id": "kr-customer-cancellations",
+    "aggregation": "average",
+    "driId": "ind-carlos-mendes",
+    "name": "Reduce customer-initiated cancellations: 320 → 200 (weekly avg)",
+    "objectiveId": "obj-loe",
+    "podId": "pod-cancellations",
+    "teamId": "team-live-order-experience",
+    "unit": "count"
+  },
+  {
+    "id": "kr-handoff-failure-rate",
+    "aggregation": "snapshot",
+    "driId": "ind-jamie-li",
+    "name": "Reduce handoff failure rate: 3.5 → 2.0 (%)",
+    "objectiveId": "obj-loe",
+    "podId": "pod-dasher-handoff",
+    "teamId": "team-live-order-experience",
+    "unit": "percent"
+  },
+  {
+    "id": "kr-menu-coverage",
+    "aggregation": "average",
+    "driId": "ind-lena-kim",
+    "name": "Increase menu completeness coverage: 78 → 92 (%)",
+    "objectiveId": "obj-gtm",
+    "podId": "pod-menu",
+    "teamId": "team-go-to-market",
+    "unit": "percent"
+  },
+  {
+    "id": "kr-merchant-profitability",
+    "aggregation": "average",
+    "driId": "ind-mark-rossi",
+    "name": "Improve merchant profitability: 14 → 18 (%)",
+    "objectiveId": "obj-gtm",
+    "podId": "pod-profitability",
+    "teamId": "team-go-to-market",
+    "unit": "percent"
+  },
+  {
+    "id": "kr-schedule-adherence",
+    "aggregation": "average",
+    "driId": "ind-priya-patel",
+    "name": "Improve schedule adherence: 87 → 93 (%)",
+    "objectiveId": "obj-support",
+    "podId": "pod-workforce-management",
+    "teamId": "team-support",
+    "unit": "percent"
+  },
+  {
+    "id": "kr-upsell-conversion",
+    "aggregation": "snapshot",
+    "driId": "ind-ava-nguyen",
+    "name": "Increase upsell conversion: 2.8 → 4.0 (%)",
+    "objectiveId": "obj-gtm",
+    "podId": "pod-new-bets",
+    "teamId": "team-go-to-market",
+    "unit": "percent"
+  }
+]

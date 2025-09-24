@@ -1,0 +1,32 @@
+[
+  {
+    "id": "team-go-to-market",
+    "color": "#8E44AD",
+    "description": null,
+    "name": "Go-To-Market"
+  },
+  {
+    "id": "team-live-order-experience",
+    "color": "#2E86AB",
+    "description": null,
+    "name": "Live Order Experience"
+  },
+  {
+    "id": "team-mfo0bp77-xmilyi",
+    "color": "#2563eb",
+    "description": null,
+    "name": "Core Team"
+  },
+  {
+    "id": "team-mfo562a3-rfqvq9",
+    "color": "#0891b2",
+    "description": null,
+    "name": "Test Engineering Team"
+  },
+  {
+    "id": "team-support",
+    "color": "#27AE60",
+    "description": null,
+    "name": "Support"
+  }
+]

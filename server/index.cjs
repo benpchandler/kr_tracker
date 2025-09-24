@@ -2,6 +2,8 @@ const express = require('express');
 const Database = require('better-sqlite3');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
+const { importJsonToSqlite, initAutoExportOnChange, exportSqliteToJson, seedsExist, validateSchema } = require('./dataSync.cjs');
 
 const db = new Database(path.join(__dirname, 'kr.sqlite'));
 
@@ -428,7 +430,35 @@ function getState() {
 
 function server() {
   init();
-  seedIfEmpty();
+  
+  // Data synchronization setup
+  const seedsDir = path.join(__dirname, 'seeds', 'json');
+  
+  try {
+    // Validate current database schema
+    const schemaInfo = validateSchema(db, { logger: console });
+    
+    if (seedsExist(seedsDir)) {
+      console.log('JSON seeds found, importing into SQLite...');
+      importJsonToSqlite(db, { seedsDir, logger: console });
+      
+      if (schemaInfo.hasNewTables) {
+        console.log('🔄 New tables detected - re-exporting to ensure complete sync coverage');
+        exportSqliteToJson(db, { seedsDir, logger: console });
+      }
+    } else {
+      console.log('No JSON seeds found, running initial seed and exporting...');
+      seedIfEmpty();
+      fs.mkdirSync(seedsDir, { recursive: true });
+      exportSqliteToJson(db, { seedsDir, logger: console });
+    }
+  } catch (e) {
+    console.error('Seed import failed; continuing with existing DB.', e);
+    seedIfEmpty(); // Fallback to original seeding
+  }
+  
+  // Enable auto-export on changes (now with dynamic table discovery)
+  initAutoExportOnChange(db, { seedsDir, debounceMs: 1500, logger: console });
 
   const app = express();
   app.use(cors());

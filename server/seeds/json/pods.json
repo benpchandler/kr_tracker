@@ -1,0 +1,44 @@
+[
+  {
+    "id": "pod-cancellations",
+    "description": null,
+    "name": "Cancellations Pod",
+    "teamId": "team-live-order-experience"
+  },
+  {
+    "id": "pod-dasher-handoff",
+    "description": null,
+    "name": "Dasher Handoff Pod",
+    "teamId": "team-live-order-experience"
+  },
+  {
+    "id": "pod-menu",
+    "description": null,
+    "name": "Menu Pod",
+    "teamId": "team-go-to-market"
+  },
+  {
+    "id": "pod-new-bets",
+    "description": null,
+    "name": "New Bets Pod",
+    "teamId": "team-go-to-market"
+  },
+  {
+    "id": "pod-profitability",
+    "description": null,
+    "name": "Profitability Pod",
+    "teamId": "team-go-to-market"
+  },
+  {
+    "id": "pod-support-reduction",
+    "description": null,
+    "name": "Support Reduction Pod",
+    "teamId": "team-support"
+  },
+  {
+    "id": "pod-workforce-management",
+    "description": null,
+    "name": "Workforce Management Pod",
+    "teamId": "team-support"
+  }
+]
