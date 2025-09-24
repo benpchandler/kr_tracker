@@ -900,7 +900,7 @@ function AppContent() {
                           </div>
                           <Button onClick={() => {
                             // TODO: Implement Add Objective dialog
-                            console.log('Add Objective clicked');
+                            // TODO: Implement Add Objective dialog
                           }} size="sm">
                             <Plus className="h-4 w-4 mr-2" />
                             Add Objective
@@ -1375,7 +1375,7 @@ function AppContent() {
         onAdd={
           viewAllModalType === 'objectives'
             ? () => {
-                console.log('Add Objective from modal');
+                // TODO: Implement Add Objective from modal
                 setViewAllModalOpen(false);
               }
             : viewAllModalType === 'krs'
