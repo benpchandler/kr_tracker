@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 
 import { cn } from "./utils";
@@ -56,14 +55,6 @@ const Calendar = React.forwardRef<
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
         ...classNames,
-      }}
-      components={{
-        PreviousMonthButton: ({ className, ...iconProps }: any) => (
-          <ChevronLeft className={cn("size-4", className)} {...iconProps} />
-        ),
-        NextMonthButton: ({ className, ...iconProps }: any) => (
-          <ChevronRight className={cn("size-4", className)} {...iconProps} />
-        ),
       }}
       {...props}
     />
