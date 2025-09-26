@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, CSSProperties } from "react";
 import { Team, Pod, PodMember, Person, FunctionType, OrgFunction } from "../types";
-import { checkDuplicate, findSimilarFunctions, findSimilarPeople, findSimilarPods, findSimilarTeams, normalizeEmail } from "../utils/entityValidation";
+import { checkDuplicate, findSimilarFunctions, findSimilarPeople, findSimilarPods, findSimilarTeams, normalizeEmail, normalizeString } from "../utils/entityValidation";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -15,6 +15,84 @@ import { AllEntitiesView } from "./AllEntitiesView";
 import { AutocompleteInput, type AutocompleteSuggestion, type AutocompleteValidationState } from "./AutocompleteInput";
 
 const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+const DEFAULT_EMAIL_DOMAIN = "doordash.com";
+
+const buildEmailLocalPart = (fullName: string): string => {
+  const trimmed = fullName.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+
+  if (parts.length === 0) {
+    return "";
+  }
+
+  const firstName = normalizeString(parts[0]) || "user";
+  const lastName = parts.length > 1 ? normalizeString(parts[parts.length - 1]) : "";
+  const segments = lastName ? [firstName, lastName] : [firstName];
+  return segments.filter(Boolean).join(".");
+};
+
+type GenerateUniqueEmailOptions = {
+  domain?: string;
+  excludePersonId?: string | null;
+  reservedEmails?: string[];
+};
+
+const generateUniqueEmailFromFullName = (
+  fullName: string,
+  existingPeople: Array<Pick<Person, "id" | "email">>,
+  options: GenerateUniqueEmailOptions = {}
+): string => {
+  const domain = options.domain ?? DEFAULT_EMAIL_DOMAIN;
+  const baseLocalPart = buildEmailLocalPart(fullName);
+
+  if (!baseLocalPart) {
+    return "";
+  }
+
+  const excludePersonId = options.excludePersonId ?? undefined;
+  const takenEmails = new Set<string>();
+
+  existingPeople.forEach(person => {
+    if (excludePersonId && person.id === excludePersonId) {
+      return;
+    }
+
+    const normalized = normalizeEmail(person.email);
+    if (normalized) {
+      takenEmails.add(normalized);
+    }
+  });
+
+  options.reservedEmails?.forEach(email => {
+    if (email) {
+      const normalized = normalizeEmail(email);
+      if (normalized) {
+        takenEmails.add(normalized);
+      }
+    }
+  });
+
+  let attempt = 0;
+  while (attempt < 1000) {
+    const suffix = attempt === 0 ? "" : `${attempt + 1}`;
+    const localPart = `${baseLocalPart}${suffix}`;
+    const candidate = `${localPart}@${domain}`;
+    const normalizedCandidate = normalizeEmail(candidate);
+
+    if (!takenEmails.has(normalizedCandidate)) {
+      return candidate;
+    }
+
+    attempt += 1;
+  }
+
+  return `${baseLocalPart}-${Date.now()}@${domain}`;
+};
 
 export type OrganizationManagerFocus = {
   entityType: "functions" | "teams" | "pods" | "people";
@@ -73,6 +151,7 @@ export function OrganizationManager({
   const [functionErrors, setFunctionErrors] = useState<{ name?: string; color?: string; description?: string }>({});
   const [editingFunctionId, setEditingFunctionId] = useState<string | null>(null);
   const [newPerson, setNewPerson] = useState({ name: '', email: '', functionId: initialFunctionId as FunctionType, managerId: '', teamId: '', podId: '' });
+  const [isEmailAutoManaged, setIsEmailAutoManaged] = useState(true);
   const [currentMember, setCurrentMember] = useState({ name: '', role: initialFunctionId as FunctionType });
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
   const [teamValidation, setTeamValidation] = useState<AutocompleteValidationState<Team>>({
@@ -470,6 +549,17 @@ export function OrganizationManager({
     ? people.filter(p => p && p.id && p.name && p.active && p.functionId)
     : []), [people]);
 
+  const getAutoEmailForName = useCallback(
+    (
+      fullName: string,
+      options?: { excludePersonId?: string | null; reservedEmails?: string[] }
+    ) => generateUniqueEmailFromFullName(fullName, safePeople, {
+        excludePersonId: options?.excludePersonId ?? undefined,
+        reservedEmails: options?.reservedEmails,
+      }),
+    [safePeople]
+  );
+
   const defaultFunctionId = safeFunctions[0]?.id ?? '';
   const getFunctionById = (id: string) => safeFunctions.find(fn => fn.id === id);
   const getFunctionColor = (id: string) => getFunctionById(id)?.color ?? '#6B7280';
@@ -860,6 +950,8 @@ export function OrganizationManager({
       teamId: person.teamId ?? '',
       podId: person.podId ?? '',
     });
+    const expectedEmail = getAutoEmailForName(person.name, { excludePersonId: person.id });
+    setIsEmailAutoManaged(normalizeEmail(person.email) === normalizeEmail(expectedEmail));
     setEditingPersonId(person.id);
     setPersonNameValidation({
       isDuplicate: false,
@@ -869,7 +961,35 @@ export function OrganizationManager({
     });
     setPersonEmailValidation({ isDuplicate: false, similarEntities: [] });
     setManagerSearch(manager?.name ?? '');
-  }, [safePeople]);
+  }, [getAutoEmailForName, safePeople]);
+
+  useEffect(() => {
+    if (!isEmailAutoManaged) {
+      return;
+    }
+
+    const generatedEmail = getAutoEmailForName(newPerson.name, { excludePersonId: editingPersonId });
+
+    setNewPerson(prev => {
+      if (prev.email === generatedEmail) {
+        return prev;
+      }
+
+      return { ...prev, email: generatedEmail };
+    });
+  }, [editingPersonId, getAutoEmailForName, isEmailAutoManaged, newPerson.name]);
+
+  useEffect(() => {
+    if (isEmailAutoManaged) {
+      return;
+    }
+
+    const generatedEmail = getAutoEmailForName(newPerson.name, { excludePersonId: editingPersonId });
+
+    if (generatedEmail && normalizeEmail(newPerson.email) === normalizeEmail(generatedEmail)) {
+      setIsEmailAutoManaged(true);
+    }
+  }, [editingPersonId, getAutoEmailForName, isEmailAutoManaged, newPerson.email, newPerson.name]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1347,6 +1467,7 @@ export function OrganizationManager({
       teamId: '',
       podId: '',
     });
+    setIsEmailAutoManaged(true);
     setEditingPersonId(null);
     setPersonNameValidation({ isDuplicate: false, similarEntities: [] });
     setPersonEmailValidation({ isDuplicate: false, similarEntities: [] });
@@ -1369,6 +1490,24 @@ export function OrganizationManager({
     } else {
       setNewPerson(prev => ({ ...prev, name: suggestion.value }));
     }
+  };
+
+  const handlePersonEmailChange = (value: string) => {
+    setNewPerson(prev => ({ ...prev, email: value }));
+
+    if (!value.trim()) {
+      setIsEmailAutoManaged(true);
+      return;
+    }
+
+    const expectedEmail = getAutoEmailForName(newPerson.name, { excludePersonId: editingPersonId });
+
+    if (!expectedEmail) {
+      setIsEmailAutoManaged(false);
+      return;
+    }
+
+    setIsEmailAutoManaged(normalizeEmail(value) === normalizeEmail(expectedEmail));
   };
 
   const handleManagerSuggestionSelect = (suggestion: AutocompleteSuggestion<Person>) => {
@@ -1526,12 +1665,10 @@ export function OrganizationManager({
         return;
       }
 
-      // Generate email from name (firstname.lastname@company.com)
-      const nameParts = trimmedName.toLowerCase().split(/\s+/);
-      const firstName = nameParts[0] || 'user';
-      const lastName = nameParts[nameParts.length - 1] || '';
-      const emailBase = lastName ? `${firstName}.${lastName}` : firstName;
-      const generatedEmail = `${emailBase}@company.com`;
+      // Generate email from name (firstname.lastname@doordash.com) ensuring uniqueness
+      const generatedEmail = getAutoEmailForName(trimmedName, {
+        reservedEmails: newPerson.email ? [newPerson.email] : undefined,
+      });
 
       // Create minimal manager person
       const generatedId = `person-${Date.now()}`;
@@ -1859,23 +1996,44 @@ export function OrganizationManager({
                   </div>
                 </div>
                 
-                {safeTeams.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Recent Teams:</p>
-                    <div className="space-y-1">
-                      {safeTeams.slice(-3).map((team) => (
-                        <div key={team.id} className="text-xs p-2 bg-muted/50 rounded flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded" style={{ backgroundColor: team.color }} />
-                            <span className="truncate">{team.name}</span>
-                          </div>
-                          <Badge variant="outline" className="text-xs">
-                            {safePods.filter(p => p.teamId === team.id).length} pods
-                          </Badge>
-                        </div>
-                      ))}
+                {safeTeams.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {safeTeams.map((team) => {
+                        const podCount = safePods.filter(p => p.teamId === team.id).length;
+                        // Create style object for each team
+                        const pillStyle: CSSProperties = {
+                          backgroundColor: team.color + '20',
+                          borderColor: team.color,
+                          borderWidth: '1px',
+                          borderStyle: 'solid',
+                          color: team.color
+                        };
+
+                        return (
+                          <button
+                            key={team.id}
+                            aria-label={`Edit team ${team.name} with ${podCount} ${podCount === 1 ? 'pod' : 'pods'}`}
+                            title={team.name}
+                            onClick={() => {
+                              setEditingTeamId(team.id);
+                              setNewTeam({
+                                name: team.name,
+                                description: team.description || '',
+                                color: team.color
+                              });
+                              setIsAddingTeam(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors hover:opacity-90 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                            style={pillStyle}
+                          >
+                            <span className="max-w-[120px] truncate">{team.name}</span>
+                            <span className="text-[10px] opacity-75 whitespace-nowrap">({podCount} {podCount === 1 ? 'pod' : 'pods'})</span>
+                          </button>
+                        );
+                      })}
                     </div>
-                    {safeTeams.length > 3 && (
+                    {safeTeams.length > 8 && (
                       <Button
                         variant="link"
                         size="sm"
@@ -1889,6 +2047,8 @@ export function OrganizationManager({
                       </Button>
                     )}
                   </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No teams yet. Start by adding your first team.</p>
                 )}
               </CardContent>
             </Card>
@@ -2093,25 +2253,46 @@ export function OrganizationManager({
                   </div>
                 </div>
                 
-                {safePods.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Recent Pods:</p>
-                    <div className="space-y-1">
-                      {safePods.slice(-3).map((pod) => (
-                        <div key={pod.id} className="text-xs p-2 bg-muted/50 rounded flex items-center justify-between">
-                          <span className="truncate">{pod.name}</span>
-                          <div className="flex items-center gap-1">
-                            <Badge variant="outline" className="text-xs">
-                              {getTeamName(pod.teamId)}
-                            </Badge>
-                            <Badge variant="secondary" className="text-xs">
-                              {pod.members ? pod.members.length : 0} members
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
+                {safePods.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {safePods.map((pod) => {
+                        const team = safeTeams.find(t => t.id === pod.teamId);
+                        const memberCount = pod.members ? pod.members.length : 0;
+                        // Create style object for each pod
+                        const pillStyle: CSSProperties = {
+                          backgroundColor: team ? team.color + '20' : '#94A3B820',
+                          borderColor: team ? team.color : '#94A3B8',
+                          borderWidth: '1px',
+                          borderStyle: 'solid',
+                          color: team ? team.color : '#64748B'
+                        };
+
+                        return (
+                          <button
+                            key={pod.id}
+                            aria-label={`Edit pod ${pod.name} with ${memberCount} ${memberCount === 1 ? 'member' : 'members'}`}
+                            title={pod.name}
+                            onClick={() => {
+                              setEditingPodId(pod.id);
+                              setNewPod({
+                                name: pod.name,
+                                teamId: pod.teamId,
+                                description: pod.description || '',
+                                members: clonePodMembersForState(pod.members)
+                              });
+                              setIsAddingPod(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors hover:opacity-90 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                            style={pillStyle}
+                          >
+                            <span className="max-w-[120px] truncate">{pod.name}</span>
+                            <span className="text-[10px] opacity-75 whitespace-nowrap">({memberCount})</span>
+                          </button>
+                        );
+                      })}
                     </div>
-                    {safePods.length > 3 && (
+                    {safePods.length > 8 && (
                       <Button
                         variant="link"
                         size="sm"
@@ -2125,6 +2306,8 @@ export function OrganizationManager({
                       </Button>
                     )}
                   </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No pods yet. Create teams first, then add pods to organize work.</p>
                 )}
               </CardContent>
             </Card>
@@ -2358,8 +2541,8 @@ export function OrganizationManager({
                             inputId="person-email"
                             inputType="email"
                             value={newPerson.email}
-                            onChange={(value) => setNewPerson(prev => ({ ...prev, email: value }))}
-                            placeholder="email@company.com"
+                            onChange={handlePersonEmailChange}
+                            placeholder={`first.last@${DEFAULT_EMAIL_DOMAIN}`}
                             suggestions={[]}
                             validationState={personEmailValidation}
                           />
@@ -2865,8 +3048,8 @@ export function OrganizationManager({
                   inputId="person-email"
                   inputType="email"
                   value={newPerson.email}
-                  onChange={(value) => setNewPerson(prev => ({ ...prev, email: value }))}
-                  placeholder="email@company.com"
+                  onChange={handlePersonEmailChange}
+                  placeholder={`first.last@${DEFAULT_EMAIL_DOMAIN}`}
                   suggestions={[]}
                   validationState={personEmailValidation}
                 />

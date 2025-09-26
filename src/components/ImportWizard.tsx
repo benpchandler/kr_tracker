@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { ScrollArea } from './ui/scroll-area';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { HTTP_PREFIX } from '../config';
 import {
   Upload,
   FileSpreadsheet,
@@ -304,7 +305,7 @@ export function ImportWizard({ open, onClose }: ImportWizardProps) {
         };
 
         try {
-          const response = await fetch('http://localhost:3000/api/import/csv', {
+          const response = await fetch(`${HTTP_PREFIX}localhost:3000/api/import/csv`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

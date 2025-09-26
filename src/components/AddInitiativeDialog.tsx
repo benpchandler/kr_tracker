@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "./ui/badge";
 import { X } from "lucide-react";
 import { Team } from "../types";
+import { HTTPS_PREFIX } from "../config";
 
 interface AddInitiativeDialogProps {
   open: boolean;
@@ -163,7 +164,7 @@ export function AddInitiativeDialog({ open, onOpenChange, onAddInitiative, teams
               type="url"
               value={formData.sizingUrl}
               onChange={(e) => setFormData(prev => ({ ...prev, sizingUrl: e.target.value }))}
-              placeholder="https://docs.google.com/spreadsheets/... (optional)"
+              placeholder={`${HTTPS_PREFIX}docs.google.com/spreadsheets/... (optional)`}
             />
             <p className="text-xs text-muted-foreground">
               Link to your impact model, business case, or sizing spreadsheet

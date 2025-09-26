@@ -12,6 +12,7 @@ import {
   Team, Pod, Person, OrgFunction, Quarter, KR, Initiative, AppMode, FilterOptions, Organization, Objective
 } from '../types';
 import { logger } from '../utils/logger';
+import { STORAGE_KEY_CURRENT } from '../config';
 
 // Analytics types
 declare global {
@@ -326,7 +327,7 @@ interface AppProviderProps {
   initialData?: Partial<AppState>;
 }
 
-const LOCAL_STORAGE_KEY = 'kr-tracker-state-v4';
+const LOCAL_STORAGE_KEY = STORAGE_KEY_CURRENT;
 
 const ACTION_HISTORY_LIMIT = 25;
 const NOISY_ACTIONS = new Set<AppAction['type']>(['SET_STATE']);
