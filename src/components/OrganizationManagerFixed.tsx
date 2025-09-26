@@ -2279,7 +2279,7 @@ export function OrganizationManager({
                                 name: pod.name,
                                 teamId: pod.teamId,
                                 description: pod.description || '',
-                                members: pod.members || []
+                                members: clonePodMembersForState(pod.members)
                               });
                               setIsAddingPod(true);
                             }}
