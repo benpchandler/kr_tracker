@@ -13,7 +13,6 @@ import { Slider } from "./ui/slider";
 import {
   Calendar,
   Target,
-  TrendingUp,
   Edit2,
   Save,
   X,

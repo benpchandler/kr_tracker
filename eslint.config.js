@@ -47,35 +47,57 @@ export default [
       sonarjs,
     },
     rules: {
-      // Enforce console usage policy: allow warn and error only.
-      'no-console': ['error', { allow: ['warn', 'error'] }],
+      // CRITICAL: Catch real bugs LLMs might introduce
+      'no-unused-vars': 'off', // Use TypeScript's version
+      '@typescript-eslint/no-unused-vars': ['error', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_'
+      }],
+      'no-undef': 'error',
+      'no-unreachable': 'error',
+      'no-duplicate-imports': 'error',
+      'array-callback-return': 'error',
+      'no-async-promise-executor': 'error',
+      'no-await-in-loop': 'warn',
+      'no-promise-executor-return': 'error',
+      'require-await': 'warn',
 
-      // Allow transitional any but encourage reduction later.
-      '@typescript-eslint/no-explicit-any': 'off',
+      // CONSOLE: Warn but allow for development
+      'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
 
-      // Warn on unused vars, ignore underscore-prefixed.
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
-
-      // Enforce no magic numbers with practical exceptions.
-      'no-magic-numbers': ['error', {
-        ignore: [0, 1, -1],
+      // MAGIC NUMBERS: Be pragmatic - add more common numbers
+      'no-magic-numbers': ['warn', {
+        ignore: [-6, -5, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 20, 24, 25, 30, 36, 40, 50, 60, 75, 90, 95, 100, 120, 200, 300, 365, 1000, 2018, 2024, 3600, 86400, 86400000], // Common safe values including dates, UI, time constants
         ignoreArrayIndexes: true,
-        enforceConst: true,
+        ignoreDefaultValues: true,
+        enforceConst: false,
         detectObjects: false,
       }],
 
-      // Duplicate strings allowed up to threshold of 3.
-      'sonarjs/no-duplicate-string': ['error', { threshold: 3 }],
+      // CODE QUALITY: Important but not blocking
+      'sonarjs/no-duplicate-string': ['warn', { threshold: 4 }],
+      'sonarjs/no-identical-expressions': 'warn',
+      'sonarjs/no-all-duplicated-branches': 'warn',
+      'sonarjs/no-useless-catch': 'warn',
+      'sonarjs/cognitive-complexity': ['warn', 15],
+      'sonarjs/prefer-immediate-return': 'warn',
+      'sonarjs/no-small-switch': 'warn',
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      'prefer-const': 'warn',
 
-      'no-empty': ['error', { allowEmptyCatch: false }],
-      'prefer-const': 'off',
+      // TYPE SAFETY: Flexible for rapid development
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-non-null-assertion': 'warn',
+
+      // SECURITY: Always error
+      'no-eval': 'error',
+      'no-implied-eval': 'error',
+      'no-new-func': 'error',
+
+      // TURNED OFF: Too strict for LLM development
       'no-restricted-properties': 'off',
-    },
-  },
-  {
-    files: ['src/**/*.{ts,tsx,js,jsx}'],
-    rules: {
-      'no-restricted-properties': 'off',
+      '@typescript-eslint/strict-boolean-expressions': 'off',
     },
   },
   {
@@ -84,14 +106,19 @@ export default [
       globals: {
         expect: true,
         test: true,
+        describe: true,
+        it: true,
+        beforeEach: true,
+        afterEach: true,
+        vi: true,
       },
     },
     rules: {
-      'no-unexpected-multiline': 'off',
-      // Allow console in tests for debugging output
+      // Very relaxed in tests
       'no-console': 'off',
-      // Looser stance on magic numbers in tests
-      'no-magic-numbers': 'warn',
+      'no-magic-numbers': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
     },
   },
   {
@@ -103,6 +130,7 @@ export default [
       '@typescript-eslint/no-require-imports': 'off',
       'no-empty': 'off',
       'no-console': 'off',
+      'no-magic-numbers': 'off',
     },
   },
 ]

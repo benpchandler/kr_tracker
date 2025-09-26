@@ -1,7 +1,7 @@
 import { AppMode } from "../types";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
-import { Settings, Play, Calendar, BarChart3 } from "lucide-react";
+import { Settings, Play, BarChart3 } from "lucide-react";
 
 interface ModeSwitchProps {
   currentMode: AppMode;

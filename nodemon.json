@@ -1,0 +1,12 @@
+{
+  "watch": ["server/"],
+  "ignore": [
+    "server/seeds/json/**/*.json",
+    "server/kr.sqlite*",
+    "server/.tmp/**"
+  ],
+  "ext": "js,cjs,mjs,json",
+  "env": {
+    "NODE_ENV": "development"
+  }
+}

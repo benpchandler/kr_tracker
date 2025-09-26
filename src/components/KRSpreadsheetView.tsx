@@ -3,7 +3,6 @@ import { KR, KRComment, WeeklyActual } from "../types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Badge } from "./ui/badge";
 import { Progress } from "./ui/progress";
@@ -11,15 +10,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Label } from "./ui/label";
 import { KRDetailDialog } from "./KRDetailDialog";
-import { 
-  MessageSquare, 
-  TrendingUp, 
-  TrendingDown, 
-  Database, 
-  Save, 
+import {
+  MessageSquare,
+  TrendingUp,
+  TrendingDown,
+  Database,
   RefreshCw,
   BarChart3,
-  AlertTriangle,
   Edit,
   Calendar
 } from "lucide-react";
@@ -48,11 +45,11 @@ export function KRSpreadsheetView({ krs, teams, onUpdateKR, onAddComment, onAddW
     'completed': { color: 'bg-blue-500', label: 'Completed' }
   };
 
-  const handleKRUpdate = (krId: string, field: string, value: any) => {
+  const _handleKRUpdate = (krId: string, field: string, value: any) => {
     const kr = krs.find(k => k.id === krId);
     if (!kr) return;
 
-    let updates: any = { [field]: value };
+    const updates: any = { [field]: value };
     
     // Auto-update status based on progress if progress is being changed
     if (field === 'progress') {

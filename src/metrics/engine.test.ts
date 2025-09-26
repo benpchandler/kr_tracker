@@ -137,10 +137,10 @@ describe('calculatePaceToDate', () => {
 
   describe('snapshot', () => {
     const kr = makeKr(krId, 'snapshot');
-    const baseline = makeBaseline(krId, {
+    const _baseline = makeBaseline(krId, {
       [baseWeeks[2]]: 100
     });
-    const actuals = makeActuals(krId, {
+    const _actuals = makeActuals(krId, {
       [baseWeeks[2]]: 125
     });
 
@@ -256,7 +256,7 @@ describe('calculatePaceToDate', () => {
 describe('calculateForecast', () => {
   const kr = makeKr('kr-forecast', 'cumulative');
   const weekList = weeks(4);
-  const baseline = makeBaseline(kr.id, {
+  const _baseline = makeBaseline(kr.id, {
     [weekList[0]]: 10,
     [weekList[1]]: 10,
     [weekList[2]]: 10,

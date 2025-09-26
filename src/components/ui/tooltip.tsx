@@ -18,20 +18,7 @@ function TooltipProvider({
   );
 }
 
-const Tooltip = React.forwardRef<
-  React.ElementRef<typeof TooltipPrimitive.Root>,
-  React.ComponentProps<typeof TooltipPrimitive.Root>
->((props, _ref) => {
-  return (
-    <TooltipProvider>
-      <TooltipPrimitive.Root
-        data-slot="tooltip"
-        {...props}
-      />
-    </TooltipProvider>
-  );
-});
-
+const Tooltip = TooltipPrimitive.Root;
 Tooltip.displayName = TooltipPrimitive.Root.displayName;
 
 const TooltipTrigger = React.forwardRef<

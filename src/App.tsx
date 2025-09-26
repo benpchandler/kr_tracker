@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import type { KeyboardEvent } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, type KeyboardEvent } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
@@ -21,12 +20,17 @@ import { BaselineManager } from "./components/BaselineManager";
 import { DeleteConfirmationDialog } from "./components/DeleteConfirmationDialog";
 import { AnalysisPanel } from "./components/analysis/AnalysisPanel";
 import { ViewAllModal } from "./components/ViewAllModal";
-import { Target, Lightbulb, TrendingUp, Users, Building2, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { ImportWizard } from "./components/ImportWizard";
+import { CopyKRsDialog } from "./components/CopyKRsDialog";
+import { BackendStatusBanner, type BackendStatus } from "./components/BackendStatusBanner";
+import { BackendHealthIndicator, type HealthStatus } from "./components/BackendHealthIndicator";
+import { DevModeToggle } from "./components/DevModeToggle";
+import { Target, Lightbulb, TrendingUp, Users, Building2, ChevronDown, ChevronRight, Plus, Trash2, Upload, Copy } from "lucide-react";
 import { AppMode, Team, Pod, Quarter, KR, Initiative, KRComment, WeeklyActual, ViewType, FilterOptions, Person, OrgFunction, Organization, Objective } from "./types";
 import { applyDeletionPlan, computeDeletionPlan, teamBelongsToOrganization, type DeletePlan, type DeleteType, type DeletionContext, type DeletionState } from "./services/deletionService";
 import { mockTeams, mockPods, mockQuarters, mockKRs, mockInitiatives, mockPeople, mockFunctions, mockOrganizations, mockObjectives } from "./data/mockData";
 import { adaptBackendToFrontend } from "./utils/dataAdapter";
-import { enforceUniqueTeamData } from './utils/teamNormalization';
+import { enforceUniqueTeamData } from "./utils/teamNormalization";
 import { AppProvider, useAppState, useFilteredKRs, useFilteredInitiatives, useBaseline } from "./state/store";
 import { computeMetrics, generateWeeks } from "./metrics/engine";
 import {
@@ -35,6 +39,7 @@ import {
   persistState,
   reportHydrationDiagnostics,
   type PersistedAppState,
+  type DataSource,
 } from "./state/hydration";
 
 const normalizeObjectivesForState = (
@@ -88,6 +93,8 @@ function AppContent() {
   const [isObjectivesCollapsed, setIsObjectivesCollapsed] = useState(true);
   const [showAddKRDialog, setShowAddKRDialog] = useState(false);
   const [showAddInitiativeDialog, setShowAddInitiativeDialog] = useState(false);
+  const [showImportWizard, setShowImportWizard] = useState(false);
+  const [showCopyKRsDialog, setShowCopyKRsDialog] = useState(false);
   const [organizationManagerFocus, setOrganizationManagerFocus] = useState<OrganizationManagerFocus | null>(null);
 
   // KRs and Initiatives with enhanced data - Initialize empty, will be populated from backend
@@ -105,16 +112,26 @@ function AppContent() {
   const [advancedFilters, setAdvancedFilters] = useState<FilterOptions>({});
   const [currentTab, setCurrentTab] = useState<'krs' | 'initiatives'>('krs');
 
-  // Loading state
+  // Loading and backend state
   const [isLoading, setIsLoading] = useState(true);
   const shouldUseBackend = import.meta.env.VITE_USE_BACKEND === 'true';
-  const [backendHealth, setBackendHealth] = useState<'unknown' | 'ok' | 'down'>('unknown');
+  const allowMockFallback = import.meta.env.VITE_ALLOW_MOCK_FALLBACK === 'true';
+  const [backendStatus, setBackendStatus] = useState<BackendStatus>(
+    shouldUseBackend ? { type: 'disconnected' } : { type: 'mock', reason: 'explicit' }
+  );
+  const [healthStatus, setHealthStatus] = useState<HealthStatus>({
+    backend: shouldUseBackend ? 'checking' : 'disconnected',
+    data: 'loading'
+  });
+  const [dataSource, setDataSource] = useState<DataSource>('unknown');
+  const [isUsingMock, setIsUsingMock] = useState(!shouldUseBackend);
 
   // View All Modal state
   const [viewAllModalOpen, setViewAllModalOpen] = useState(false);
   const [viewAllModalType, setViewAllModalType] = useState<'objectives' | 'krs' | 'initiatives'>('objectives');
 
   const hasHydratedRef = useRef(false);
+  const backendRetryAttemptsRef = useRef(0);
 
   const buildDeletionContext = useCallback((): DeletionContext => ({
     organizations,
@@ -161,6 +178,31 @@ function AppContent() {
   const handleOrganizationFocusHandled = useCallback(() => {
     setOrganizationManagerFocus(null);
   }, []);
+
+  // Determine if rollover is available
+  const { canRollover, previousQuarter, currentQuarter } = useMemo(() => {
+    // Get quarters sorted by start date
+    const sortedQuarters = [...quarters].sort((a, b) =>
+      new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+    );
+
+    const currentQuarterObj = quarters.find(q => q.id === selectedQuarter);
+    if (!currentQuarterObj) {
+      return { canRollover: false, previousQuarter: null, currentQuarter: null };
+    }
+
+    const currentIndex = sortedQuarters.findIndex(q => q.id === selectedQuarter);
+    const previousQuarterObj = currentIndex > 0 ? sortedQuarters[currentIndex - 1] : null;
+
+    // Check if previous quarter has any KRs
+    const hasKRsInPrevious = previousQuarterObj && krs.some(kr => kr.quarterId === previousQuarterObj.id);
+
+    return {
+      canRollover: !!hasKRsInPrevious,
+      previousQuarter: previousQuarterObj,
+      currentQuarter: currentQuarterObj,
+    };
+  }, [quarters, selectedQuarter, krs]);
 
   const interactiveCardClasses = "cursor-pointer transition-colors transition-transform hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.98]";
 
@@ -254,7 +296,14 @@ function AppContent() {
     }
   }, [pods, people, krs, initiatives, objectives, organizations]);
 
-  const applyPersistedState = (persisted: PersistedAppState) => {
+  const applyPersistedState = (persisted: PersistedAppState, skipDataSourceCheck = false) => {
+    // Check if persisted data source matches current mode
+    if (!skipDataSourceCheck && shouldUseBackend && persisted.source === 'mock') {
+      console.warn('Persisted data is from mock source but backend mode is enabled');
+      // Don't apply mock data when backend is expected
+      return false;
+    }
+
     setMode(persisted.mode);
     const activeOrganizations = (persisted.organizations && persisted.organizations.length > 0 ? persisted.organizations : mockOrganizations).map((org) => ({ ...org }));
     const normalized = enforceUniqueTeamData({
@@ -287,9 +336,15 @@ function AppContent() {
     setAdvancedFilters(persisted.ui.advancedFilters || {});
     setCurrentTab(persisted.ui.currentTab);
     setIsObjectivesCollapsed(persisted.ui.isObjectivesCollapsed);
+    return true;
   };
 
-  const hydrateWithMockData = useCallback(() => {
+  const hydrateWithMockData = useCallback((explicitRequest = false) => {
+    if (shouldUseBackend && !allowMockFallback && !explicitRequest) {
+      console.error('Mock data hydration blocked: backend mode is enabled and mock fallback is not allowed');
+      return false;
+    }
+
     const normalized = enforceUniqueTeamData({
       teams: mockTeams,
       pods: mockPods,
@@ -316,7 +371,98 @@ function AppContent() {
     setObjectives(normalizedObjectives);
     setKRs(normalized.krs);
     setInitiatives(normalized.initiatives);
-  }, []);
+    setDataSource('mock');
+    setIsUsingMock(true);
+    setBackendStatus({ type: 'mock', reason: explicitRequest ? 'explicit' : 'fallback' });
+    setHealthStatus({ backend: 'disconnected', data: 'mock' });
+    return true;
+  }, [shouldUseBackend, allowMockFallback]);
+
+  // Retry backend connection
+  const retryBackendConnection = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+
+    if (!silent) {
+      setIsLoading(true);
+      setHealthStatus({ backend: 'checking', data: 'loading' });
+    } else {
+      setHealthStatus((prev) => ({ ...prev, backend: 'checking' }));
+    }
+
+    try {
+      // Check health first
+      const healthRes = await fetch('/api/health', { method: 'GET' });
+      if (!healthRes.ok) throw new Error('Health check failed');
+
+      // Fetch state
+      const response = await fetch('/api/state');
+      if (!response.ok) throw new Error(`State fetch failed: ${response.status}`);
+
+      const backendData = await response.json();
+      const adaptedData = adaptBackendToFrontend(backendData);
+      const normalized = enforceUniqueTeamData({
+        teams: adaptedData.teams,
+        pods: adaptedData.pods,
+        people: adaptedData.people,
+        krs: adaptedData.krs,
+        initiatives: adaptedData.initiatives,
+      });
+
+      const activeOrganizations = (adaptedData.organizations?.length ? adaptedData.organizations : mockOrganizations).map(org => ({ ...org }));
+      setOrganizations(activeOrganizations);
+      setTeams(normalized.teams);
+      setPods(normalized.pods);
+      setFunctions(adaptedData.functions?.length ? adaptedData.functions : cloneOrgFunctions(mockFunctions));
+      setPeople(normalized.people);
+      setQuarters(adaptedData.quarters);
+
+      const objectivesFromBackend = (adaptedData.objectives?.length ? adaptedData.objectives : mockObjectives).map(obj => ({ ...obj }));
+      const normalizedObjectives = normalizeObjectivesForState(
+        objectivesFromBackend,
+        activeOrganizations,
+        normalized.teamIdMap,
+        new Set(normalized.teams.map(team => team.id)),
+        new Set(normalized.krs.map(kr => kr.id))
+      );
+
+      setObjectives(normalizedObjectives);
+      setKRs(normalized.krs);
+      setInitiatives(normalized.initiatives);
+      setMode(adaptedData.mode);
+
+      if (adaptedData.actuals) {
+        dispatch({ type: 'BULK_UPDATE_ACTUALS', updates: adaptedData.actuals });
+      }
+
+      setDataSource('backend');
+      setIsUsingMock(false);
+      setBackendStatus({ type: 'connected', dataLoaded: true });
+      setHealthStatus({ backend: 'connected', data: 'loaded' });
+      backendRetryAttemptsRef.current = 0;
+      return true;
+    } catch (error) {
+      console.error('Retry failed:', error);
+      setBackendStatus({ type: 'disconnected', error: String(error) });
+      setHealthStatus({ backend: 'disconnected', data: 'unavailable' });
+      return false;
+    } finally {
+      if (!silent) {
+        setIsLoading(false);
+      }
+    }
+  }, [dispatch]);
+
+  // Toggle between mock and backend
+  const toggleDataSource = useCallback(async () => {
+    if (isUsingMock) {
+      // Try to switch to backend
+      await retryBackendConnection();
+    } else {
+      // Switch to mock
+      hydrateWithMockData(true);
+      setIsLoading(false);
+    }
+  }, [isUsingMock, retryBackendConnection, hydrateWithMockData]);
 
   // Fetch data from backend or local storage on mount
   useEffect(() => {
@@ -325,8 +471,8 @@ function AppContent() {
     const fetchData = async () => {
       if (!shouldUseBackend) {
         if (isMounted) {
-          console.warn('Backend disabled via VITE_USE_BACKEND; hydrating with mock data.');
-          hydrateWithMockData();
+          console.info('Backend disabled via VITE_USE_BACKEND');
+          hydrateWithMockData(true);
           setIsLoading(false);
         }
         return;
@@ -336,6 +482,7 @@ function AppContent() {
         const response = await fetch('/api/state');
         if (response.ok) {
           const backendData = await response.json();
+          console.info('Backend data received');
           const adaptedData = adaptBackendToFrontend(backendData);
           const normalized = enforceUniqueTeamData({
             teams: adaptedData.teams,
@@ -347,35 +494,60 @@ function AppContent() {
 
           if (!isMounted) return;
 
-          const activeOrganizations = (adaptedData.organizations && adaptedData.organizations.length > 0 ? adaptedData.organizations : mockOrganizations).map((org) => ({ ...org }));
+          const activeOrganizations = (adaptedData.organizations?.length ? adaptedData.organizations : mockOrganizations).map(org => ({ ...org }));
           setOrganizations(activeOrganizations);
           setTeams(normalized.teams);
           setPods(normalized.pods);
-          setFunctions(adaptedData.functions && adaptedData.functions.length > 0
-            ? adaptedData.functions
-            : cloneOrgFunctions(mockFunctions));
+          setFunctions(adaptedData.functions?.length ? adaptedData.functions : cloneOrgFunctions(mockFunctions));
           setPeople(normalized.people);
           setQuarters(adaptedData.quarters);
-          const objectivesFromBackend = (adaptedData.objectives && adaptedData.objectives.length > 0 ? adaptedData.objectives : mockObjectives).map((objective) => ({ ...objective }));
+          const objectivesFromBackend = (adaptedData.objectives?.length ? adaptedData.objectives : mockObjectives).map(obj => ({ ...obj }));
           const normalizedObjectives = normalizeObjectivesForState(
             objectivesFromBackend,
             activeOrganizations,
             normalized.teamIdMap,
-            new Set(normalized.teams.map((team) => team.id)),
-            new Set(normalized.krs.map((kr) => kr.id))
+            new Set(normalized.teams.map(team => team.id)),
+            new Set(normalized.krs.map(kr => kr.id))
           );
           setObjectives(normalizedObjectives);
           setKRs(normalized.krs);
           setInitiatives(normalized.initiatives);
           setMode(adaptedData.mode);
-        } else if (isMounted) {
-          console.warn(`Backend responded with ${response.status}; using mock data.`);
-          hydrateWithMockData();
+
+          if (adaptedData.actuals) {
+            dispatch({ type: 'BULK_UPDATE_ACTUALS', updates: adaptedData.actuals });
+          }
+
+          setDataSource('backend');
+          setIsUsingMock(false);
+          setBackendStatus({ type: 'connected', dataLoaded: true });
+          setHealthStatus({ backend: 'connected', data: 'loaded' });
+          backendRetryAttemptsRef.current = 0;
+        } else {
+          // Backend responded with error
+          if (!isMounted) return;
+          console.error(`Backend responded with ${response.status}`);
+
+          if (allowMockFallback) {
+            console.info('Falling back to mock data');
+            hydrateWithMockData(false);
+          } else {
+            setBackendStatus({ type: 'connected', dataLoaded: false, error: `API returned status ${response.status}` });
+            setHealthStatus({ backend: 'connected', data: 'unavailable' });
+          }
         }
       } catch (error) {
         if (!isMounted) return;
-        console.warn('Backend fetch failed; using mock data instead.', error);
-        hydrateWithMockData();
+        console.error('Backend fetch failed:', error);
+
+        if (allowMockFallback) {
+          console.info('Falling back to mock data after error');
+          hydrateWithMockData(false);
+        } else {
+          setBackendStatus({ type: 'disconnected', error: String(error) });
+          setHealthStatus({ backend: 'disconnected', data: 'unavailable' });
+          backendRetryAttemptsRef.current = 0;
+        }
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -386,11 +558,24 @@ function AppContent() {
     const init = async () => {
       const persisted = loadPersistedState();
       if (persisted) {
-        applyPersistedState(persisted.state);
-        reportHydrationDiagnostics(persisted.diagnostics);
-        setIsLoading(false);
-        return;
-      } else {
+        // Check if we should use persisted state
+        if (shouldUseBackend && persisted.state.source === 'mock') {
+          console.info('Ignoring mock persisted state in backend mode');
+          // Don't use persisted mock data when backend is expected
+        } else {
+          const applied = applyPersistedState(persisted.state);
+          if (applied) {
+            reportHydrationDiagnostics(persisted.diagnostics);
+            setDataSource(persisted.state.source || 'unknown');
+            setIsUsingMock(persisted.state.source === 'mock');
+            if (persisted.state.source === 'mock') {
+              setBackendStatus({ type: 'mock', reason: 'explicit' });
+              setHealthStatus({ backend: 'disconnected', data: 'mock' });
+            }
+            setIsLoading(false);
+            return;
+          }
+        }
         reportHydrationDiagnostics({ warnings: [], counts: {} });
       }
 
@@ -402,14 +587,17 @@ function AppContent() {
     // Background health check (non-blocking)
     (async () => {
       if (!shouldUseBackend) {
-        setBackendHealth('down');
         return;
       }
       try {
         const res = await fetch('/api/health', { method: 'GET' });
-        setBackendHealth(res.ok ? 'ok' : 'down');
+        if (res.ok) {
+          setHealthStatus(prev => ({ ...prev, backend: 'connected' }));
+        } else {
+          setHealthStatus(prev => ({ ...prev, backend: 'disconnected' }));
+        }
       } catch {
-        setBackendHealth('down');
+        setHealthStatus(prev => ({ ...prev, backend: 'disconnected' }));
       }
     })();
 
@@ -423,6 +611,48 @@ function AppContent() {
       hasHydratedRef.current = true;
     }
   }, [isLoading]);
+
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    if (!shouldUseBackend) {
+      backendRetryAttemptsRef.current = 0;
+      return;
+    }
+
+    if (backendStatus.type !== 'disconnected') {
+      backendRetryAttemptsRef.current = 0;
+      return;
+    }
+
+    const attempt = backendRetryAttemptsRef.current;
+    const maxAttempts = 5;
+    if (attempt >= maxAttempts) {
+      return;
+    }
+
+    const delay = Math.min(1500 * Math.pow(2, attempt), 15000);
+    let cancelled = false;
+
+    const timeoutId = setTimeout(async () => {
+      if (cancelled) {
+        return;
+      }
+      const succeeded = await retryBackendConnection({ silent: true });
+      if (succeeded) {
+        backendRetryAttemptsRef.current = 0;
+        return;
+      }
+      backendRetryAttemptsRef.current = attempt + 1;
+    }, delay);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [backendStatus, isLoading, retryBackendConnection, shouldUseBackend]);
 
   useEffect(() => {
     if (!hasHydratedRef.current) return;
@@ -465,7 +695,7 @@ function AppContent() {
       },
     };
 
-    persistState(persistedState);
+    persistState(persistedState, dataSource);
   }, [
     mode,
     organizations,
@@ -484,6 +714,7 @@ function AppContent() {
     currentTab,
     isObjectivesCollapsed,
     isLoading,
+    dataSource,
   ]);
   
   // Deduplicate teams to prevent duplicate keys in components
@@ -713,28 +944,24 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Environment banner: show when running without backend */}
-      {!shouldUseBackend && (
-        <div className="w-full sticky top-0 z-50 text-center font-bold py-2" style={{ background: '#B00020', color: 'white' }} role="status" aria-live="polite">
-          Warning: Running with local/mock data — backend is disabled (VITE_USE_BACKEND=false)
-        </div>
-      )}
+      {/* Backend status banner - shows errors and mock mode warnings */}
+      <BackendStatusBanner
+        status={backendStatus}
+        onRetry={shouldUseBackend ? retryBackendConnection : undefined}
+        onToggleMock={allowMockFallback && import.meta.env.DEV ? toggleDataSource : undefined}
+        isDevMode={import.meta.env.DEV}
+        allowMockFallback={allowMockFallback}
+      />
 
-      {/* Backend health indicator when backend is enabled */}
-      {shouldUseBackend && (
-        <div className="w-full sticky top-0 z-50 flex justify-center pointer-events-none">
-          <div
-            className="mt-2 px-3 py-1 rounded-full text-xs font-semibold shadow"
-            style={{
-              background: backendHealth === 'ok' ? '#0F9D58' : '#F4B400',
-              color: 'white',
-            }}
-            aria-live="polite"
-          >
-            Backend: {backendHealth === 'ok' ? 'Connected' : 'Checking...'}
-          </div>
-        </div>
-      )}
+      {/* Health indicator - shows connection and data status */}
+      <BackendHealthIndicator status={healthStatus} />
+
+      {/* Dev mode toggle - only in development with mock fallback enabled */}
+      <DevModeToggle
+        isUsingMock={isUsingMock}
+        onToggle={toggleDataSource}
+        disabled={isLoading}
+      />
       <div className="border-b">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
@@ -847,6 +1074,18 @@ function AppContent() {
               </Card>
             </div>
 
+            {/* Bulk Import Section */}
+            <div className="flex justify-center mt-4">
+              <Button
+                onClick={() => setShowImportWizard(true)}
+                size="lg"
+                className="flex items-center gap-2"
+              >
+                <Upload className="h-5 w-5" />
+                Bulk Import
+              </Button>
+            </div>
+
             {organizationSummaries.length > 0 && (
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -936,6 +1175,16 @@ function AppContent() {
                           <Plus className="h-4 w-4 mr-2" />
                           Add Initiative
                         </Button>
+                        <Button onClick={() => setShowImportWizard(true)} size="sm" variant="outline">
+                          <Upload className="h-4 w-4 mr-2" />
+                          Import
+                        </Button>
+                        {canRollover && previousQuarter && currentQuarter && (
+                          <Button onClick={() => setShowCopyKRsDialog(true)} size="sm" variant="outline">
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy from {previousQuarter.name}
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1353,11 +1602,17 @@ function AppContent() {
           </TabsContent>
 
           <TabsContent value="initiatives" className="space-y-6">
-            <div>
-              <h2>Initiatives</h2>
-              <p className="text-muted-foreground">
-                Manage strategic projects and initiatives
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2>Initiatives</h2>
+                <p className="text-muted-foreground">
+                  Manage strategic projects and initiatives
+                </p>
+              </div>
+              <Button onClick={() => setShowImportWizard(true)} variant="outline">
+                <Upload className="h-4 w-4 mr-2" />
+                Import Initiatives
+              </Button>
             </div>
 
             <div className="kr-cards-grid">
@@ -1468,6 +1723,20 @@ function AppContent() {
           cascadeItems={pendingDeletePlan.cascadeItems}
           additionalNotes={pendingDeletePlan.notes}
           onConfirm={handleConfirmDelete}
+        />
+      )}
+
+      <ImportWizard
+        open={showImportWizard}
+        onClose={() => setShowImportWizard(false)}
+      />
+
+      {canRollover && previousQuarter && currentQuarter && (
+        <CopyKRsDialog
+          open={showCopyKRsDialog}
+          onClose={() => setShowCopyKRsDialog(false)}
+          fromQuarter={previousQuarter}
+          toQuarter={currentQuarter}
         />
       )}
     </div>

@@ -6,12 +6,7 @@ import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react";
 
 import { cn } from "./utils";
 
-const ContextMenu = React.forwardRef<
-  React.ElementRef<typeof ContextMenuPrimitive.Root>,
-  React.ComponentProps<typeof ContextMenuPrimitive.Root>
->((props, _ref) => (
-  <ContextMenuPrimitive.Root data-slot="context-menu" {...props} />
-));
+const ContextMenu = ContextMenuPrimitive.Root;
 ContextMenu.displayName = ContextMenuPrimitive.Root.displayName;
 
 const ContextMenuTrigger = React.forwardRef<
@@ -45,12 +40,7 @@ const ContextMenuPortal = ({
 );
 ContextMenuPortal.displayName = "ContextMenuPortal";
 
-const ContextMenuSub = React.forwardRef<
-  React.ElementRef<typeof ContextMenuPrimitive.Sub>,
-  React.ComponentProps<typeof ContextMenuPrimitive.Sub>
->((props, _ref) => (
-  <ContextMenuPrimitive.Sub data-slot="context-menu-sub" {...props} />
-));
+const ContextMenuSub = ContextMenuPrimitive.Sub;
 ContextMenuSub.displayName = ContextMenuPrimitive.Sub.displayName;
 
 const ContextMenuRadioGroup = React.forwardRef<

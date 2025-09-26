@@ -1,5 +1,17 @@
 [
   {
+    "id": "team-1758851593477",
+    "color": "#3B82F6",
+    "description": null,
+    "name": "Finance and Reporting"
+  },
+  {
+    "id": "team-1758855851054",
+    "color": "#3B82F6",
+    "description": null,
+    "name": "Mx Apps"
+  },
+  {
     "id": "team-go-to-market",
     "color": "#8E44AD",
     "description": null,
