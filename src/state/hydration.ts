@@ -1,9 +1,10 @@
 import { AppMode, Team, Pod, Quarter, KR, Initiative, ViewType, FilterOptions, Person, OrgFunction, Organization, Objective } from "../types";
 import { mockFunctions, mockOrganizations } from "../data/mockData";
 import { logger } from "../utils/logger";
+import { STORAGE_KEY_CURRENT, STORAGE_KEY_V3 } from "../config";
 
-export const LOCAL_STORAGE_KEY = "kr-tracker-state-v4";
-const LEGACY_STORAGE_KEYS = ["kr-tracker-state-v3"];
+export const LOCAL_STORAGE_KEY = STORAGE_KEY_CURRENT;
+const LEGACY_STORAGE_KEYS = [STORAGE_KEY_V3];
 const STORAGE_KEYS = [LOCAL_STORAGE_KEY, ...LEGACY_STORAGE_KEYS];
 
 type SanitizationEntity = "functions" | "organizations" | "objectives" | "people" | "initiatives" | "ui" | "state";
