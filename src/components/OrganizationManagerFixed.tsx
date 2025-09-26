@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, CSSProperties } from "react";
 import { Team, Pod, PodMember, Person, FunctionType, OrgFunction } from "../types";
 import { checkDuplicate, findSimilarFunctions, findSimilarPeople, findSimilarPods, findSimilarTeams, normalizeEmail, normalizeString } from "../utils/entityValidation";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -1996,23 +1996,44 @@ export function OrganizationManager({
                   </div>
                 </div>
                 
-                {safeTeams.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Recent Teams:</p>
-                    <div className="space-y-1">
-                      {safeTeams.slice(-3).map((team) => (
-                        <div key={team.id} className="text-xs p-2 bg-muted/50 rounded flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded" style={{ backgroundColor: team.color }} />
-                            <span className="truncate">{team.name}</span>
-                          </div>
-                          <Badge variant="outline" className="text-xs">
-                            {safePods.filter(p => p.teamId === team.id).length} pods
-                          </Badge>
-                        </div>
-                      ))}
+                {safeTeams.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {safeTeams.map((team) => {
+                        const podCount = safePods.filter(p => p.teamId === team.id).length;
+                        // Create style object for each team
+                        const pillStyle: CSSProperties = {
+                          backgroundColor: team.color + '20',
+                          borderColor: team.color,
+                          borderWidth: '1px',
+                          borderStyle: 'solid',
+                          color: team.color
+                        };
+
+                        return (
+                          <button
+                            key={team.id}
+                            aria-label={`Edit team ${team.name} with ${podCount} ${podCount === 1 ? 'pod' : 'pods'}`}
+                            title={team.name}
+                            onClick={() => {
+                              setEditingTeamId(team.id);
+                              setNewTeam({
+                                name: team.name,
+                                description: team.description || '',
+                                color: team.color
+                              });
+                              setIsAddingTeam(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors hover:opacity-90 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                            style={pillStyle}
+                          >
+                            <span className="max-w-[120px] truncate">{team.name}</span>
+                            <span className="text-[10px] opacity-75 whitespace-nowrap">({podCount} {podCount === 1 ? 'pod' : 'pods'})</span>
+                          </button>
+                        );
+                      })}
                     </div>
-                    {safeTeams.length > 3 && (
+                    {safeTeams.length > 8 && (
                       <Button
                         variant="link"
                         size="sm"
@@ -2026,6 +2047,8 @@ export function OrganizationManager({
                       </Button>
                     )}
                   </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No teams yet. Start by adding your first team.</p>
                 )}
               </CardContent>
             </Card>
@@ -2230,25 +2253,46 @@ export function OrganizationManager({
                   </div>
                 </div>
                 
-                {safePods.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Recent Pods:</p>
-                    <div className="space-y-1">
-                      {safePods.slice(-3).map((pod) => (
-                        <div key={pod.id} className="text-xs p-2 bg-muted/50 rounded flex items-center justify-between">
-                          <span className="truncate">{pod.name}</span>
-                          <div className="flex items-center gap-1">
-                            <Badge variant="outline" className="text-xs">
-                              {getTeamName(pod.teamId)}
-                            </Badge>
-                            <Badge variant="secondary" className="text-xs">
-                              {pod.members ? pod.members.length : 0} members
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
+                {safePods.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {safePods.map((pod) => {
+                        const team = safeTeams.find(t => t.id === pod.teamId);
+                        const memberCount = pod.members ? pod.members.length : 0;
+                        // Create style object for each pod
+                        const pillStyle: CSSProperties = {
+                          backgroundColor: team ? team.color + '20' : '#94A3B820',
+                          borderColor: team ? team.color : '#94A3B8',
+                          borderWidth: '1px',
+                          borderStyle: 'solid',
+                          color: team ? team.color : '#64748B'
+                        };
+
+                        return (
+                          <button
+                            key={pod.id}
+                            aria-label={`Edit pod ${pod.name} with ${memberCount} ${memberCount === 1 ? 'member' : 'members'}`}
+                            title={pod.name}
+                            onClick={() => {
+                              setEditingPodId(pod.id);
+                              setNewPod({
+                                name: pod.name,
+                                teamId: pod.teamId,
+                                description: pod.description || '',
+                                members: pod.members || []
+                              });
+                              setIsAddingPod(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors hover:opacity-90 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                            style={pillStyle}
+                          >
+                            <span className="max-w-[120px] truncate">{pod.name}</span>
+                            <span className="text-[10px] opacity-75 whitespace-nowrap">({memberCount})</span>
+                          </button>
+                        );
+                      })}
                     </div>
-                    {safePods.length > 3 && (
+                    {safePods.length > 8 && (
                       <Button
                         variant="link"
                         size="sm"
@@ -2262,6 +2306,8 @@ export function OrganizationManager({
                       </Button>
                     )}
                   </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No pods yet. Create teams first, then add pods to organize work.</p>
                 )}
               </CardContent>
             </Card>
