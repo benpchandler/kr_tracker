@@ -30,9 +30,10 @@ interface KRSpreadsheetViewProps {
   onUpdateKR: (id: string, updates: Partial<KR>) => void;
   onAddComment: (krId: string, comment: Omit<KRComment, 'id' | 'krId' | 'timestamp'>) => void;
   onAddWeeklyActual: (krId: string, weeklyActual: Omit<WeeklyActual, 'id' | 'krId'>) => void;
+  weeks: string[];
 }
 
-export function KRSpreadsheetView({ krs, teams, onUpdateKR, onAddComment, onAddWeeklyActual }: KRSpreadsheetViewProps) {
+export function KRSpreadsheetView({ krs, teams, onUpdateKR, onAddComment, onAddWeeklyActual, weeks }: KRSpreadsheetViewProps) {
   const [editingKR, setEditingKR] = useState<KR | null>(null);
   const [commentingKR, setCommentingKR] = useState<string | null>(null);
   const [newComment, setNewComment] = useState({ content: '', type: 'general' as const, author: 'Current User' });
@@ -408,6 +409,7 @@ export function KRSpreadsheetView({ krs, teams, onUpdateKR, onAddComment, onAddW
         onClose={() => setEditingKR(null)}
         onUpdate={onUpdateKR}
         onAddWeeklyActual={onAddWeeklyActual}
+        weeks={weeks}
       />
     </div>
   );

@@ -26,6 +26,7 @@ import { AppMode, Team, Pod, Quarter, KR, Initiative, KRComment, WeeklyActual, V
 import { applyDeletionPlan, computeDeletionPlan, teamBelongsToOrganization, type DeletePlan, type DeleteType, type DeletionContext, type DeletionState } from "./services/deletionService";
 import { mockTeams, mockPods, mockQuarters, mockKRs, mockInitiatives, mockPeople, mockFunctions, mockOrganizations, mockObjectives } from "./data/mockData";
 import { adaptBackendToFrontend } from "./utils/dataAdapter";
+import { logger } from "./utils/logger";
 import { enforceUniqueTeamData } from "./utils/teamNormalization";
 import { AppProvider, useAppState, useFilteredKRs, useFilteredInitiatives, useBaseline } from "./state/store";
 import { computeMetrics, generateWeeks } from "./metrics/engine";
@@ -115,6 +116,19 @@ function AppContent() {
   const [viewAllModalType, setViewAllModalType] = useState<'objectives' | 'krs' | 'initiatives'>('objectives');
 
   const hasHydratedRef = useRef(false);
+
+  const quarterRange = useMemo(() => {
+    const quarter = quarters.find(q => q.id === selectedQuarter);
+    return {
+      start: quarter?.startDate || '2024-10-01',
+      end: quarter?.endDate || '2024-12-31',
+    };
+  }, [quarters, selectedQuarter]);
+
+  const quarterWeeks = useMemo(
+    () => generateWeeks(quarterRange.start, quarterRange.end),
+    [quarterRange.start, quarterRange.end],
+  );
 
   const buildDeletionContext = useCallback((): DeletionContext => ({
     organizations,
@@ -289,6 +303,35 @@ function AppContent() {
     setIsObjectivesCollapsed(persisted.ui.isObjectivesCollapsed);
   };
 
+  useEffect(() => {
+    const planKrCount = Object.keys(contextState.planDraft || {}).length;
+    if (planKrCount > 0) {
+      logger.debug("Plan draft data stored in context state", { planKrCount });
+    }
+  }, [contextState.planDraft]);
+
+  useEffect(() => {
+    const actualKrCount = Object.keys(contextState.actuals || {}).length;
+    if (actualKrCount > 0) {
+      logger.debug("Actual values stored in context state", { actualKrCount });
+    }
+  }, [contextState.actuals]);
+
+  useEffect(() => {
+    if (contextState.planBaselines.length > 0) {
+      logger.debug("Plan baselines synchronized", {
+        baselineCount: contextState.planBaselines.length,
+        currentBaselineId: contextState.currentBaselineId,
+      });
+    }
+  }, [contextState.planBaselines, contextState.currentBaselineId]);
+
+  useEffect(() => {
+    if (contextState.currentBaselineId) {
+      logger.debug("Current baseline selected", { baselineId: contextState.currentBaselineId });
+    }
+  }, [contextState.currentBaselineId]);
+
   const hydrateWithMockData = useCallback(() => {
     const normalized = enforceUniqueTeamData({
       teams: mockTeams,
@@ -316,7 +359,18 @@ function AppContent() {
     setObjectives(normalizedObjectives);
     setKRs(normalized.krs);
     setInitiatives(normalized.initiatives);
-  }, []);
+
+    dispatch({
+      type: 'SET_STATE',
+      payload: {
+        planDraft: {},
+        planBaselines: [],
+        currentBaselineId: null,
+        actuals: {},
+        currentPeriod: null,
+      },
+    });
+  }, [dispatch]);
 
   // Fetch data from backend or local storage on mount
   useEffect(() => {
@@ -368,6 +422,42 @@ function AppContent() {
           setKRs(normalized.krs);
           setInitiatives(normalized.initiatives);
           setMode(adaptedData.mode);
+
+          const period = adaptedData.period && adaptedData.period.startISO && adaptedData.period.endISO
+            ? { startISO: adaptedData.period.startISO, endISO: adaptedData.period.endISO }
+            : null;
+
+          dispatch({
+            type: 'SET_STATE',
+            payload: {
+              planDraft: adaptedData.planDraft,
+              actuals: adaptedData.actuals,
+              planBaselines: adaptedData.planBaselines,
+              currentBaselineId: adaptedData.currentBaselineId,
+              currentPeriod: period,
+            },
+          });
+
+          const missingPlanKrIds = normalized.krs
+            .filter(kr => !adaptedData.planDraft[kr.id] || Object.keys(adaptedData.planDraft[kr.id]).length === 0)
+            .map(kr => kr.id);
+          if (missingPlanKrIds.length > 0) {
+            logger.warn("Plan data missing for some KRs", { krIds: missingPlanKrIds });
+          }
+
+          const missingActualKrIds = normalized.krs
+            .filter(kr => !adaptedData.actuals[kr.id] || Object.keys(adaptedData.actuals[kr.id]).length === 0)
+            .map(kr => kr.id);
+          if (missingActualKrIds.length > 0) {
+            logger.info("Actual data not yet available for some KRs", { krIds: missingActualKrIds });
+          }
+
+          logger.info("Backend data synchronized", {
+            planKrCount: Object.keys(adaptedData.planDraft).length,
+            actualKrCount: Object.keys(adaptedData.actuals).length,
+            baselineCount: adaptedData.planBaselines.length,
+            currentBaselineId: adaptedData.currentBaselineId,
+          });
         } else if (isMounted) {
           console.warn(`Backend responded with ${response.status}; using mock data.`);
           hydrateWithMockData();
@@ -389,7 +479,6 @@ function AppContent() {
         applyPersistedState(persisted.state);
         reportHydrationDiagnostics(persisted.diagnostics);
         setIsLoading(false);
-        return;
       } else {
         reportHydrationDiagnostics({ warnings: [], counts: {} });
       }
@@ -1136,10 +1225,7 @@ function AppContent() {
             <div className="mb-6">
               <BaselineManager
                 krs={filteredKRs}
-                weeks={generateWeeks(
-                  quarters.find(q => q.id === selectedQuarter)?.startDate || '2024-10-01',
-                  quarters.find(q => q.id === selectedQuarter)?.endDate || '2024-12-31'
-                )}
+                weeks={quarterWeeks}
               />
             </div>
 
@@ -1213,10 +1299,7 @@ function AppContent() {
             {/* Actuals Grid and Metrics - Only show if baseline is locked */}
             {(() => {
               const baseline = contextState?.planBaselines?.find(b => b.id === contextState.currentBaselineId) || null;
-              const weeks = generateWeeks(
-                quarters.find(q => q.id === selectedQuarter)?.startDate || '2024-10-01',
-                quarters.find(q => q.id === selectedQuarter)?.endDate || '2024-12-31'
-              );
+              const weeks = quarterWeeks;
               const currentWeekIndex = Math.floor(weeks.length / 2); // Use middle week as current
               const currentWeek = weeks[currentWeekIndex] || weeks[0];
 
@@ -1311,6 +1394,7 @@ function AppContent() {
                 onUpdateKR={handleUpdateKR}
                 onAddComment={handleAddComment}
                 onAddWeeklyActual={handleAddWeeklyActual}
+                weeks={quarterWeeks}
               />
             ) : (
               <>

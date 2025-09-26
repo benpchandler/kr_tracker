@@ -10,6 +10,7 @@ import { Badge } from "./ui/badge";
 import { Progress } from "./ui/progress";
 import { Separator } from "./ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { PlanOverridePanel } from "./PlanOverridePanel";
 import { 
   Save, 
   X, 
@@ -26,9 +27,10 @@ interface KRDetailDialogProps {
   onClose: () => void;
   onUpdate: (id: string, updates: Partial<KR>) => void;
   onAddWeeklyActual: (krId: string, weeklyActual: Omit<WeeklyActual, 'id' | 'krId'>) => void;
+  weeks?: string[];
 }
 
-export function KRDetailDialog({ kr, isOpen, onClose, onUpdate, onAddWeeklyActual }: KRDetailDialogProps) {
+export function KRDetailDialog({ kr, isOpen, onClose, onUpdate, onAddWeeklyActual, weeks }: KRDetailDialogProps) {
   const [editData, setEditData] = useState({
     current: '',
     progress: 0,
@@ -249,6 +251,12 @@ export function KRDetailDialog({ kr, isOpen, onClose, onUpdate, onAddWeeklyActua
 
           {/* Weekly Actuals Section */}
           <div className="space-y-4">
+            <Card>
+              <CardContent className="pt-6">
+                <PlanOverridePanel kr={kr} weeks={weeks} condensed />
+              </CardContent>
+            </Card>
+
             <div>
               <h3 className="mb-4">Weekly Actuals</h3>
               

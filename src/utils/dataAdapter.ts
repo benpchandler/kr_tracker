@@ -1,5 +1,6 @@
 import { Team, Pod, Quarter, KR, Initiative, Person, OrgFunction, Organization, Objective } from '../types';
 import { defaultFunctions } from '../data/functions';
+import type { ActualData, PlanBaseline, PlanDraftData } from '../state/store';
 
 interface BackendState {
   organization: { id: string; name: string } | null;
@@ -39,8 +40,14 @@ interface BackendState {
   period: { startISO: string; endISO: string };
   planDraft: Record<string, Record<string, number>>;
   actuals: Record<string, Record<string, number>>;
-  baselines: Array<any>;
-  currentBaselineId?: string;
+  baselines: Array<{
+    id: string;
+    version: number | string;
+    lockedAt: string;
+    lockedBy?: string | null;
+    data?: Record<string, Record<string, number>>;
+  }>;
+  currentBaselineId?: string | null;
   initiatives: Array<{
     id: string;
     krId: string;
@@ -53,6 +60,24 @@ interface BackendState {
   phase: string;
   reportingDateISO: string;
   theme: string;
+}
+
+interface AdaptedBackendData {
+  organizations: Organization[];
+  teams: Team[];
+  pods: Pod[];
+  people: Person[];
+  functions: OrgFunction[];
+  quarters: Quarter[];
+  objectives: Objective[];
+  krs: KR[];
+  initiatives: Initiative[];
+  planDraft: PlanDraftData;
+  actuals: ActualData;
+  planBaselines: PlanBaseline[];
+  currentBaselineId: string | null;
+  period: BackendState['period'];
+  mode: 'plan' | 'execution';
 }
 
 // Map backend teams to frontend format
@@ -368,7 +393,7 @@ export function adaptInitiatives(
 }
 
 // Main adapter function to transform backend state to frontend format
-export function adaptBackendToFrontend(backendState: BackendState) {
+export function adaptBackendToFrontend(backendState: BackendState): AdaptedBackendData {
   const organizations = adaptOrganizations(backendState.organization);
   const teams = adaptTeams(backendState.teams, backendState.organization);
   const pods = adaptPods(backendState.pods, backendState.individuals);
@@ -396,6 +421,94 @@ export function adaptBackendToFrontend(backendState: BackendState) {
     backendState.individuals
   );
 
+  const normalizePlanDraft = (planDraft: BackendState['planDraft']): PlanDraftData => {
+    if (!planDraft || typeof planDraft !== 'object') {
+      return {};
+    }
+
+    const sanitized: PlanDraftData = {};
+
+    Object.entries(planDraft).forEach(([krId, weeks]) => {
+      if (!weeks || typeof weeks !== 'object') {
+        return;
+      }
+
+      const weekEntries = Object.entries(weeks as Record<string, unknown>);
+      if (weekEntries.length === 0) {
+        return;
+      }
+
+      sanitized[krId] = {};
+      weekEntries.forEach(([weekKey, value]) => {
+        const numeric = typeof value === 'number' ? value : Number(value);
+        if (!Number.isFinite(numeric)) {
+          return;
+        }
+        sanitized[krId][weekKey] = numeric;
+      });
+
+      if (Object.keys(sanitized[krId]).length === 0) {
+        delete sanitized[krId];
+      }
+    });
+
+    return sanitized;
+  };
+
+  const normalizeActuals = (actuals: BackendState['actuals']): ActualData => {
+    if (!actuals || typeof actuals !== 'object') {
+      return {};
+    }
+
+    const sanitized: ActualData = {};
+    Object.entries(actuals).forEach(([krId, weeks]) => {
+      if (!weeks || typeof weeks !== 'object') {
+        return;
+      }
+
+      const weekEntries = Object.entries(weeks as Record<string, unknown>);
+      if (weekEntries.length === 0) {
+        return;
+      }
+
+      sanitized[krId] = {};
+      weekEntries.forEach(([weekKey, value]) => {
+        const numeric = typeof value === 'number' ? value : Number(value);
+        if (!Number.isFinite(numeric)) {
+          return;
+        }
+        sanitized[krId][weekKey] = numeric;
+      });
+
+      if (Object.keys(sanitized[krId]).length === 0) {
+        delete sanitized[krId];
+      }
+    });
+
+    return sanitized;
+  };
+
+  const adaptBaselines = (baselines: BackendState['baselines']): PlanBaseline[] => {
+    if (!Array.isArray(baselines)) {
+      return [];
+    }
+
+    return baselines
+      .filter(baseline => baseline && typeof baseline === 'object')
+      .map<PlanBaseline>((baseline) => ({
+        id: typeof baseline.id === 'string' ? baseline.id : `baseline-${Date.now()}`,
+        version: typeof baseline.version === 'number' ? baseline.version : Number(baseline.version) || 1,
+        lockedAt: typeof baseline.lockedAt === 'string' ? baseline.lockedAt : new Date().toISOString(),
+        lockedBy: typeof baseline.lockedBy === 'string' && baseline.lockedBy.trim() ? baseline.lockedBy : 'Unknown',
+        data: normalizePlanDraft(baseline.data || {}),
+      }));
+  };
+
+  const planDraft = normalizePlanDraft(backendState.planDraft);
+  const actuals = normalizeActuals(backendState.actuals);
+  const planBaselines = adaptBaselines(backendState.baselines);
+  const currentBaselineId = backendState.currentBaselineId || planBaselines[0]?.id || null;
+
   return {
     organizations,
     teams,
@@ -406,6 +519,11 @@ export function adaptBackendToFrontend(backendState: BackendState) {
     objectives,
     krs,
     initiatives,
-    mode: backendState.phase === 'planning' ? 'plan' as const : 'execution' as const
+    planDraft,
+    actuals,
+    planBaselines,
+    currentBaselineId,
+    period: backendState.period,
+    mode: backendState.phase === 'planning' ? 'plan' : 'execution',
   };
 }

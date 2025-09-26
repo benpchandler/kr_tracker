@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { PlanBaseline, useAppState, ActualData } from '../state/store';
+import { useEffect, useMemo, useState } from 'react';
+import { PlanBaseline, useAppState } from '../state/store';
+import type { PlanDraftData } from '../state/store';
 import { KR } from '../types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
@@ -24,6 +25,8 @@ import {
   Archive
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { logger } from '../utils/logger';
 
 interface BaselineManagerProps {
   krs: KR[];
@@ -38,27 +41,169 @@ export function BaselineManager({ krs, weeks }: BaselineManagerProps) {
 
   const currentBaseline = state.planBaselines.find(b => b.id === state.currentBaselineId);
   const isLocked = !!currentBaseline;
+  const planDraft = state.planDraft;
 
-  // Generate baseline data from current KR targets/plans
-  const generateBaselineData = (): Record<string, Record<string, number>> => {
-    const data: Record<string, Record<string, number>> = {};
+  const availableWeeks = useMemo(() => {
+    if (weeks.length > 0) {
+      return weeks;
+    }
+
+    const uniqueWeeks = new Set<string>();
+    Object.values(planDraft).forEach(weekMap => {
+      if (!weekMap) return;
+      Object.keys(weekMap).forEach(week => uniqueWeeks.add(week));
+    });
+
+    return Array.from(uniqueWeeks).sort();
+  }, [weeks, planDraft]);
+
+  const sanitizePlanValues = (plan: Record<string, number> | undefined): Record<string, number> => {
+    if (!plan) {
+      return {};
+    }
+
+    const sanitized: Record<string, number> = {};
+    Object.entries(plan).forEach(([weekKey, value]) => {
+      const numeric = typeof value === 'number' ? value : Number(value);
+      if (!Number.isFinite(numeric)) {
+        return;
+      }
+      sanitized[weekKey] = numeric;
+    });
+    return sanitized;
+  };
+
+  const generateFallbackPlan = (kr: KR): Record<string, number> => {
+    const fallback: Record<string, number> = {};
+    const planWeeks = weeks.length > 0 ? weeks : availableWeeks;
+    if (planWeeks.length === 0) {
+      return fallback;
+    }
+
+    const target = Number.parseFloat(kr.target);
+    const baselineValue = Number.parseFloat(kr.baseline || '0');
+    const validTarget = Number.isFinite(target) ? target : 0;
+    const validBaseline = Number.isFinite(baselineValue) ? baselineValue : 0;
+    const incremental = planWeeks.length > 0 ? (validTarget - validBaseline) / planWeeks.length : 0;
+
+    let cumulative = validBaseline;
+    planWeeks.forEach(week => {
+      cumulative += incremental;
+      fallback[week] = Number.isFinite(cumulative) ? Number(cumulative.toFixed(2)) : 0;
+    });
+
+    return fallback;
+  };
+
+  // Generate baseline data from plan draft values
+  const generateBaselineData = (): PlanDraftData => {
+    const data: PlanDraftData = {};
+    const fallbackKrIds: string[] = [];
+    const incompleteWeeks: Record<string, string[]> = {};
 
     krs.forEach(kr => {
-      data[kr.id] = {};
+      const sanitizedPlan = sanitizePlanValues(planDraft[kr.id]);
+      if (Object.keys(sanitizedPlan).length === 0) {
+        data[kr.id] = generateFallbackPlan(kr);
+        fallbackKrIds.push(kr.id);
+        return;
+      }
 
-      // For simplicity, distribute the target evenly across weeks
-      // In a real implementation, this would come from a PlanGrid component
-      const weeklyTarget = parseFloat(kr.target) / weeks.length;
-      let cumulative = parseFloat(kr.baseline || '0');
+      const missingWeeks = weeks.filter(week => sanitizedPlan[week] === undefined);
+      if (missingWeeks.length > 0) {
+        incompleteWeeks[kr.id] = missingWeeks;
+      }
 
-      weeks.forEach(week => {
-        cumulative += weeklyTarget;
-        data[kr.id][week] = cumulative;
-      });
+      data[kr.id] = { ...sanitizedPlan };
     });
+
+    if (fallbackKrIds.length > 0) {
+      logger.warn('Using fallback plan generation for KRs without plan data', { krIds: fallbackKrIds });
+    }
+
+    if (Object.keys(incompleteWeeks).length > 0) {
+      logger.warn('Plan data missing for some KR weeks', { gaps: incompleteWeeks });
+    }
 
     return data;
   };
+
+  const calculateCoverage = (data: PlanDraftData, weekKeys: string[]): number => {
+    if (krs.length === 0 || weekKeys.length === 0) {
+      return 0;
+    }
+
+    const totalCells = krs.length * weekKeys.length;
+    let filledCells = 0;
+
+    krs.forEach(kr => {
+      weekKeys.forEach(week => {
+        if (data[kr.id]?.[week] !== undefined) {
+          filledCells++;
+        }
+      });
+    });
+
+    return totalCells === 0 ? 0 : (filledCells / totalCells) * 100;
+  };
+
+  const baselineCoverage = useMemo(() => (
+    currentBaseline ? calculateCoverage(currentBaseline.data, weeks) : 0
+  ), [currentBaseline, weeks, krs]);
+
+  const planCoverage = useMemo(() => calculateCoverage(planDraft, availableWeeks), [planDraft, availableWeeks, krs]);
+
+  const planPreviewKRs = useMemo(() => (
+    krs.filter(kr => {
+      const plan = planDraft[kr.id];
+      return plan && Object.keys(plan).length > 0;
+    }).slice(0, 3)
+  ), [krs, planDraft]);
+
+  const previewWeeks = useMemo(() => (
+    availableWeeks.slice(0, Math.min(availableWeeks.length, 4))
+  ), [availableWeeks]);
+
+  const planlessKRs = useMemo(() => (
+    krs.filter(kr => !planDraft[kr.id] || Object.keys(planDraft[kr.id]).length === 0)
+  ), [krs, planDraft]);
+
+  const planlessSummary = useMemo(() => {
+    if (planlessKRs.length === 0) {
+      return [] as string[];
+    }
+
+    if (planlessKRs.length <= 3) {
+      return planlessKRs.map(kr => kr.title);
+    }
+
+    const names = planlessKRs.slice(0, 3).map(kr => kr.title);
+    names.push(`+${planlessKRs.length - 3} more`);
+    return names;
+  }, [planlessKRs]);
+
+  useEffect(() => {
+    if (planCoverage > 0) {
+      logger.debug('Plan draft coverage computed', { planCoverage: Number(planCoverage.toFixed(1)) });
+    }
+  }, [planCoverage]);
+
+  useEffect(() => {
+    if (currentBaseline) {
+      logger.debug('Baseline coverage computed', {
+        baselineId: currentBaseline.id,
+        coverage: Number(baselineCoverage.toFixed(1)),
+      });
+    }
+  }, [baselineCoverage, currentBaseline]);
+
+  useEffect(() => {
+    if (planlessKRs.length > 0) {
+      logger.warn('Plan draft missing entries for some KRs', {
+        krIds: planlessKRs.map(kr => kr.id),
+      });
+    }
+  }, [planlessKRs]);
 
   // Lock the baseline
   const handleLockBaseline = () => {
@@ -96,26 +241,6 @@ export function BaselineManager({ krs, weeks }: BaselineManagerProps) {
       minute: '2-digit'
     });
   };
-
-  // Calculate baseline coverage
-  const getBaselineCoverage = () => {
-    if (!currentBaseline) return 0;
-
-    const totalCells = krs.length * weeks.length;
-    let filledCells = 0;
-
-    krs.forEach(kr => {
-      weeks.forEach(week => {
-        if (currentBaseline.data[kr.id]?.[week] !== undefined) {
-          filledCells++;
-        }
-      });
-    });
-
-    return (filledCells / totalCells) * 100;
-  };
-
-  const coverage = getBaselineCoverage();
 
   return (
     <>
@@ -164,7 +289,7 @@ export function BaselineManager({ krs, weeks }: BaselineManagerProps) {
                     <Archive className="h-4 w-4" />
                     Coverage
                   </div>
-                  <p className="font-medium">{coverage.toFixed(0)}% of cells</p>
+                  <p className="font-medium">{baselineCoverage.toFixed(0)}% of cells</p>
                 </div>
               </div>
 
@@ -221,13 +346,76 @@ export function BaselineManager({ krs, weeks }: BaselineManagerProps) {
                 </ul>
               </div>
 
-              <Button
-                onClick={() => setShowLockDialog(true)}
-                className="gap-2"
-              >
-                <Lock className="h-4 w-4" />
-                Lock Plan & Create Baseline
-              </Button>
+              <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-muted/30 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Plan Draft Coverage</p>
+                    <p className="text-xs text-muted-foreground">
+                      Tracking {krs.length} {krs.length === 1 ? 'key result' : 'key results'} across {availableWeeks.length}{' '}
+                      {availableWeeks.length === 1 ? 'week' : 'weeks'}.
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {planCoverage.toFixed(0)}% coverage
+                  </Badge>
+                </div>
+
+                {planlessKRs.length > 0 && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-700">
+                    Missing plan values for {planlessKRs.length}{' '}
+                    {planlessKRs.length === 1 ? 'KR' : 'KRs'}: {planlessSummary.join(', ')}
+                  </div>
+                )}
+
+                {planPreviewKRs.length > 0 && previewWeeks.length > 0 ? (
+                  <div className="overflow-x-auto rounded-md border bg-background">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="min-w-[180px]">Key Result</TableHead>
+                          {previewWeeks.map(week => (
+                            <TableHead key={week} className="text-center text-xs uppercase tracking-wide">
+                              {week}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {planPreviewKRs.map(kr => (
+                          <TableRow key={kr.id}>
+                            <TableCell>
+                              <div className="font-medium truncate">{kr.title}</div>
+                              <div className="text-xs text-muted-foreground">Unit: {kr.unit}</div>
+                            </TableCell>
+                            {previewWeeks.map(week => {
+                              const value = planDraft[kr.id]?.[week];
+                              return (
+                                <TableCell key={week} className="text-center text-sm">
+                                  {value !== undefined ? value.toLocaleString(undefined, { maximumFractionDigits: 1 }) : '—'}
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    No plan data received from the backend yet. Once data is available, it will appear here.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setShowLockDialog(true)}
+                  className="gap-2"
+                >
+                  <Lock className="h-4 w-4" />
+                  Lock Plan & Create Baseline
+                </Button>
+              </div>
             </>
           )}
         </CardContent>

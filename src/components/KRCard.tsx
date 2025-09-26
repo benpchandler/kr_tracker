@@ -11,6 +11,14 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Slider } from "./ui/slider";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import { PlanOverridePanel } from "./PlanOverridePanel";
+import {
   Calendar,
   Target,
   TrendingUp,
@@ -18,6 +26,7 @@ import {
   Save,
   X,
   Trash2,
+  CalendarRange,
 } from "lucide-react";
 
 interface KRCardProps {
@@ -27,6 +36,8 @@ interface KRCardProps {
   progress: number;
   target: string;
   current: string;
+  baseline: string;
+  unit: string;
   deadline: string;
   owner: string;
   team: string;
@@ -62,6 +73,8 @@ export function KRCard({
   progress,
   target,
   current,
+  baseline,
+  unit,
   deadline,
   owner,
   team,
@@ -72,6 +85,7 @@ export function KRCard({
   const [isEditing, setIsEditing] = useState(false);
   const [editProgress, setEditProgress] = useState(progress);
   const [editCurrent, setEditCurrent] = useState(current);
+  const [planDialogOpen, setPlanDialogOpen] = useState(false);
 
   // Ensure status is valid, fallback to 'not-started' if invalid
   const validStatus = statusConfig[status] ? status : 'not-started';
@@ -107,154 +121,180 @@ export function KRCard({
     setIsEditing(false);
   };
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1 flex-1">
-            <CardTitle className="line-clamp-2">
-              {title}
-            </CardTitle>
-            <p className="text-muted-foreground line-clamp-2">
-              {description}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 ml-2">
-            <Badge
-              variant="secondary"
-              className={`${statusConfig[validStatus].color} text-white border-0`}
-            >
-              {statusConfig[validStatus].label}
-            </Badge>
-            {onUpdate && !isEditing && (
+    <>
+      <Card className="w-full">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between">
+            <div className="space-y-1 flex-1">
+              <CardTitle className="line-clamp-2">
+                {title}
+              </CardTitle>
+              <p className="text-muted-foreground line-clamp-2">
+                {description}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 ml-2">
+              <Badge
+                variant="secondary"
+                className={`${statusConfig[validStatus].color} text-white border-0`}
+              >
+                {statusConfig[validStatus].label}
+              </Badge>
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => setIsEditing(true)}
+                onClick={() => setPlanDialogOpen(true)}
                 className="h-6 w-6 p-0"
-                aria-label="Edit key result"
+                aria-label="Review plan values"
               >
-                <Edit2 className="h-3 w-3" />
+                <CalendarRange className="h-3 w-3" />
               </Button>
-            )}
-            {onDelete && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => onDelete(id)}
-                className="h-6 w-6 p-0 text-destructive"
-                aria-label="Delete key result"
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            )}
+              {onUpdate && !isEditing && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIsEditing(true)}
+                  className="h-6 w-6 p-0"
+                  aria-label="Edit key result"
+                >
+                  <Edit2 className="h-3 w-3" />
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onDelete(id)}
+                  className="h-6 w-6 p-0 text-destructive"
+                  aria-label="Delete key result"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      </CardHeader>
+        </CardHeader>
 
-      <CardContent className="space-y-4">
-        {isEditing ? (
-          <>
-            <div className="space-y-3">
+        <CardContent className="space-y-4">
+          {isEditing ? (
+            <>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Target className="h-4 w-4 text-muted-foreground" />
+                      Progress
+                    </span>
+                    <span className="font-medium">
+                      {editProgress}%
+                    </span>
+                  </div>
+                  <Slider
+                    value={[editProgress]}
+                    onValueChange={(value) =>
+                      setEditProgress(value[0])
+                    }
+                    max={100}
+                    step={1}
+                    className="w-full"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground">
+                      Current
+                    </p>
+                    <Input
+                      value={editCurrent}
+                      onChange={(e) =>
+                        setEditCurrent(e.target.value)
+                      }
+                      placeholder="Current value"
+                      className="h-8"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground">
+                      Target
+                    </p>
+                    <p className="font-medium py-2">{target}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSave}
+                    className="flex-1"
+                  >
+                    <Save className="h-3 w-3 mr-1" />
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCancel}
+                    className="flex-1"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <Target className="h-4 w-4 text-muted-foreground" />
                     Progress
                   </span>
-                  <span className="font-medium">
-                    {editProgress}%
-                  </span>
+                  <span className="font-medium">{progress}%</span>
                 </div>
-                <Slider
-                  value={[editProgress]}
-                  onValueChange={(value) =>
-                    setEditProgress(value[0])
-                  }
-                  max={100}
-                  step={1}
-                  className="w-full"
-                />
+                <Progress value={progress} className="h-2" />
               </div>
 
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="space-y-1">
-                  <p className="text-muted-foreground">
-                    Current
-                  </p>
-                  <Input
-                    value={editCurrent}
-                    onChange={(e) =>
-                      setEditCurrent(e.target.value)
-                    }
-                    placeholder="Current value"
-                    className="h-8"
-                  />
+                  <p className="text-muted-foreground">Current</p>
+                  <p className="font-medium">{current}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-muted-foreground">
-                    Target
-                  </p>
-                  <p className="font-medium py-2">{target}</p>
+                  <p className="text-muted-foreground">Target</p>
+                  <p className="font-medium">{target}</p>
                 </div>
               </div>
+            </>
+          )}
 
-              <div className="flex items-center gap-2 pt-2">
-                <Button
-                  size="sm"
-                  onClick={handleSave}
-                  className="flex-1"
-                >
-                  <Save className="h-3 w-3 mr-1" />
-                  Save
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleCancel}
-                  className="flex-1"
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-muted-foreground" />
-                  Progress
-                </span>
-                <span className="font-medium">{progress}%</span>
-              </div>
-              <Progress value={progress} className="h-2" />
-            </div>
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              Due {deadline}
+            </span>
+            <span>
+              {owner} • {team}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
 
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="space-y-1">
-                <p className="text-muted-foreground">Current</p>
-                <p className="font-medium">{current}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-muted-foreground">Target</p>
-                <p className="font-medium">{target}</p>
-              </div>
-            </div>
-          </>
-        )}
-
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            Due {deadline}
-          </span>
-          <span>
-            {owner} • {team}
-          </span>
-        </div>
-      </CardContent>
-    </Card>
+      <Dialog open={planDialogOpen} onOpenChange={setPlanDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Plan overview</DialogTitle>
+            <DialogDescription>
+              Review hydrated weekly plan values and optionally override them for this key result.
+            </DialogDescription>
+          </DialogHeader>
+          <PlanOverridePanel
+            kr={{ id, title, baseline, target, unit }}
+            onDone={() => setPlanDialogOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

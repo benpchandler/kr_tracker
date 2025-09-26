@@ -14,12 +14,18 @@ import {
 import { logger } from '../utils/logger';
 
 // Extended types for execution mode
+export interface PlanDraftData {
+  [krId: string]: {
+    [weekISO: string]: number;
+  };
+}
+
 export interface PlanBaseline {
   id: string;
   version: number;
   lockedAt: string;
   lockedBy: string;
-  data: Record<string, Record<string, number>>; // krId -> weekISO -> value
+  data: PlanDraftData; // krId -> weekISO -> value
 }
 
 export interface ActualData {
@@ -57,6 +63,7 @@ export interface AppState {
   initiatives: Initiative[];
 
   // Execution mode data
+  planDraft: PlanDraftData;
   planBaselines: PlanBaseline[];
   currentBaselineId: string | null;
   actuals: ActualData;
@@ -96,6 +103,8 @@ type AppAction =
   | { type: 'ADD_INITIATIVE'; payload: Initiative }
   | { type: 'DELETE_KR'; id: string }
   | { type: 'DELETE_INITIATIVE'; id: string }
+  | { type: 'SET_PLAN_DRAFT'; payload: PlanDraftData }
+  | { type: 'SET_PLAN_VALUE'; krId: string; weekISO: string; value: number | null }
   | { type: 'LOCK_PLAN'; baseline: PlanBaseline }
   | { type: 'UNLOCK_PLAN' }
   | { type: 'SET_CURRENT_BASELINE_ID'; id: string | null }
@@ -122,6 +131,7 @@ const initialState: AppState = {
   objectives: [],
   krs: [],
   initiatives: [],
+  planDraft: {},
   planBaselines: [],
   currentBaselineId: null,
   actuals: {},
@@ -205,6 +215,33 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         initiatives: state.initiatives.filter(init => init.id !== action.id)
       };
+
+    case 'SET_PLAN_DRAFT':
+      return { ...state, planDraft: { ...action.payload } };
+
+    case 'SET_PLAN_VALUE': {
+      const { krId, weekISO } = action;
+      const normalizedValue = typeof action.value === 'number' && Number.isFinite(action.value)
+        ? action.value
+        : null;
+
+      const nextPlanDraft: PlanDraftData = { ...state.planDraft };
+      const krPlan = { ...(nextPlanDraft[krId] || {}) };
+
+      if (normalizedValue === null) {
+        delete krPlan[weekISO];
+      } else {
+        krPlan[weekISO] = normalizedValue;
+      }
+
+      if (Object.keys(krPlan).length === 0) {
+        delete nextPlanDraft[krId];
+      } else {
+        nextPlanDraft[krId] = krPlan;
+      }
+
+      return { ...state, planDraft: nextPlanDraft };
+    }
 
     case 'LOCK_PLAN':
       return {
