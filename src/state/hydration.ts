@@ -442,6 +442,8 @@ const sanitizeInitiatives = (value: any, diagnostics: DiagnosticsCollector): Ini
     });
 };
 
+export type DataSource = 'backend' | 'mock' | 'unknown';
+
 export type PersistedAppState = {
   mode: AppMode;
   organizations: Organization[];
@@ -461,6 +463,8 @@ export type PersistedAppState = {
     currentTab: "krs" | "initiatives";
     isObjectivesCollapsed: boolean;
   };
+  source?: DataSource; // Track where the data came from
+  sourceTimestamp?: string; // When the data was loaded
 };
 
 export const loadPersistedState = (): { state: PersistedAppState; diagnostics: HydrationDiagnostics } | null => {
@@ -538,6 +542,8 @@ export const loadPersistedState = (): { state: PersistedAppState; diagnostics: H
           currentTab: sanitizeTab(parsed.ui?.currentTab, diagnostics),
           isObjectivesCollapsed: sanitizeBoolean(parsed.ui?.isObjectivesCollapsed, true, diagnostics, "isObjectivesCollapsed"),
         },
+        source: parsed.source === 'backend' || parsed.source === 'mock' ? parsed.source : 'unknown',
+        sourceTimestamp: typeof parsed.sourceTimestamp === 'string' ? parsed.sourceTimestamp : undefined,
       };
 
       return { state: sanitizedState, diagnostics: diagnostics.snapshot() };
@@ -549,11 +555,16 @@ export const loadPersistedState = (): { state: PersistedAppState; diagnostics: H
   return null;
 };
 
-export const persistState = (state: PersistedAppState) => {
+export const persistState = (state: PersistedAppState, source?: DataSource) => {
   if (typeof window === "undefined") return;
 
   try {
-    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+    const stateWithSource: PersistedAppState = {
+      ...state,
+      source: source || state.source || 'unknown',
+      sourceTimestamp: new Date().toISOString()
+    };
+    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateWithSource));
   } catch (error) {
     logger.error("Failed to persist state", { error });
   }

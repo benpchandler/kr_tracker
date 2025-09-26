@@ -204,6 +204,30 @@
     "teamId": ""
   },
   {
+    "id": "person-1758851654555",
+    "active": 1,
+    "discipline": "operations",
+    "email": "sonha.breidenbach@company.com",
+    "joinDate": "2025-09-26",
+    "managerId": null,
+    "name": "Sonha Breidenbach",
+    "podId": null,
+    "role": "member",
+    "teamId": ""
+  },
+  {
+    "id": "person-1758851664759",
+    "active": 1,
+    "discipline": "operations",
+    "email": "michelle.ma@doordash.com",
+    "joinDate": "2025-09-26",
+    "managerId": "person-1758851654555",
+    "name": "Michelle Ma",
+    "podId": "pod-menu",
+    "role": "member",
+    "teamId": "team-go-to-market"
+  },
+  {
     "id": "test-curl",
     "active": 1,
     "discipline": "product",

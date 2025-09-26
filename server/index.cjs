@@ -201,6 +201,27 @@ function dedupeTeams() {
   })();
 }
 
+function databaseHasUserData() {
+  const tablesToCheck = [
+    'organizations',
+    'teams',
+    'pods',
+    'individuals',
+    'objectives',
+    'krs',
+    'initiatives',
+    'functions'
+  ];
+
+  return tablesToCheck.some((table) => {
+    try {
+      return !!db.prepare(`SELECT 1 FROM ${table} LIMIT 1`).get();
+    } catch {
+      return false;
+    }
+  });
+}
+
 function seedIfEmpty() {
   const teamCount = db.prepare('SELECT COUNT(*) as c FROM teams').get().c;
   if (teamCount > 0) return;
@@ -433,28 +454,42 @@ function server() {
   
   // Data synchronization setup
   const seedsDir = path.join(__dirname, 'seeds', 'json');
-  
+  const hasSeeds = seedsExist(seedsDir);
+  fs.mkdirSync(seedsDir, { recursive: true });
+
+  let hasUserData = false;
+
   try {
     // Validate current database schema
     const schemaInfo = validateSchema(db, { logger: console });
-    
-    if (seedsExist(seedsDir)) {
-      console.log('JSON seeds found, importing into SQLite...');
+    hasUserData = databaseHasUserData();
+
+    if (!hasUserData && hasSeeds) {
+      console.log('SQLite empty; importing JSON seeds...');
       importJsonToSqlite(db, { seedsDir, logger: console });
-      
+
       if (schemaInfo.hasNewTables) {
         console.log('🔄 New tables detected - re-exporting to ensure complete sync coverage');
         exportSqliteToJson(db, { seedsDir, logger: console });
       }
-    } else {
-      console.log('No JSON seeds found, running initial seed and exporting...');
+      hasUserData = true;
+    } else if (!hasUserData) {
+      console.log('SQLite empty and no JSON seeds; running default bootstrap and exporting...');
       seedIfEmpty();
-      fs.mkdirSync(seedsDir, { recursive: true });
       exportSqliteToJson(db, { seedsDir, logger: console });
+      hasUserData = true;
+    } else {
+      console.log('Existing SQLite data detected; skipping JSON seed import.');
+      if (schemaInfo.hasNewTables && hasSeeds) {
+        console.log('🔄 New tables detected - re-exporting to ensure seed files stay in sync');
+        exportSqliteToJson(db, { seedsDir, logger: console });
+      }
     }
   } catch (e) {
     console.error('Seed import failed; continuing with existing DB.', e);
-    seedIfEmpty(); // Fallback to original seeding
+    if (!hasUserData) {
+      seedIfEmpty(); // Fallback to original seeding
+    }
   }
   
   // Enable auto-export on changes (now with dynamic table discovery)

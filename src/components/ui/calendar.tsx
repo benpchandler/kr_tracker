@@ -58,10 +58,10 @@ const Calendar = React.forwardRef<
         ...classNames,
       }}
       components={{
-        IconLeft: ({ className, ...iconProps }) => (
+        PreviousMonthButton: ({ className, ...iconProps }: any) => (
           <ChevronLeft className={cn("size-4", className)} {...iconProps} />
         ),
-        IconRight: ({ className, ...iconProps }) => (
+        NextMonthButton: ({ className, ...iconProps }: any) => (
           <ChevronRight className={cn("size-4", className)} {...iconProps} />
         ),
       }}

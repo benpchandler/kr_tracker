@@ -6,17 +6,7 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import { cn } from "./utils";
 import { buttonVariants } from "./button";
 
-const AlertDialog = React.forwardRef<
-  React.ElementRef<typeof AlertDialogPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Root>
->((props, _ref) => {
-  return (
-    <AlertDialogPrimitive.Root
-      data-slot="alert-dialog"
-      {...props}
-    />
-  );
-});
+const AlertDialog = AlertDialogPrimitive.Root;
 
 AlertDialog.displayName = AlertDialogPrimitive.Root.displayName;
 
